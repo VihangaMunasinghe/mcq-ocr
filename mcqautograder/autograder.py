@@ -2,7 +2,6 @@ import sys
 import os
 import glob
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from PIL import Image, ImageFilter, ImageEnhance, ImageDraw
 import cv2
@@ -13,7 +12,7 @@ import csv
 import time
 from statistics import mean
 import json
-import scipy
+# import scipy
 from scipy import signal
 
 
