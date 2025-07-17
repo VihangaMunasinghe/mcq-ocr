@@ -14,6 +14,7 @@ from statistics import mean
 import json
 # import scipy
 from scipy import signal
+import re
 
 
 FINAL_MARK = 'mark'
@@ -506,8 +507,21 @@ def app():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-
-    answer_script_files_list = sorted(glob.glob(answers_dir + '*.jpg'))
+    # Custom sort key
+    def sort_key(filename):
+        # Extract base filename (without path)
+        base = os.path.basename(filename)
+        
+        # Regex: capture prefix and number
+        m = re.match(r'([A-Za-z0-9_]+)__0*(\d+)', base)
+        if m:
+            prefix = m.group(1)  # Lexical prefix
+            number = int(m.group(2))  # Numeric part (proper number)
+            return (prefix, number)
+        else:
+            return (base, 0)  # fallback for files not matching pattern
+    
+    answer_script_files_list = sorted(glob.glob(answers_dir + '*.jpg'), key=sort_key)
     if not ignore_input_csv:
         try:
             with open(students_list_file, mode='r') as students_csv:
