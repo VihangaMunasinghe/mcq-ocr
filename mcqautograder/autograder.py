@@ -147,6 +147,7 @@ def get_coordinates_of_bubbles_v2(config):
     x_offset = config['bubble_coordinates']['x_offset']
     y_offset = config['bubble_coordinates']['y_offset']
     x_column_offset = config['bubble_coordinates']['x_column_offset']
+    x_adjustment = config['bubble_coordinates']['x_adjustment']
     
     coordinates = []
     column_row_distribution = [30, 30, 20]  # Rows for each column (adjust for 80 questions)
@@ -164,8 +165,10 @@ def get_coordinates_of_bubbles_v2(config):
 
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
+            x_row = column_x_start - (row * x_adjustment)
+            # x_row = column_x_start
             for choice in range(5):  # Process the 5 answer choices (a, b, c, d, e)
-                x = column_x_start + (choice * x_offset)
+                x = x_row + (choice * x_offset)
                 coordinates.append([int(x), int(y_row)])
 
     # The number of choices for each question in a sequential manner
