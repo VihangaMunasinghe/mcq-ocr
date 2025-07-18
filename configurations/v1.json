@@ -8,7 +8,7 @@
         "students_list" : "samples/students_list.csv"
     },
     "outputs" : {
-        "output_directory" : "In24-CS1033-output_2/",
+        "output_directory" : "In24-CS1033-output_v1/",
         "output_csv_file_name" : "v1_output.csv",
         "show_marked_answer" : false,
         "save_marked_answer" : false,

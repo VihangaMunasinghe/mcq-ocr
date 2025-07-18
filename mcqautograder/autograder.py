@@ -509,17 +509,17 @@ def app():
 
     # Custom sort key
     def sort_key(filename):
-        # Extract base filename (without path)
         base = os.path.basename(filename)
-        
-        # Regex: capture prefix and number
-        m = re.match(r'([A-Za-z0-9_]+)__0*(\d+)', base)
+        # Match numbers with optional _<decimal>
+        m = re.match(r'([A-Za-z0-9_]+)__0*(\d+)(?:_(\d+))?', base)
         if m:
-            prefix = m.group(1)  # Lexical prefix
-            number = int(m.group(2))  # Numeric part (proper number)
-            return (prefix, number)
+            prefix = m.group(1)
+            num_main = int(m.group(2))
+            num_sub = int(m.group(3)) if m.group(3) else 0
+            # Compose a fractional number or tuple
+            return (prefix, num_main, num_sub)
         else:
-            return (base, 0)  # fallback for files not matching pattern
+            return (base, 0, 0)
     
     answer_script_files_list = sorted(glob.glob(answers_dir + '*.jpg'), key=sort_key)
     if not ignore_input_csv:
