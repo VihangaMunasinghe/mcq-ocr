@@ -20,7 +20,7 @@ To find more information about the tool execute the following command after you 
 
 Typical use of the tool require the template, marking scheme, directory containing scanned answer scripts, a list of students as a csv file to be provided as follows. Refer the [samples](/samples/) directory.
 
-`python3 mcqautograder/autograder.py --template new_samples/template/1.jpg --markingscheme new_samples/marking_schemes/1.jpg --answers new_samples/answers/ --studentslist new_samples/students_list.csv`
+`python3 mcqautograder/autograder.py --template 2023_sample/template/1.jpg --markingscheme 2023_sample/marking_schemes/1.jpg --answers 2023_sample/answers/ --studentslist 2023_sample/students_list.csv`
 
 ## Using the multiversion_autograder tool
 
