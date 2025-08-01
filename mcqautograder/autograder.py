@@ -159,10 +159,8 @@ def get_coordinates_of_bubbles_v2(config):
 
         # Starting y adjustments for second and third columns, if specified in config
         column_y_start = y_start
-        if column == 1:
-            column_y_start = config['bubble_coordinates']['columns']['2']['starting_y']
-        elif column == 2:
-            column_y_start = config['bubble_coordinates']['columns']['3']['starting_y']
+        if column != 1:
+            column_y_start = config['bubble_coordinates']['columns'][str(column+1)]['starting_y']
 
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
