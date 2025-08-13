@@ -144,23 +144,19 @@ def get_homography(img1, img2):
 def get_coordinates_of_bubbles_v2(config):
     # Configuration parameters
     x_start = config['bubble_coordinates']['starting_x']
-    y_start = config['bubble_coordinates']['starting_y']
     x_offset = config['bubble_coordinates']['x_offset']
     y_offset = config['bubble_coordinates']['y_offset']
     x_column_offset = config['bubble_coordinates']['x_column_offset']
     x_adjustment = config['bubble_coordinates']['x_adjustment']
     
     coordinates = []
-    column_row_distribution = [30, 30, 20]  # Rows for each column (adjust for 80 questions)
+    column_row_distribution = [30, 30, 30]  # Rows for each column (adjust for 80 questions)
 
     for column, num_rows in enumerate(column_row_distribution):  # Loop through each column
         # Starting x for the column
         column_x_start = x_start + column * x_column_offset
 
-        # Starting y adjustments for second and third columns, if specified in config
-        column_y_start = y_start
-        if column != 1:
-            column_y_start = config['bubble_coordinates']['columns'][str(column+1)]['starting_y']
+        column_y_start = config['bubble_coordinates']['columns'][str(column+1)]['starting_y']
 
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
@@ -192,12 +188,12 @@ def get_corresponding_points(points, H):
         correspondingPoints[i][1] = correspondingPoints[i][1] / \
             correspondingPoints[i][2]
         
-    # Adjusting
-    delta_x = -4  # The observed shift in the x direction
-    delta_y = -9  # The observed shift in the y direction
+    # # Adjusting
+    # delta_x = -4  # The observed shift in the x direction
+    # delta_y = -9  # The observed shift in the y direction
 
     # Apply the shift to each point in correspondingPoints
-    adjusted_points = [(x[0] + delta_x, x[1] + delta_y) for x in correspondingPoints]
+    adjusted_points = [(x[0], x[1]) for x in correspondingPoints]
     if isinstance(correspondingPoints, np.ndarray):
         adjusted_points = np.array(adjusted_points)
 
@@ -434,25 +430,33 @@ def save_bubble_coordinates_visualization(template_path, bubble_coordinates, out
     print(f"Visualization saved at {output_path}")
 
 
-def visualize_marking_scheme_answers(template_path, bubble_coordinates, marking_scheme_answers, output_folder, filename="marking_scheme_verify.png"):
-    # Open the template image
-    img = Image.open(template_path)
-    draw = ImageDraw.Draw(img)
+def visualize_marking_scheme_answers(template_img, marking_scheme_img, bubble_coordinates, marking_scheme_answers, output_folder, filename="marking_scheme_verify.png"):
+    
+    homography = get_homography(template_img, marking_scheme_img)
+    
+    # Find related points in the two image
+    correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
+
+    # Convert grayscale image to RGB if it's not already colored
+    if marking_scheme_img.mode != 'RGB':
+        marking_scheme_img = marking_scheme_img.convert('RGB')
+    
+    draw = ImageDraw.Draw(marking_scheme_img)
     
     # Color for filled bubbles
     fill_color = 'red'
 
     # Iterate through the marking scheme answers and bubble coordinates together
-    for coordinate, answer in zip(bubble_coordinates, marking_scheme_answers):
+    for coordinate, answer in zip(correspondingPoints, marking_scheme_answers):
         x, y = coordinate
         if answer == 1:  # If the bubble is filled
             # Draw a circle on the template
             # For this example, I'm using a radius of 10. You can adjust as needed.
-            draw.ellipse([(x-10, y-10), (x+10, y+10)], outline=fill_color, fill=fill_color)
+            draw.ellipse([(x-15, y-15), (x+15, y+15)], outline=fill_color, fill=fill_color)
 
     # Save the image with the marked answers to the output directory
     output_path = os.path.join(output_folder, filename)
-    img.save(output_path)
+    marking_scheme_img.save(output_path)
 
 
 def app():

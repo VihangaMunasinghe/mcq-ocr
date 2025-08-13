@@ -83,16 +83,16 @@ def prepare_image(img):
     return result_img, warped_img
 
 
-def get_bubble_coordinates(img_path):
+def get_config(img_path, show_intermediate_results=False):
     img = cv2.imread(img_path)
 
-    # Tilt the image by applying a small shear transformation
-    (h, w) = img.shape[:2]
-    shear_factor = 0.1  # Adjust this value for more/less tilt
-    M = np.array([[1, shear_factor, 0],
-                  [0, 1, 0]], dtype=np.float32)
-    nW = int(w + abs(shear_factor * h))
-    img = cv2.warpAffine(img, M, (nW, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    # # Tilt the image by applying a small shear transformation
+    # (h, w) = img.shape[:2]
+    # shear_factor = 0.1  # Adjust this value for more/less tilt
+    # M = np.array([[1, shear_factor, 0],
+    #               [0, 1, 0]], dtype=np.float32)
+    # nW = int(w + abs(shear_factor * h))
+    # img = cv2.warpAffine(img, M, (nW, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
     img_with_rectangles, warped_img = prepare_image(img)
@@ -115,8 +115,8 @@ def get_bubble_coordinates(img_path):
 
     first_row, first_column = get_first_row_and_column(circles, first_bubble)
 
-    x_offset = first_row[1][2][0] - first_row[0][2][0]
-    y_offset = first_column[1][2][1] - first_column[0][2][1]
+    x_offset = (first_row[4][2][0] - first_row[0][2][0])/4
+    y_offset = (first_column[-1][2][1] - first_column[0][2][1])/(len(first_column)-1)
 
     # get the column starting points
     column_starting_points = [first_bubble]
@@ -132,7 +132,7 @@ def get_bubble_coordinates(img_path):
             "x_offset" : x_offset,
             "y_offset" : y_offset,
             "x_column_offset" : column_starting_points[1][2][0] - column_starting_points[0][2][0],
-            "x_adjustment" : 0.7,
+            "x_adjustment" : 0,
             "columns": {
                 str(i+1): {
                     "starting_y": pt[2][1]
@@ -147,11 +147,12 @@ def get_bubble_coordinates(img_path):
 
     # Stack the images horizontally for comparison
     stacked = cv2.hconcat([img_with_rectangles, result_img])
-    cv2.imshow("Original | Rectangles & Circles Detected | Edges", stacked)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if show_intermediate_results:
+        cv2.imshow("Original | Rectangles & Circles Detected | Edges", stacked)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-    return bubble_coordinates
+    return warped_img, bubble_coordinates
 
-print(get_bubble_coordinates("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/templates/1.jpg"))
+# print(get_bubble_coordinates("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/templates/1.jpg"))
 # print(get_bubble_cocordinates("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/2023_sample/templates/1.jpg"))
