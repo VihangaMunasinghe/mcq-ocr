@@ -19,7 +19,6 @@ import {
   faTrash,
   faFileText,
   faCheckCircle,
-  faDownload,
   faExclamationTriangle,
   faEye,
   faFile,

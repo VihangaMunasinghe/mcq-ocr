@@ -87,12 +87,12 @@ def get_config(img_path, show_intermediate_results=False):
     img = cv2.imread(img_path)
 
     # # Tilt the image by applying a small shear transformation
-    # (h, w) = img.shape[:2]
-    # shear_factor = 0.1  # Adjust this value for more/less tilt
-    # M = np.array([[1, shear_factor, 0],
-    #               [0, 1, 0]], dtype=np.float32)
-    # nW = int(w + abs(shear_factor * h))
-    # img = cv2.warpAffine(img, M, (nW, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    (h, w) = img.shape[:2]
+    shear_factor = 0.1  # Adjust this value for more/less tilt
+    M = np.array([[1, shear_factor, 0],
+                  [0, 1, 0]], dtype=np.float32)
+    nW = int(w + abs(shear_factor * h))
+    img = cv2.warpAffine(img, M, (nW, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
     img_with_rectangles, warped_img = prepare_image(img)
@@ -154,5 +154,5 @@ def get_config(img_path, show_intermediate_results=False):
 
     return warped_img, bubble_coordinates
 
-# print(get_bubble_coordinates("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/templates/1.jpg"))
-# print(get_bubble_cocordinates("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/2023_sample/templates/1.jpg"))
+# print(get_config("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/templates/1.jpg", show_intermediate_results=True))
+print(get_config("/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/2023_sample/templates/1.jpg", show_intermediate_results=True))
