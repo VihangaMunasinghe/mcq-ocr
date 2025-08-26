@@ -6,7 +6,7 @@ folder_path = "/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/2023_sam
 
 def test():
   # Save the template_img as a jpg file and print the path
-  template_img, config = get_config(f"{folder_path}/templates/1.jpg")
+  template_img, config = get_config(f"{folder_path}/templates/1.jpg", show_intermediate_results=True)
   
   output_path = f"{folder_path}/templates/1_warped.jpg"
   marking_scheme_path = f"{folder_path}/marking_schemes/1.jpg"
