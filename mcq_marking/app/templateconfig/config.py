@@ -83,7 +83,7 @@ def prepare_image(img):
     return contours_marked_img, warped_img
 
 
-def get_config(img_path, show_intermediate_results=False):
+def get_config(img_path, want_intermediate_results=False):
     img = cv2.imread(img_path)
 
     # # Tilt the image by applying a small shear transformation
@@ -100,18 +100,20 @@ def get_config(img_path, show_intermediate_results=False):
     external_contours, external_hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     circles = detect_circles(external_contours)
 
-    result_img = img.copy()
+    result_img = None
 
-    # Draw circles
-    for i, (contour, area, center, radius) in enumerate(circles):
-        color = (0, 255, 0)
-        cv2.circle(result_img, center, radius, color, 2)
+    if want_intermediate_results:
+        result_img = img.copy()
+        # Draw circles
+        for i, (contour, area, center, radius) in enumerate(circles):
+            color = (0, 255, 0)
+            cv2.circle(result_img, center, radius, color, 2)
 
-    # Draw the first bubble
-    first_bubble = min(circles, key=lambda c: c[2][1] + c[2][0]) if circles else None
-    if first_bubble is not None:
-        center = first_bubble[2]
-        cv2.circle(result_img, center, 3, (255, 0, 0), -1)
+        # Draw the first bubble
+        first_bubble = min(circles, key=lambda c: c[2][1] + c[2][0]) if circles else None
+        if first_bubble is not None:
+            center = first_bubble[2]
+            cv2.circle(result_img, center, 3, (255, 0, 0), -1)
 
     first_row, first_column = get_first_row_and_column(circles, first_bubble)
 
@@ -137,15 +139,4 @@ def get_config(img_path, show_intermediate_results=False):
             }
         }
 
-    # Convert edges to BGR for stacking
-    # edges_bgr = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-
-    # Display both original and result
-    if show_intermediate_results:
-        # Stack the images horizontally for comparison
-        stacked = cv2.hconcat([img_with_rectangles, result_img])
-        cv2.imshow("Original | Rectangles & Circles Detected | Edges", stacked)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    return warped_img, bubble_coordinates
+    return bubble_coordinates, warped_img, result_img
