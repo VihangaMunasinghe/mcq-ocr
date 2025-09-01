@@ -2,7 +2,7 @@ def get_coordinates_of_bubbles(config):
     # Configuration parameters
     x_offset = config['bubble_coordinates']['x_offset']
     y_offset = config['bubble_coordinates']['y_offset']
-    column_row_distribution = config['column_row_distribution']
+    column_row_distribution = config['metadata']['column_row_distribution']
     
     coordinates = []
 
@@ -23,4 +23,4 @@ def get_coordinates_of_bubbles(config):
 
 
 def get_choice_distribution(config):
-    return [5 for _ in range(config['num_questions'])]
+    return [5 for _ in range(config['metadata']['num_questions'])]
