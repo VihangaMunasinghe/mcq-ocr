@@ -102,6 +102,8 @@ def get_config(img_path, want_intermediate_results=False):
 
     result_img = None
 
+    first_bubble = min(circles, key=lambda c: c[2][1] + c[2][0]) if circles else None
+
     if want_intermediate_results:
         result_img = img.copy()
         # Draw circles
@@ -110,7 +112,6 @@ def get_config(img_path, want_intermediate_results=False):
             cv2.circle(result_img, center, radius, color, 2)
 
         # Draw the first bubble
-        first_bubble = min(circles, key=lambda c: c[2][1] + c[2][0]) if circles else None
         if first_bubble is not None:
             center = first_bubble[2]
             cv2.circle(result_img, center, 3, (255, 0, 0), -1)
