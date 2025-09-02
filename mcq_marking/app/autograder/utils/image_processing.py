@@ -5,11 +5,11 @@ import numpy as np
 
 def read_image(path, enhance_contrast_val):
     img = Image.open(path).convert('L')
+    img = img.resize((1200, 1600))
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(enhance_contrast_val)
     color = ImageEnhance.Color(img)
     img = color.enhance(0.0)
-    img.resize((1000, 1000))
     return img
 
 

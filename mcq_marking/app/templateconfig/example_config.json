@@ -3,7 +3,7 @@
         "num_questions": 80,
         "column_row_distribution": [30, 30, 30]
     },
-    "bubble_coordinates": {
+    "bubble_configs": {
         "x_offset": 10.5,
         "y_offset": 15,
         "columns": {

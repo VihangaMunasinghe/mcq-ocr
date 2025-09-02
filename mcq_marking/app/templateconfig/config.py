@@ -129,7 +129,7 @@ def get_config(img_path, want_intermediate_results=False):
             cv2.circle(result_img, first_row[i][2], 3, (0, 0, 255), -1)
 
     # bubble coordinate json
-    bubble_coordinates = {
+    bubble_configs = {
             "x_offset" : x_offset,
             "y_offset" : y_offset,
             "columns": {
@@ -140,4 +140,4 @@ def get_config(img_path, want_intermediate_results=False):
             }
         }
 
-    return bubble_coordinates, warped_img, result_img
+    return bubble_configs, warped_img, result_img

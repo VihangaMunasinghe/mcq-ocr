@@ -23,16 +23,17 @@ def get_corresponding_points(points, H):
 
     # Apply the shift to each point in correspondingPoints
     adjusted_points = [(x[0], x[1]) for x in correspondingPoints]
-    if isinstance(correspondingPoints, np.ndarray):
-        correspondingPoints = np.array(correspondingPoints)
+    if isinstance(adjusted_points, np.ndarray):
+        adjusted_points = np.array(adjusted_points)
 
     # Returning the corresponding points for the 2nd image related to 1st image
     #return correspondingPoints
-    return correspondingPoints
+    return adjusted_points
 
 
 def check_neighbours_pixels(img, points):
     PIXEL_THRESHOLD = 15 # number of active pixels in the search neighborhood
+    NEIGHBOURHOOD_SIZE = 5
 
     points = np.array(points)
     points = points.astype('int')
@@ -40,14 +41,13 @@ def check_neighbours_pixels(img, points):
     binaryImg = get_binary_image(img)
 
     x = points.shape[0]
-    n = 5
+    n = NEIGHBOURHOOD_SIZE
     # finding number of average white pixels around all the points in the inverted image
     answers = np.zeros(x)
     for i in range(0, x):
         ans = 0
         for j in range(points[i, 0]-n, points[i, 0]+n):
             for k in range(points[i, 1]-n, points[i, 1]+n):
-                # plt.scatter(j,k)
                 if (binaryImg[k][j]):
                     ans += 1
         answers[i] = ans
@@ -55,31 +55,16 @@ def check_neighbours_pixels(img, points):
     return answers.astype('int')
 
 
-def get_answers(template_img, answers_image, bubble_coordinates, is_marking_scheme, show_intermediate_results=False):
+def get_answers(template_img, answers_image, bubble_coordinates):
     # Find homography Matrix
     homography = get_homography(template_img, answers_image)
     # Find related points in the two image
     correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
-    if(show_intermediate_results):
-        plt.figure(figsize=(10,10))
-        plt.imshow(np.array(answers_image),cmap='gray')
-        plt.scatter(correspondingPoints[:,0],correspondingPoints[:,1])
-        plt.title("Corresponding Points - get_answers")
-        plt.show()
 
     # Check neighbouring pixels and get whether option is marked or not
-    answer = check_neighbours_pixels(
-        answers_image, correspondingPoints, is_marking_scheme, show_intermediate_results)
-    '''
-    bubble_diameter = 25  # You might need to adjust this based on the actual size of bubbles in your image
-    convolution_threshold = 15  # Example threshold; adjust as necessary
+    answers = check_neighbours_pixels(answers_image, correspondingPoints)
 
-    answer = check_bubbles_using_convolution(img2, points, convolution_threshold, 
-                                             bubble_diameter, visualize_convolution=True)
-    '''
-    
-
-    return answer
+    return answers, correspondingPoints
 
 def calculate_score(marking_scheme, answer_script, choice_distribution, facility_index=None):
     idd = 0
