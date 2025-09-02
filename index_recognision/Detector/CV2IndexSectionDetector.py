@@ -147,6 +147,8 @@ class CV2IndexSectionDetector:
     
     def extract_index_section(self) -> np.ndarray:
         target_contour = self.best_contour
+        if self.__contour_validate_max_bound__(target_contour) is False:
+            raise ValueError("The best contour exceeds the maximum area limit.")
         rect = cv2.minAreaRect(target_contour)
         box = np.array(cv2.boxPoints(rect), dtype="float32")
         cropped_image = crop_to_bounding_box(self.original, box)
