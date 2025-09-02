@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from templateconfig.utils import categorize, detect_circles, detect_rectangles, get_canny_edges, get_first_row_and_column
+from templateconfig.utils import categorize, detect_circles, detect_rectangles, get_canny_edges, get_row_and_column
 
 def warp_image_to_rectangles(img, categorized_rectangles, target_width=1200, target_height=1600):
     """
@@ -116,28 +116,39 @@ def get_config(img_path, want_intermediate_results=False):
             center = first_bubble[2]
             cv2.circle(result_img, center, 3, (255, 0, 0), -1)
 
-    first_row, first_column = get_first_row_and_column(circles, first_bubble)
+    first_row, first_column = get_row_and_column(circles, first_bubble, column_only=False)
 
     x_offset = (first_row[4][2][0] - first_row[0][2][0])/4
     y_offset = (first_column[-1][2][1] - first_column[0][2][1])/(len(first_column)-1)
 
     # get the column starting points
     column_starting_points = [first_bubble]
+    column_row_distribution = [len(first_column)]
     for i in range(1,len(first_row)):
         if first_row[i][2][0] - first_row[i-1][2][0] > 1.6*x_offset:
             column_starting_points.append(first_row[i])
             cv2.circle(result_img, first_row[i][2], 3, (0, 0, 255), -1)
+            column = get_row_and_column(circles, first_row[i], column_only=True)
+            column_row_distribution.append(len(column))
+
 
     # bubble coordinate json
     bubble_configs = {
-            "x_offset" : x_offset,
-            "y_offset" : y_offset,
+        "metadata": {
+            "num_questions": sum(column_row_distribution),
+            "column_row_distribution": column_row_distribution
+        },
+        "bubble_configs": {
+            "x_offset": int(x_offset),
+            "y_offset": int(y_offset),
             "columns": {
-                str(i+1): {
-                    "starting_x": pt[2][0],
-                    "starting_y": pt[2][1]
-                } for i, pt in enumerate(column_starting_points)
+                str(i + 1): {
+                    "starting_x": int(pt[2][0]),
+                    "starting_y": int(pt[2][1])
+                }
+                for i, pt in enumerate(column_starting_points)
             }
         }
+    }
 
     return bubble_configs, warped_img, result_img

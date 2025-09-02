@@ -92,22 +92,30 @@ def sort_corners(corners):
     
     return [top_left, top_right, bottom_right, bottom_left]
 
-def get_first_row_and_column(circles, first_bubble):
+def get_row_and_column(circles, first_bubble, column_only=False):
     first_row = []
     first_column = []
     for i, (contour, area, center, radius) in enumerate(circles):
-        # check if the circle is in the first row
-        if center[1] <= first_bubble[2][1]+first_bubble[3] and center[1] >= first_bubble[2][1]-first_bubble[3]:
-            first_row.append(circles[i])
-            
         # check if the circle is in the first column    
         if center[0] <= first_bubble[2][0]+first_bubble[3] and center[0] >= first_bubble[2][0]-first_bubble[3]:
             first_column.append(circles[i])
 
-    first_row.sort(key=lambda c: c[2][0])
+        # check if the circle is in the first row
+        if column_only:
+            continue
+        if center[1] <= first_bubble[2][1]+first_bubble[3] and center[1] >= first_bubble[2][1]-first_bubble[3]:
+            first_row.append(circles[i])
+            
     first_column.sort(key=lambda c: c[2][1])
+    if not column_only:
+        first_row.sort(key=lambda c: c[2][0])
 
+    if column_only:
+        return first_column
+    
     return first_row, first_column
+
+
 
 def categorize(rectangles):
     rects = rectangles.copy()
