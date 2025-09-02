@@ -2,13 +2,6 @@ import cv2
 import numpy as np
 
 ##################### Helper Functions #####################
-def get_largest_contour_index(contours) -> int:
-        largets_index = np.argmax([cv2.contourArea(c) for c in contours])
-        return largets_index
-    
-def get_first_child_contour_index(hierarchy, parent_index) -> int:
-    first_child_index = hierarchy[0][parent_index][2]
-    return first_child_index
 
 def get_all_child_contour_indices(hierarchy, parent_index) -> list[int]:
     child_indices = []
@@ -59,17 +52,38 @@ def crop_to_bounding_box(image: np.ndarray, box: np.ndarray) -> np.ndarray:
 ##################### Main Class #####################
 class CV2IndexSectionDetector:
     def __init__(self,image: np.ndarray = None, operating_width: int = 1000, operating_height: int = 1500,
-                 blur_spread: int = 5, blur_strength: int = 2):
+                 blur_spread: int = 5, blur_strength: int = 2, min_contour_area: int = 10000, max_contour_area: int = 50000):
         self.operating_width = operating_width
         self.operating_height = operating_height
+        self.blur_spread = blur_spread if blur_spread % 2 == 1 else blur_spread + 1
+        self.blur_strength = blur_strength
+        self.min_contour_area = min_contour_area
+        self.max_contour_area = max_contour_area
         if image:
             image = cv2.resize(image, (self.operating_width, self.operating_height))
         self.original = image
         self.current = image
-        self.blur_spread = blur_spread if blur_spread % 2 == 1 else blur_spread + 1
-        self.blur_strength = blur_strength
         self.contours = []
         self.hierarchy = []
+        self.best_contour = None
+    
+    def __contour_validate_min_bound__(self, contour: np.ndarray) -> bool:
+        area = cv2.contourArea(contour)
+        return area >= self.min_contour_area
+    
+    def __contour_validate_max_bound__(self, contour: np.ndarray) -> bool:
+        area = cv2.contourArea(contour)
+        return area <= self.max_contour_area
+    
+    def __get_largest_contour_index__(self,indices) -> int:
+        largets_index = -1
+        largest_area = -1
+        for idx in indices:
+            area = cv2.contourArea(self.contours[idx])
+            if area > largest_area:
+                largest_area = area
+                largets_index = idx
+        return largets_index
     
     def set_image(self, image: np.ndarray):
         image = cv2.resize(image, (self.operating_width, self.operating_height))
@@ -102,19 +116,37 @@ class CV2IndexSectionDetector:
         self.hierarchy = hierarchy
     
     def filter_contours(self):
-        largest_contour_outer_idx = get_largest_contour_index(self.contours)
-        largest_contour_inner_idx = get_first_child_contour_index(self.hierarchy, largest_contour_outer_idx)
-        if largest_contour_inner_idx == -1:
-            raise ValueError("No inner contour found within the largest outer contour.")
+        # Step 1: Find the largest outer contour
+        contour_indices_list = list(range(len(self.contours)))
+        largest_contour_outer_idx = self.__get_largest_contour_index__(contour_indices_list)
+        candidate_contour = self.contours[largest_contour_outer_idx]
+        if not (self.__contour_validate_min_bound__(candidate_contour)):
+            raise ValueError("No contour meets the minimum area requirement.")
+        self.best_contour = candidate_contour
+
+        # Step 2: Find its largest child contour
+        direct_children_outer = get_all_child_contour_indices(self.hierarchy, largest_contour_outer_idx)
+        if not direct_children_outer:
+            raise ValueError("No child contours found within the largest contour.")
+        largest_contour_inner_idx = self.__get_largest_contour_index__(direct_children_outer)
+        candidate_contour = self.contours[largest_contour_inner_idx]
+        if not (self.__contour_validate_min_bound__(candidate_contour)):
+            raise ValueError("No inner contour meets the minimum area requirement.")
+        self.best_contour = candidate_contour
+
+        # Step 3: Find its largest child contour
         child_indices = get_all_child_contour_indices(self.hierarchy, largest_contour_inner_idx)
         if not child_indices:
             raise ValueError("No child contours found within the largest inner contour.")
-        self.contours = [self.contours[i] for i in child_indices]
+        largest_contour_inner_most_idx = self.__get_largest_contour_index__(child_indices)
+        candidate_contour = self.contours[largest_contour_inner_most_idx]
+        if not (self.__contour_validate_min_bound__(candidate_contour) and self.__contour_validate_max_bound__(candidate_contour)):
+            raise ValueError("No innermost contour meets the area requirements.")
+        self.best_contour = candidate_contour
+
     
     def extract_index_section(self) -> np.ndarray:
-        if not self.contours:
-            raise ValueError("No contours available to extract index section.")
-        target_contour = self.contours[get_largest_contour_index(self.contours)]
+        target_contour = self.best_contour
         rect = cv2.minAreaRect(target_contour)
         box = np.array(cv2.boxPoints(rect), dtype="float32")
         cropped_image = crop_to_bounding_box(self.original, box)
