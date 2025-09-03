@@ -1,5 +1,9 @@
 import numpy as np
-def recognize_student_index(index_image: np.ndarray) -> str:
+from .DoctrRecognizer import DoctrRecognizer
+
+recognizer = DoctrRecognizer()
+
+def recognize_student_index(index_image: np.ndarray) -> dict:
     """
     Recognizes the student index number from the index number image.
 
@@ -7,7 +11,6 @@ def recognize_student_index(index_image: np.ndarray) -> str:
         index_image: Image containing the index number.
 
     Returns:
-        Recognized student index as a string.
+        A dictionary with the recognized index number and related information.
     """
-    # Dummy implementation
-    return "DUMMY_INDEX_0000"
+    return recognizer.recognize_student_index(index_image)

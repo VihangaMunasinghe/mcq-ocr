@@ -24,12 +24,13 @@ def main():
     index_image = Detector.get_index_section(image)
     os.makedirs("test/output", exist_ok=True)
     cv2.imwrite("test/output/detected_index.jpg", index_image)
+    print(f"Detected index section saved to test/output/detected_index.jpg")
 
     ## Recognize the student index from the detected index section
     index_image = preprocess("test/output/detected_index.jpg")
-    student_index = Recognizer.recognize_student_index(index_image)
-    result = postprocess(student_index)
-    print(f"Recognized Student Index: {result}")
+    data = Recognizer.recognize_student_index(index_image)
+    data = postprocess(data)
+    print(f"data: {data}")
 
 if __name__ == "__main__":
     main()
