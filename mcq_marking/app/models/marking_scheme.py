@@ -5,8 +5,8 @@ from mcq_marking.app.models.template import Template
 
 
 class MarkingScheme:
-    def __init__(self, id : int, name: str, marking_scheme_img : Image, template: Template):
-        self.id = id
+    def __init__(self, job_id : int, name: str, marking_scheme_img : Image, template: Template):
+        self.job_id = job_id
         self.name = name
         self.template = template
         self.marking_scheme_img = marking_scheme_img
@@ -20,4 +20,4 @@ class MarkingScheme:
         return self.answers, self.correspondingPoints
 
     def __str__(self):
-        return f"MarkingScheme(id={self.id}, name={self.name}, marking_scheme_path={self.marking_scheme_path})"
+        return f"MarkingScheme(job_id={self.job_id}, name={self.name})"

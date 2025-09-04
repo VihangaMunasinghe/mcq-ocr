@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from mcq_marking.app.autograder.marking import calculate_score, get_answers
 from mcq_marking.app.autograder.utils.draw_shapes import draw_scatter_points
-from mcq_marking.app.autograder.utils.image_processing import read_image
+from mcq_marking.app.autograder.utils.image_processing import read_enhanced_image
 from mcq_marking.app.autograder.utils.template_parameters import get_choice_distribution, get_coordinates_of_bubbles
 from mcq_marking.app.templateconfig.config import get_config
 
@@ -18,9 +18,9 @@ def marking_test():
   # Save the warped image to disk
   cv2.imwrite(f'{folder_path}/templates/1_warped.jpg', warped_img)
   
-  template_img = read_image(f'{folder_path}/templates/1_warped.jpg', 1.5)
-  marking_img = read_image(f'{folder_path}/marking_schemes/1.jpg', 1.5)
-  answer_sheet_img = read_image(f'{folder_path}/answers/SKM_558e22122315350_0001.jpg', 1.5)
+  template_img = read_enhanced_image(f'{folder_path}/templates/1_warped.jpg', 1.5)
+  marking_img = read_enhanced_image(f'{folder_path}/marking_schemes/1.jpg', 1.5)
+  answer_sheet_img = read_enhanced_image(f'{folder_path}/answers/SKM_558e22122315350_0001.jpg', 1.5)
 
 
   bubble_coordinates = get_coordinates_of_bubbles(bubble_configs)

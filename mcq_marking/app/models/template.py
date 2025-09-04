@@ -10,7 +10,7 @@ class Template:
         self.template_config = template_config
         self.bubble_coordinates = None
         self.choice_distribution = None
-        
+
     def get_bubble_coordinates(self, force_recalculate=False):
         if self.bubble_coordinates is None or force_recalculate:
           self.bubble_coordinates = get_coordinates_of_bubbles(self.template_config)
@@ -22,4 +22,4 @@ class Template:
         return self.choice_distribution
 
     def __str__(self):
-        return f"Template(id={self.id}, name={self.name}, template_img={self.template_img}, template_config={self.template_config})"
+        return f"Template(id={self.id}, name={self.name})"

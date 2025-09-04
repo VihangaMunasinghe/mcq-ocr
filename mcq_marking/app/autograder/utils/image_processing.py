@@ -2,9 +2,11 @@ from PIL import Image, ImageEnhance
 import cv2
 import numpy as np
 
+from mcq_marking.app.utils.file_handelling import read_image
 
-def read_image(path, enhance_contrast_val):
-    img = Image.open(path).convert('L')
+
+def read_enhanced_image(path, enhance_contrast_val):
+    img = read_image(path, convert_to_grayscale=True)
     img = img.resize((1200, 1600))
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(enhance_contrast_val)

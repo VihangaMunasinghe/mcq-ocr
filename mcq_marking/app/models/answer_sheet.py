@@ -3,11 +3,13 @@ from mcq_marking.app.autograder.marking import calculate_score, get_answers
 from mcq_marking.app.models.marking_scheme import MarkingScheme
 
 class AnswerSheet:
-    def __init__(self, id : int, name: str, answer_sheet_img : Image, marking_scheme: MarkingScheme):
+    def __init__(self, job_id : int, id : int, name: str, answer_sheet_img : Image, marking_scheme: MarkingScheme):
+        self.job_id = job_id
         self.id = id
         self.name = name
         self.answer_sheet_img = answer_sheet_img
         self.marking_scheme = marking_scheme
+        self.index_number = None
         self.answers = None
         self.correspondingPoints = None
         self.correct = None
@@ -31,7 +33,7 @@ class AnswerSheet:
             self.more_than_one_marked,
             self.not_marked,
             self.columnwise_total,
-        ) = calculate_score(self.marking_scheme.answers, self.answers, choice_distribution)
+        ) = calculate_score(self.marking_scheme.answers, self.answers, choice_distribution) # TODO: add facility_index
 
         return {
             "correct": self.correct,
@@ -43,4 +45,4 @@ class AnswerSheet:
         }
 
     def __str__(self):
-        return f"AnswerSheet(id={self.id}, name={self.name}, answer_sheet_img={self.answer_sheet_img}, template={self.template})"
+        return f"AnswerSheet(job_id={self.job_id}, id={self.id}, name={self.name})"

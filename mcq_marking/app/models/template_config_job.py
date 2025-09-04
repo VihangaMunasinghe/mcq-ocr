@@ -2,6 +2,7 @@ import json
 
 import cv2
 from mcq_marking.app.templateconfig.config import get_config
+from mcq_marking.app.utils.file_handelling import save_image, write_json
 
 
 class TemplateConfigJob:
@@ -14,12 +15,11 @@ class TemplateConfigJob:
 
     def configure(self, want_intermediate_results=False):
         bubble_configs, warped_img, result_img = get_config(self.template_path, want_intermediate_results)
-        with open(self.template_config_path, "w") as f:
-            json.dump(bubble_configs, f)
-        cv2.imwrite(self.output_image_path, warped_img)
+        write_json(self.template_config_path, bubble_configs)
+        save_image(self.output_image_path, warped_img)
         
         return bubble_configs, warped_img, result_img
             
 
     def __str__(self):
-        return f"TemplateConfigJob(id={self.id}, name={self.name}, template_path={self.template_path}, template_config_path={self.template_config_path}, output_image_path={self.output_image_path})"
+        return f"TemplateConfigJob(id={self.id}, name={self.name})"
