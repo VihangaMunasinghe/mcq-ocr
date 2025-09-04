@@ -1,57 +1,31 @@
-import cv2
-import numpy as np
-from mcq_marking.app.autograder.marking import calculate_score, get_answers
-from mcq_marking.app.autograder.utils.draw_shapes import draw_scatter_points
-from mcq_marking.app.autograder.utils.image_processing import read_enhanced_image
-from mcq_marking.app.autograder.utils.template_parameters import get_choice_distribution, get_coordinates_of_bubbles
-from mcq_marking.app.templateconfig.config import get_config
+from mcq_marking.app.autograder.autograder import autograde
+from mcq_marking.app.models.marking_job import MarkingJob
+from mcq_marking.app.models.template_config_job import TemplateConfigJob
 
-folder_path = "/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples"
+root_path = "/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/2023_sample"
 
-def template_config():
-  bubble_configs, warped_img, result_img = get_config(f'{folder_path}/templates/1.jpg')
+template_config_job_data = {
+  "id": 1,
+  "name": "Template Config Job",
+  "template_path": f"{root_path}/templates/1.jpg",
+  "template_config_path": f"{root_path}/templates/configs/1_config.json",
+  "output_image_path": f"{root_path}/templates/1_template_warped.jpg"
+}
 
-  print(bubble_configs)
 
-def marking_test():
-  bubble_configs, warped_img, result_img = get_config(f'{folder_path}/templates/1.jpg')
-  # Save the warped image to disk
-  cv2.imwrite(f'{folder_path}/templates/1_warped.jpg', warped_img)
+marking_job_data = {
+  "id": 1,
+  "name": "Test Marking Job",
+  "template_path": f"{root_path}/templates/1_template_warped.jpg",
+  "template_config_path": f"{root_path}/templates/configs/1_config.json",
+  "marking_path": f"{root_path}/marking_schemes/1.jpg",
+  "answers_folder_path": f"{root_path}/answers",
+  "output_path": f"{root_path}/outputs/results.xlsx"
+}
+
+if __name__ == "__main__":
+  # template_config_job = TemplateConfigJob(template_config_job_data, save_intermediate_results=False)
+  # template_config_job.configure()
   
-  template_img = read_enhanced_image(f'{folder_path}/templates/1_warped.jpg', 1.5)
-  marking_img = read_enhanced_image(f'{folder_path}/marking_schemes/1.jpg', 1.5)
-  answer_sheet_img = read_enhanced_image(f'{folder_path}/answers/SKM_558e22122315350_0001.jpg', 1.5)
-
-
-  bubble_coordinates = get_coordinates_of_bubbles(bubble_configs)
-  
-  choice_distribution = get_choice_distribution(bubble_configs)
-
-  marking_answers, mark_correspondingPoints = get_answers(template_img, marking_img, bubble_coordinates)
-  answers, correspondingPoints = get_answers(template_img, answer_sheet_img, bubble_coordinates)
-
-  correct, incorrect, more_than_one_marked, not_marked, columnwise_total = calculate_score(marking_answers, answers, choice_distribution)
-  
-  print(correct, incorrect, more_than_one_marked, not_marked, columnwise_total)
-
-  marking_answer_points = [mark_correspondingPoints[i] for i in range(len(mark_correspondingPoints)) if marking_answers[i] == 1]
-  answer_points = [correspondingPoints[i] for i in range(len(correspondingPoints)) if answers[i] == 1]
-  
-  # Convert PIL image to numpy array if needed
-  if hasattr(marking_img, 'mode'):
-      marking_img = np.array(marking_img)
-
-  if hasattr(answer_sheet_img, 'mode'):
-      answer_sheet_img = np.array(answer_sheet_img)
-
-  answer_sheet_img = draw_scatter_points(answer_sheet_img, answer_points, color=(0, 0, 255), radius=7)
-  marking_img = draw_scatter_points(marking_img, marking_answer_points, color=(0, 0, 255), radius=7)
-
-  # Stack the images vertically and show
-  stacked_img = np.hstack((marking_img, answer_sheet_img))
-  cv2.imshow('Side by Side Images (Marking left, Answers right)', stacked_img)
-  cv2.waitKey(0)
-  cv2.destroyAllWindows()
-
-template_config()
-#marking_test()
+  marking_job = MarkingJob(marking_job_data, save_intermediate_results=False)
+  marking_job.mark_answers()

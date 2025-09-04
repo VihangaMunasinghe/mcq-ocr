@@ -16,7 +16,7 @@ class MarkingScheme:
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers is None or self.correspondingPoints is None or force_recalculate:
           bubble_coordinates = self.template.get_bubble_coordinates()
-          self.answers, self.correspondingPoints = get_answers(self.template_img, self.marking_scheme_img, bubble_coordinates)
+          self.answers, self.correspondingPoints = get_answers(self.template.template_img, self.marking_scheme_img, bubble_coordinates)
         return self.answers, self.correspondingPoints
 
     def __str__(self):

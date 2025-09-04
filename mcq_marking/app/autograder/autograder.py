@@ -1,10 +1,13 @@
-def single_thread_marking():
-  pass
+from mcq_marking.app.models.marking_job import MarkingJob
 
 
-def parallel_marking():
-  pass
+def autograde(data: dict):
+  marking_job = MarkingJob( data, save_intermediate_results=False)
+  marking_job.mark_answers()
+  return marking_job
 
 
-def mark_papers():
-  pass
+def autograde_with_intermediate_results(data: dict):
+  marking_job = MarkingJob(data, save_intermediate_results=True)
+  marking_job.mark_answers()
+  return marking_job

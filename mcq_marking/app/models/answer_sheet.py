@@ -17,6 +17,8 @@ class AnswerSheet:
         self.more_than_one_marked = None
         self.not_marked = None
         self.columnwise_total = None
+        self.flag = False
+        self.flag_reason = ""
 
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers is None or self.correspondingPoints is None or force_recalculate:
@@ -25,7 +27,9 @@ class AnswerSheet:
         return self.answers, self.correspondingPoints
     
     def get_score(self):
-        self.answers, self.correspondingPoints = self.get_answers_and_corresponding_points()
+        self.get_answers_and_corresponding_points()
+        # TODO: send for index detection
+        marking_scheme_answers,_ = self.marking_scheme.get_answers_and_corresponding_points()
         choice_distribution = self.marking_scheme.template.get_choice_distribution()
         (
             self.correct,
@@ -33,15 +37,18 @@ class AnswerSheet:
             self.more_than_one_marked,
             self.not_marked,
             self.columnwise_total,
-        ) = calculate_score(self.marking_scheme.answers, self.answers, choice_distribution) # TODO: add facility_index
+        ) = calculate_score(marking_scheme_answers, self.answers, choice_distribution) # TODO: add facility_index
 
         return {
+            "index_number": self.index_number,
             "correct": self.correct,
             "incorrect": self.incorrect,
             "more_than_one_marked": self.more_than_one_marked,
             "not_marked": self.not_marked,
             "columnwise_total": self.columnwise_total,
             "score": len(self.correct),
+            "flag": self.flag,
+            "flag_reason": self.flag_reason,
         }
 
     def __str__(self):
