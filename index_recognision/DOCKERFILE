@@ -1,18 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.11-bullseye
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Poetry
-RUN pip install poetry
-
-WORKDIR /app
-
-# Copy project files
-COPY pyproject.toml poetry.lock* ./
-
-# Install dependencies
-RUN poetry install --no-root
-
-# Copy your actual code
 COPY . .
 
-# Run your service
-CMD ["poetry", "run", "python", "main.py"]
+CMD ["python", "main.py"]
