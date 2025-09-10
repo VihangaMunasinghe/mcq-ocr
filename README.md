@@ -4,7 +4,8 @@ MCQAutoGrader implements an Optical Mark Recognition based autograding tool for 
 
 MCQAutoGrader is designed to take a list of scanned answer scripts (bubble sheets) as inputs along with the marking scheme and the template of the bubble sheet. The template of the bubble sheet is available [here](https://docs.google.com/spreadsheets/d/1oUphoxSrNf3qI7_DLRZII-zN9sUES-WGTxp9o_Qo21Q/edit?usp=sharing).
 
-The project uses [poetry](https://python-poetry.org/docs/) for dependency management and packaging. To set up the dependencies run the following command after cloning/downloading the repository.
+The project uses [poetry]poetry --version
+) for dependency management and packaging. To set up the dependencies run the following command after cloning/downloading the repository.
 
 ```bash
 

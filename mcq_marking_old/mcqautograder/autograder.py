@@ -300,7 +300,7 @@ def get_answers(img1, img2, bubble_coordinates, is_marking_scheme, show_intermed
 
 def calculate_score(marking_scheme, answer_script, choice_distribution, facility_index=None):
     idd = 0
-    choice_distribution = np.array(choice_distribution)
+    choice_distribution= np.array(choice_distribution)
     incorrect = []
     correct = []
     more_than_one_marked = []
