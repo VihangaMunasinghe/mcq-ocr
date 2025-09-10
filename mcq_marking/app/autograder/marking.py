@@ -64,7 +64,8 @@ def get_answers(template_img, answers_image, bubble_coordinates):
     # Check neighbouring pixels and get whether option is marked or not
     answers = check_neighbours_pixels(answers_image, correspondingPoints)
 
-    return answers, correspondingPoints
+    answers_with_coordinates = [(answer, coordinate) for answer, coordinate in zip(answers, correspondingPoints)]
+    return answers_with_coordinates
 
 def calculate_score(marking_scheme, answer_script, choice_distribution, facility_index=None):
     idd = 0
@@ -75,25 +76,38 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
     not_marked = []
     columnwise_total = {0: 0, 1: 0, 2: 0}
     correct_mark = 0
+    points = {
+        "correct": [],
+        "incorrect": [],
+        "more_than_one_marked": [],
+        "not_marked": [],
+    }
     for i in range(0, choice_distribution.shape[0]):    # for every question
         correct_choice = False
-        marked_choices_per_question = 0
+        marked_points = []
         for k in range(0, choice_distribution[i]):  # for every choice
-            if marking_scheme[idd] == 1 and answer_script[idd] == 1:
+            if marking_scheme[idd][0] == 1 and answer_script[idd][0] == 1:
                 correct_choice = True
-            if answer_script[idd] == 1:  # count the number of marked choices
-                marked_choices_per_question += 1
+            if answer_script[idd][0] == 1:  # count the number of marked choices
+                marked_points.append(answer_script[idd])
             idd += 1
-        if correct_choice and marked_choices_per_question == 1:
+        if correct_choice and len(marked_points) == 1:
             correct.append(i+1)
             correct_mark += 1
             columnwise_total[i//30] += 1
+            points["correct"].append({"question_number": i+1, "answer": "correct", "coordinates": marked_points[0][1]})
             if facility_index:
                 facility_index[i+1] += 1
-        elif marked_choices_per_question > 1:
+        elif len(marked_points) > 1:
             more_than_one_marked.append(i+1)
-        elif marked_choices_per_question == 0:
+            for point in marked_points:
+                points["more_than_one_marked"].append({"question_number": i+1, "answer": "more than one marked", "coordinates": point[1]})
+        elif len(marked_points) == 0:
             not_marked.append(i+1)
+            for point in marked_points:
+                points["not_marked"].append({"question_number": i+1, "answer": "not marked", "coordinates": point[1]})
         else:
+            for point in marked_points:
+                points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point[1]})
             incorrect.append(i+1)
-    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total
+    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points

@@ -31,6 +31,9 @@ def save_image(path, image):
     else:
         cv2.imwrite(path, image)
 
+def save_image_using_folder_and_filename(folder_path, filename, image):
+    save_image(os.path.join(folder_path, filename), image)
+
 def read_answer_sheet_paths(folder_path):
     return sorted([os.path.join(folder_path, fname) for fname in os.listdir(folder_path)])
 
