@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin # change later and make it more secure
+      RABBITMQ_DEFAULT_PASS: secret # change later and make it more secure
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  
+  minio:
+    image: minio/minio
+    command: server /minio/data --console-address ":9001"
+    ports:
+      - "9000:9000"  # S3 API
+      - "9001:9001"  # Web UI
+    environment:
+      MINIO_ROOT_USER: admin # change later and make it more secure
+      MINIO_ROOT_PASSWORD: secretpass # change later and make it more secure
+    volumes:
+      - minio_storage:/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  mcq-marking-system:
+    build:
+      context: ./mcq_marking
+      dockerfile: Dockerfile
+    volumes:
+      - ./mcq_marking:/app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
+    restart: unless-stopped
+
+volumes:
+  rabbitmq-data:
+  minio_storage:
