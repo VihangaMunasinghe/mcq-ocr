@@ -1,7 +1,7 @@
 from PIL import Image
-from mcq_marking.app.autograder.marking import calculate_score, get_answers
-from mcq_marking.app.autograder.utils.draw_shapes import draw_scatter_points
-from mcq_marking.app.models.marking_scheme import MarkingScheme
+from app.autograder.marking import calculate_score, get_answers
+from app.autograder.utils.draw_shapes import draw_scatter_points
+from app.models.marking_scheme import MarkingScheme
 
 class AnswerSheet:
     def __init__(self, job_id : int, id : int, name: str, answer_sheet_img : Image, marking_scheme: MarkingScheme):

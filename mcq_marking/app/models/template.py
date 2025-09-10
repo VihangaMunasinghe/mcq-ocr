@@ -1,4 +1,4 @@
-from mcq_marking.app.autograder.utils.template_parameters import get_choice_distribution, get_coordinates_of_bubbles
+from app.autograder.utils.template_parameters import get_choice_distribution, get_coordinates_of_bubbles
 from PIL import Image
 
 

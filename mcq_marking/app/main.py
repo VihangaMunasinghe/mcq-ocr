@@ -1,31 +1,116 @@
-from mcq_marking.app.autograder.autograder import autograde
-from mcq_marking.app.models.marking_job import MarkingJob
-from mcq_marking.app.models.template_config_job import TemplateConfigJob
+import pika
+import json
+import logging
+import os
+from typing import Dict, Any
+from app.models.marking_job import MarkingJob
+from app.models.template_config_job import TemplateConfigJob
 
-root_path = "/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/2023_sample"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-template_config_job_data = {
-  "id": 1,
-  "name": "Template Config Job",
-  "template_path": f"{root_path}/templates/1.jpg",
-  "template_config_path": f"{root_path}/templates/configs/1_config.json",
-  "output_image_path": f"{root_path}/templates/1_template_warped.jpg"
-}
+class MCQMarkingWorker:
+    def __init__(self, rabbitmq_url: str = "amqp://localhost"):
+        self.rabbitmq_url = rabbitmq_url
+        self.connection = None
+        self.channel = None
+        
+    def connect(self):
+        """Establish connection to RabbitMQ"""
+        try:
+            self.connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
+            self.channel = self.connection.channel()
+            
+            # Declare queues
+            self.channel.queue_declare(queue='template_config_queue', durable=True)
+            self.channel.queue_declare(queue='marking_job_queue', durable=True)
+            
+            logger.info("Connected to RabbitMQ")
+        except Exception as e:
+            logger.error(f"Failed to connect to RabbitMQ: {e}")
+            raise
+    
+    def process_template_config_job(self, ch, method, properties, body):
+        """Process template configuration job from RabbitMQ"""
+        try:
+            job_data = json.loads(body)
+            logger.info(f"Processing template config job: {job_data.get('id', 'unknown')}")
+            
+            # Create and process template config job
+            template_config_job = TemplateConfigJob(job_data, save_intermediate_results=True)
+            template_config_job.configure()
+            
+            logger.info(f"Template config job completed: {job_data.get('id', 'unknown')}")
+            
+            # Acknowledge the message
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            
+        except Exception as e:
+            logger.error(f"Error processing template config job: {e}")
+            # Reject the message and don't requeue
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+    
+    def process_marking_job(self, ch, method, properties, body):
+        """Process marking job from RabbitMQ"""
+        try:
+            job_data = json.loads(body)
+            logger.info(f"Processing marking job: {job_data.get('id', 'unknown')}")
+            
+            # Create and process marking job
+            marking_job = MarkingJob(job_data, save_intermediate_results=True)
+            marking_job.mark_answers()
+            
+            logger.info(f"Marking job completed: {job_data.get('id', 'unknown')}")
+            
+            # Acknowledge the message
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            
+        except Exception as e:
+            logger.error(f"Error processing marking job: {e}")
+            # Reject the message and don't requeue
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+    
+    def start_consuming(self):
+        """Start consuming messages from RabbitMQ queues"""
+        try:
+            # Set up consumers
+            self.channel.basic_qos(prefetch_count=1)  # Process one message at a time
+            
+            # Consumer for template config jobs
+            self.channel.basic_consume(
+                queue='template_config_queue',
+                on_message_callback=self.process_template_config_job
+            )
+            
+            # Consumer for marking jobs
+            self.channel.basic_consume(
+                queue='marking_job_queue',
+                on_message_callback=self.process_marking_job
+            )
+            
+            logger.info("Starting to consume messages. Press CTRL+C to stop.")
+            self.channel.start_consuming()
+            
+        except KeyboardInterrupt:
+            logger.info("Stopping consumer...")
+            self.channel.stop_consuming()
+            self.connection.close()
+        except Exception as e:
+            logger.error(f"Error in consumer: {e}")
+            raise
+    
+    def run(self):
+        """Main run method"""
+        self.connect()
+        self.start_consuming()
 
-
-marking_job_data = {
-  "id": 1,
-  "name": "Test Marking Job",
-  "template_path": f"{root_path}/templates/1_template_warped.jpg",
-  "template_config_path": f"{root_path}/templates/configs/1_config.json",
-  "marking_path": f"{root_path}/marking_schemes/1.jpg",
-  "answers_folder_path": f"{root_path}/answers",
-  "output_path": f"{root_path}/outputs/results.xlsx"
-}
+def main():
+    # Get RabbitMQ URL from environment variable or use default
+    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
+    
+    worker = MCQMarkingWorker(rabbitmq_url)
+    worker.run()
 
 if __name__ == "__main__":
-  # template_config_job = TemplateConfigJob(template_config_job_data, save_intermediate_results=False)
-  # template_config_job.configure()
-  
-  marking_job = MarkingJob(marking_job_data, save_intermediate_results=False)
-  marking_job.mark_answers()
+    main()

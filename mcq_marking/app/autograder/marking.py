@@ -1,5 +1,5 @@
 import numpy as np
-from mcq_marking.app.autograder.utils.image_processing import get_binary_image, get_homography
+from app.autograder.utils.image_processing import get_binary_image, get_homography
 
 def get_corresponding_points(points, H):
     points = np.array(points)
