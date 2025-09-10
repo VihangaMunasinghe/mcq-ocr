@@ -13,14 +13,19 @@ OUTGOING_QUEUE = os.getenv('RABBITMQ_OUTGOING_QUEUE', 'rabbitmq_outgoing_queue')
 
 ################################ Functions ##########################
 def preprocess(file_path) -> np.ndarray:
-    print(f"Preprocessing file: {file_path}")
+    # Check if file exists
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
     image = cv2.imread(file_path)
     return image
-    # Add preprocessing code here
+
 def postprocess(data):
-    print(f"Postprocessing data...")
+    # Generate the flag based on confidence score
+    if data['confidence'] < 0.8:
+        data['flag'] = 'low_confidence'
+    else:
+        data['flag'] = 'ok'
     return data
-    # Add postprocessing code here
 
 def callback(ch, method, properties, body):
     print(" [x] Received task")
@@ -29,7 +34,11 @@ def callback(ch, method, properties, body):
     task_id = task['task_id']
     
     ## Detect the index section from the input image
-    image = preprocess(file_path)
+    try:
+        image = preprocess(file_path)
+    except FileNotFoundError as e:
+        print(e)
+        return
     index_image = Detector.get_index_section(image)
     print(f"Index section extracted.")
     data = Recognizer.recognize_student_index(index_image)
