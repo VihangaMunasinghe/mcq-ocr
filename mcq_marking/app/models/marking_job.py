@@ -3,7 +3,7 @@ from mcq_marking.app.autograder.utils.image_processing import read_enhanced_imag
 from mcq_marking.app.models.answer_sheet import AnswerSheet
 from mcq_marking.app.models.marking_scheme import MarkingScheme
 from mcq_marking.app.models.template import Template
-from mcq_marking.app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_spreadsheet
+from mcq_marking.app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 
 
 class MarkingJob:
@@ -18,6 +18,7 @@ class MarkingJob:
             answers_path: str
             output_path: str
             template_config_path: str
+            intermediate_results_path: str
         '''
         self.job_id = data['id']
         self.name = data['name']
@@ -26,6 +27,7 @@ class MarkingJob:
         self.answers_folder_path = data['answers_folder_path']
         self.output_path = data['output_path']
         self.template_config_path = data['template_config_path']
+        self.intermediate_results_path = data['intermediate_results_path']
         self.save_intermediate_results = save_intermediate_results
         self.template = None
         self.marking_scheme = None
@@ -52,11 +54,14 @@ class MarkingJob:
         for i, answer_sheet_path in enumerate(self.answer_sheets):
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme)
-            score = answer_sheet.get_score()
+            score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
             self.add_to_spreadsheet(score)
+            if self.save_intermediate_results:
+                save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
         save_spreadsheet(self.output_path, self.spreadsheet_workbook)
         print(f"Marking is complete. Results have been saved in {self.output_path}")
         print(f"Total time taken: {time.time() - self.start_time} seconds")
+
         return self.output_path
 
     def add_to_spreadsheet(self, score: dict):

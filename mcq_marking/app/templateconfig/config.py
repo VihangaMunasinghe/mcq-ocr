@@ -114,7 +114,7 @@ def get_config(img_path, want_intermediate_results=False):
         # Draw the first bubble
         if first_bubble is not None:
             center = first_bubble[2]
-            cv2.circle(result_img, center, 3, (255, 0, 0), -1)
+            cv2.circle(result_img, center, 6, (255, 0, 0), -1)
 
     first_row, first_column = get_row_and_column(circles, first_bubble, column_only=False)
 
@@ -127,7 +127,7 @@ def get_config(img_path, want_intermediate_results=False):
     for i in range(1,len(first_row)):
         if first_row[i][2][0] - first_row[i-1][2][0] > 1.6*x_offset:
             column_starting_points.append(first_row[i])
-            cv2.circle(result_img, first_row[i][2], 3, (0, 0, 255), -1)
+            cv2.circle(result_img, first_row[i][2], 6, (0, 0, 255), -1)
             column = get_row_and_column(circles, first_row[i], column_only=True)
             column_row_distribution.append(len(column))
 
@@ -150,5 +150,4 @@ def get_config(img_path, want_intermediate_results=False):
             }
         }
     }
-
     return bubble_configs, warped_img, result_img
