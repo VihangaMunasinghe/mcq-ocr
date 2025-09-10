@@ -1,9 +1,9 @@
 import time
-from mcq_marking.app.autograder.utils.image_processing import read_enhanced_image
-from mcq_marking.app.models.answer_sheet import AnswerSheet
-from mcq_marking.app.models.marking_scheme import MarkingScheme
-from mcq_marking.app.models.template import Template
-from mcq_marking.app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
+from app.autograder.utils.image_processing import read_enhanced_image
+from app.models.answer_sheet import AnswerSheet
+from app.models.marking_scheme import MarkingScheme
+from app.models.template import Template
+from app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 
 
 class MarkingJob:

@@ -1,8 +1,8 @@
 import json
 
 import cv2
-from mcq_marking.app.templateconfig.config import get_config
-from mcq_marking.app.utils.file_handelling import save_image, write_json
+from app.templateconfig.config import get_config
+from app.utils.file_handelling import save_image, write_json
 
 
 class TemplateConfigJob:

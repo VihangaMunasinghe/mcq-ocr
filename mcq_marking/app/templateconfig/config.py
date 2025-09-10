@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from templateconfig.utils import categorize, detect_circles, detect_rectangles, get_canny_edges, get_row_and_column
+from app.templateconfig.utils import categorize, detect_circles, detect_rectangles, get_canny_edges, get_row_and_column
 
 def warp_image_to_rectangles(img, categorized_rectangles, target_width=1200, target_height=1600):
     """

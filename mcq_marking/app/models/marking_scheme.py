@@ -1,7 +1,7 @@
-from mcq_marking.app.autograder.marking import get_answers
+from app.autograder.marking import get_answers
 from PIL import Image
 
-from mcq_marking.app.models.template import Template
+from app.models.template import Template
 
 
 class MarkingScheme:

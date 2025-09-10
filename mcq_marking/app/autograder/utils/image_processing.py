@@ -2,7 +2,7 @@ from PIL import Image, ImageEnhance
 import cv2
 import numpy as np
 
-from mcq_marking.app.utils.file_handelling import read_image
+from app.utils.file_handelling import read_image
 
 
 def read_enhanced_image(path, enhance_contrast_val):
