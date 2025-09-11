@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -17,24 +15,23 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-  
-  minio:
-    image: minio/minio
-    command: server /minio/data --console-address ":9001"
-    ports:
-      - "9000:9000"  # S3 API
-      - "9001:9001"  # Web UI
-    environment:
-      MINIO_ROOT_USER: admin # change later and make it more secure
-      MINIO_ROOT_PASSWORD: secretpass # change later and make it more secure
+
+  # Simple shared storage using bind mount (works on all platforms)
+  shared-storage:
+    image: alpine:latest
+    container_name: shared-storage
     volumes:
-      - minio_storage:/minio/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - nfs_storage:/shared
+    command: >
+      sh -c "
+        echo 'Setting up shared storage...' &&
+        mkdir -p /shared/uploads /shared/templates /shared/results /shared/reports /shared/temp /shared/backups &&
+        mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
+        mkdir -p /shared/templates/configs /shared/templates/processed &&
+        mkdir -p /shared/results/individual /shared/results/batch /shared/results/detailed &&
+        echo 'Shared storage ready' &&
+        tail -f /dev/null
+      "
     restart: unless-stopped
 
   mcq-marking-system:
@@ -43,13 +40,17 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./mcq_marking:/app
+      - nfs_storage:/shared # Mount NFS storage
     depends_on:
       rabbitmq:
         condition: service_healthy
+      shared-storage:
+        condition: service_started
     environment:
       - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
+      - NFS_SHARED_PATH=/shared
     restart: unless-stopped
 
 volumes:
   rabbitmq-data:
-  minio_storage:
+  nfs_storage:
