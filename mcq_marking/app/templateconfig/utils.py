@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 def get_canny_edges(img):
     fixed_width = 1200
     fixed_height = 1600
@@ -149,3 +150,4 @@ def categorize(rectangles):
         "bottom_left": bottom_left,
         "bottom_right": bottom_right
     }
+
