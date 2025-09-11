@@ -262,7 +262,10 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version == \"3.11\""},
+]
 
 [[package]]
 name = "openpyxl"
@@ -537,5 +540,5 @@ files = [
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.13"
-content-hash = "4d22a7197dc3aecd576f4a202d071272fbef76bf471160afff355f9c16896b9e"
+python-versions = ">=3.11"
+content-hash = "faeeccce993606f557a9b93da6d108c65b84f0ac93fa80fbbe22b4cda090a411"

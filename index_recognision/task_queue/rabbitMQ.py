@@ -2,7 +2,7 @@ import os
 import pika
 import json
 ################################ Configurations ###################
-URL = os.getenv('RABBITMQ_URL', 'amqp://localhost:5672')
+URL = os.getenv('RABBITMQ_URL', 'amqp://admin:secret@localhost:5672/')
 
 
 

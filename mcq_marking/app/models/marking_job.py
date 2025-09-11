@@ -1,13 +1,21 @@
 import time
+import pika
+import os
+import logging
 from app.autograder.utils.image_processing import read_enhanced_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template
 from app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 class MarkingJob:
-    def __init__(self, data: dict, save_intermediate_results: bool = False):
+    def __init__(self, data: dict, save_intermediate_results: bool = False, rabbitmq_url: str = "amqp://localhost"):
         '''
         data is a dictionary with the following keys:
         data:
@@ -29,13 +37,31 @@ class MarkingJob:
         self.template_config_path = data['template_config_path']
         self.intermediate_results_path = data['intermediate_results_path']
         self.save_intermediate_results = save_intermediate_results
+        self.rabbitmq_url = rabbitmq_url
+        self.connection = None
+        self.channel = None
         self.template = None
         self.marking_scheme = None
         self.answer_sheets = []
         self.spreadsheet_workbook = None
         self.spreadsheet_sheet = None
 
+    def connect(self):
+        """Establish connection to RabbitMQ"""
+        try:
+            self.connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
+            self.channel = self.connection.channel()
+            
+            # Declare queues
+            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=True)
+            
+            logger.info("Marking Job Connected to RabbitMQ")
+        except Exception as e:
+            logger.error(f"Failed to connect to RabbitMQ: {e}")
+            raise
+    
     def setup(self, force_recalculate=False):
+        self.connect()
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
             template_img = read_enhanced_image(self.template_path, 'templates', 1.5)
             marking_img = read_enhanced_image(self.marking_path, 'uploads/marking_schemes', 1.5)
@@ -53,7 +79,7 @@ class MarkingJob:
         self.start_time = time.time()
         for i, answer_sheet_path in enumerate(self.answer_sheets):
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 'uploads/answer_sheets', 1.5)
-            answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme)
+            answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
             score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
             self.add_to_spreadsheet(score)
             if self.save_intermediate_results:
