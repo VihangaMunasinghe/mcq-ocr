@@ -25,6 +25,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONPATH=/app
+      - NFS_SHARED_PATH=/shared
     volumes:
       - ./fastapi_backend:/app
       - nfs_storage:/shared
