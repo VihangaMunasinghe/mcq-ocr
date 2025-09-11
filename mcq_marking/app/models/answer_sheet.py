@@ -1,0 +1,66 @@
+from PIL import Image
+from app.autograder.marking import calculate_score, get_answers
+from app.autograder.utils.draw_shapes import draw_scatter_points
+from app.models.marking_scheme import MarkingScheme
+
+class AnswerSheet:
+    def __init__(self, job_id : int, id : int, name: str, answer_sheet_img : Image, marking_scheme: MarkingScheme):
+        self.job_id = job_id
+        self.id = id
+        self.name = name
+        self.answer_sheet_img = answer_sheet_img
+        self.marking_scheme = marking_scheme
+        self.index_number = None
+        self.answers_with_coordinates = None
+        self.correct = None
+        self.incorrect = None
+        self.more_than_one_marked = None
+        self.not_marked = None
+        self.columnwise_total = None
+        self.flag = False
+        self.flag_reason = ""
+        self.points = None
+        self.result_img = None
+
+    def get_answers_and_corresponding_points(self, force_recalculate=False):
+        if self.answers_with_coordinates is None or force_recalculate:
+          bubble_coordinates = self.marking_scheme.template.get_bubble_coordinates()
+          self.answers_with_coordinates = get_answers(self.answer_sheet_img, self.answer_sheet_img, bubble_coordinates)
+        return self.answers_with_coordinates
+    
+    def get_score(self, intermediate_results=False):
+        self.get_answers_and_corresponding_points()
+        # TODO: send for index detection
+        marking_scheme_answers,_ = self.marking_scheme.get_answers_and_corresponding_points()
+        choice_distribution = self.marking_scheme.template.get_choice_distribution()
+        (
+            self.correct,
+            self.incorrect,
+            self.more_than_one_marked,
+            self.not_marked,
+            self.columnwise_total,
+            self.points,
+        ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
+        if intermediate_results:
+            result_img = self.answer_sheet_img.copy()
+            result_img = draw_scatter_points(result_img, self.points["correct"], color=(0, 255, 0))
+            result_img = draw_scatter_points(result_img, self.points["incorrect"], color=(0, 0, 255))
+            result_img = draw_scatter_points(result_img, self.points["more_than_one_marked"], color=(255, 0, 0))
+            result_img = draw_scatter_points(result_img, self.points["not_marked"], color=(255, 255, 0))
+            self.result_img = result_img
+            
+        return {
+            "index_number": self.index_number,
+            "correct": self.correct,
+            "incorrect": self.incorrect,
+            "more_than_one_marked": self.more_than_one_marked,
+            "not_marked": self.not_marked,
+            "columnwise_total": self.columnwise_total,
+            "score": len(self.correct),
+            "flag": self.flag,
+            "flag_reason": self.flag_reason,
+            "result_img": self.result_img,
+        }
+
+    def __str__(self):
+        return f"AnswerSheet(job_id={self.job_id}, id={self.id}, name={self.name})"

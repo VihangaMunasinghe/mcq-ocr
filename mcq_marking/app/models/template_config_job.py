@@ -1,0 +1,71 @@
+import json
+
+import cv2
+from app.templateconfig.config import get_config
+from app.utils.file_handelling import save_image, save_json, read_image
+
+
+class TemplateConfigJob:
+    def __init__(self, data: dict, save_intermediate_results: bool = False):
+        '''
+        data is a dictionary with the following keys:
+        data:
+            id: int
+            name: str
+            template_path: str (relative path in NFS storage)
+            template_config_path: str (relative path in NFS storage)
+            output_image_path: str (relative path in NFS storage)
+            result_image_path: str (relative path in NFS storage)
+        '''
+        self.id = data['id']
+        self.name = data['name']
+        self.template_path = data['template_path']
+        self.template_config_path = data['template_config_path']
+        self.output_image_path = data['output_image_path']
+        self.result_image_path = data['result_image_path']
+        self.save_intermediate_results = save_intermediate_results
+        self.template_config = None
+        self.warped_img = None
+        self.result_img = None
+
+    def configure(self):
+        """
+        Configure template by processing the image and saving results to NFS storage
+        """
+        # Get configuration using NFS-aware function
+        bubble_configs, warped_img, result_img = get_config(
+            self.template_path, 
+            self.save_intermediate_results
+        )
+        
+        self.template_config = bubble_configs
+        self.warped_img = warped_img
+        self.result_img = result_img
+        
+        
+        # Save configuration JSON to NFS storage
+        save_json(
+            self.template_config, 
+            self.template_config_path, 
+            "templates"
+        )
+        
+        # Save warped image to NFS storage
+        save_image(
+            self.output_image_path, 
+            warped_img, 
+            "templates"
+        )
+
+        # Save result image to NFS storage
+        save_image(
+            self.result_image_path, 
+            self.result_img, 
+            "intermediate/templates"
+        )
+        
+        return self.template_config, self.warped_img, self.result_img
+            
+
+    def __str__(self):
+        return f"TemplateConfigJob(id={self.id}, name={self.name})"
