@@ -1,0 +1,73 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin # change later and make it more secure
+      RABBITMQ_DEFAULT_PASS: secret # change later and make it more secure
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Simple shared storage using bind mount (works on all platforms)
+  shared-storage:
+    image: alpine:latest
+    container_name: shared-storage
+    volumes:
+      - nfs_storage:/shared
+    command: >
+      sh -c "
+        echo 'Setting up shared storage...' &&
+        mkdir -p /shared/uploads /shared/templates /shared/results /shared/reports /shared/temp /shared/backups &&
+        mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
+        mkdir -p /shared/templates/configs /shared/templates/processed &&
+        mkdir -p /shared/results/individual /shared/results/batch /shared/results/detailed &&
+        echo 'Shared storage ready' &&
+        tail -f /dev/null
+      "
+    restart: unless-stopped
+
+  mcq-marking-system:
+    build:
+      context: ./mcq_marking
+      dockerfile: Dockerfile
+    volumes:
+      - ./mcq_marking:/app
+      - nfs_storage:/shared # Mount NFS storage
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      shared-storage:
+        condition: service_started
+    environment:
+      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
+      - NFS_SHARED_PATH=/shared
+      - INDEX_TASK_QUEUE=index_tasks
+    restart: unless-stopped
+
+  index-recognizer:
+    build:
+      context: ./index_recognision
+      dockerfile: Dockerfile
+    volumes:
+      - nfs_storage:/shared # Mount NFS storage
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      shared-storage:
+        condition: service_started
+    environment:
+    - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
+    - RABBITMQ_INCOMING_QUEUE=index_tasks
+    - RABBITMQ_OUTGOING_QUEUE=index_results
+    restart: unless-stopped
+volumes:
+  rabbitmq-data:
+  nfs_storage:
