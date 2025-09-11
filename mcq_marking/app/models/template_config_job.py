@@ -2,7 +2,7 @@ import json
 
 import cv2
 from app.templateconfig.config import get_config
-from app.utils.file_handelling import save_image, write_json
+from app.utils.file_handelling import save_image, save_json, read_image
 
 
 class TemplateConfigJob:
@@ -12,9 +12,9 @@ class TemplateConfigJob:
         data:
             id: int
             name: str
-            template_path: str
-            template_config_path: str
-            output_image_path: str
+            template_path: str (relative path in NFS storage)
+            template_config_path: str (relative path in NFS storage)
+            output_image_path: str (relative path in NFS storage)
         '''
         self.id = data['id']
         self.name = data['name']
@@ -27,12 +27,33 @@ class TemplateConfigJob:
         self.result_img = None
 
     def configure(self):
-        bubble_configs, warped_img, result_img = get_config(self.template_path, self.save_intermediate_results)
+        """
+        Configure template by processing the image and saving results to NFS storage
+        """
+        # Get configuration using NFS-aware function
+        bubble_configs, warped_img, result_img = get_config(
+            self.template_path, 
+            self.save_intermediate_results
+        )
+        
         self.template_config = bubble_configs
         self.warped_img = warped_img
         self.result_img = result_img
-        write_json(self.template_config_path, self.template_config)
-        save_image(self.output_image_path, warped_img)
+        
+        
+        # Save configuration JSON to NFS storage
+        save_json(
+            self.template_config, 
+            self.template_config_path, 
+            "templates"
+        )
+        
+        # Save warped image to NFS storage
+        save_image(
+            self.output_image_path, 
+            warped_img, 
+            "templates"
+        )
         
         return self.template_config, self.warped_img, self.result_img
             

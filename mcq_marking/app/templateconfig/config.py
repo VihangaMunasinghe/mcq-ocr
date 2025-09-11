@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from app.templateconfig.utils import categorize, detect_circles, detect_rectangles, get_canny_edges, get_row_and_column
+from app.storage.nfs_storage import NFSStorage
 
 def warp_image_to_rectangles(img, categorized_rectangles, target_width=1200, target_height=1600):
     """
@@ -84,7 +85,21 @@ def prepare_image(img):
 
 
 def get_config(img_path, want_intermediate_results=False):
-    img = cv2.imread(img_path)
+    """
+    Get template configuration from image
+    
+    Args:
+        img_path: Relative path to image in NFS storage
+        want_intermediate_results: Whether to return intermediate processing results
+    
+    Returns:
+        tuple: (bubble_configs, warped_img, result_img)
+    """
+    # Load image from NFS storage
+    nfs = NFSStorage()
+    img_bytes = nfs.get_file(img_path, "uploads")
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     # # Tilt the image by applying a small shear transformation
     (h, w) = img.shape[:2]

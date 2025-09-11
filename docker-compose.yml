@@ -17,25 +17,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-  
-  minio:
-    image: minio/minio
-    command: server /minio/data --console-address ":9001"
+
+  nfs-server:
+    image: itsthenetwork/nfs-server-alpine:latest
+    container_name: nfs-server
     ports:
-      - "9000:9000"  # S3 API
-      - "9001:9001"  # Web UI
-    environment:
-      MINIO_ROOT_USER: admin # change later and make it more secure
-      MINIO_ROOT_PASSWORD: secretpass # change later and make it more secure
+      - "2049:2049" # NFS
+      - "111:111" # RPC portmapper
+      - "20048:20048" # RPC mountd
     volumes:
-      - minio_storage:/minio/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - nfs_storage:/nfs
+    environment:
+      - SHARED_DIRECTORY=/nfs
+    privileged: true
     restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Starting NFS server...' &&
+        echo '/nfs *(rw,sync,no_subtree_check,no_root_squash)' > /etc/exports &&
+        /usr/sbin/exportfs -arv &&
+        /usr/sbin/rpcbind -w &&
+        /usr/sbin/rpc.statd --no-notify --port 32765 --outgoing-port 32766 &&
+        /usr/sbin/rpc.nfsd --debug 8 --no-udp --no-nfs-version 2 &&
+        /usr/sbin/rpc.mountd --debug all --no-udp --no-nfs-version 2 --foreground
+      "
 
   mcq-marking-system:
     build:
@@ -43,13 +48,18 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./mcq_marking:/app
+      - nfs_storage:/shared # Mount NFS storage
     depends_on:
       rabbitmq:
         condition: service_healthy
+      nfs-server:
+        condition: service_started
     environment:
       - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
+      - NFS_SHARED_PATH=/shared
     restart: unless-stopped
+    privileged: true # Required for NFS mounting
 
 volumes:
   rabbitmq-data:
-  minio_storage:
+  nfs_storage:
