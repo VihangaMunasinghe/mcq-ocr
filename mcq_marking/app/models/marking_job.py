@@ -28,6 +28,7 @@ class MarkingJob:
         self.output_path = data['output_path']
         self.template_config_path = data['template_config_path']
         self.intermediate_results_path = data['intermediate_results_path']
+        self.config_type = data['config_type']
         self.save_intermediate_results = save_intermediate_results
         self.template = None
         self.marking_scheme = None
@@ -40,7 +41,7 @@ class MarkingJob:
             template_img = read_enhanced_image(self.template_path, 'templates', 1.5)
             marking_img = read_enhanced_image(self.marking_path, 'uploads/marking_schemes', 1.5)
             template_config = read_json(self.template_config_path, 'templates')
-            self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config)
+            self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config,self.config_type)
             self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template)
             self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path, 'uploads/answer_sheets')
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results', 'results')

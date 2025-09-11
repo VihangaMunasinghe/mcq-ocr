@@ -196,55 +196,72 @@ for i in range(num_of_columns):
             
             # Assign into bubbles array
             bubbles[i][row_idx] = row_points
-            tolerance = 10  # pixels, adjust based on template spacing
+            
 
         
-            rows = bubbles[i]   # all 30 rows for this column
+        rows = bubbles[i]   # all 30 rows for this column
 
-            # --- Step 1: Find reference row ---
-            reference_x = None
-            for row in rows:
-                if len(row) == num_of_options_per_question:
-                    reference_x = [p[0] for p in row]  # store X only
-                    break
+        # --- Step 1: Find reference row ---
+        tolerance = 10  # pixels, adjust based on template spacing
+        reference_x = None
+        for row in rows:
+            if len(row) == num_of_options_per_question:
+                reference_x = [p[0] for p in row]  # store X only
+                break
 
-            if reference_x is None:
-                print(f"No reference row found in column {i}")
-                continue
+        if reference_x is None:
+            print(f"No reference row found in column {i}")
+            continue
 
-            # --- Step 2: Fix each row ---
-            for row_idx, row in enumerate(rows):
-                if len(row) == num_of_options_per_question:
-                    continue  # this row is fine
+        # --- Step 2: Fix each row ---
+        for row_idx, row in enumerate(rows):
+            if len(row) == num_of_options_per_question:
+                continue  # this row is fine
 
-                elif len(row) < num_of_options_per_question:
-                    # Missing bubbles
-                    avg_y = np.mean([p[1] for p in row]) if row else 0
-                    new_row = row.copy()
-                    for ref_x in reference_x:
-                        # Check if a bubble already near ref_x
-                        found = any(abs(p[0] - ref_x) <= tolerance for p in row)
-                        if not found:
-                            new_row.append((ref_x, int(avg_y)))  # impute missing
-                    # Sort by X again
-                    new_row.sort(key=lambda p: p[0])
-                    bubbles[i][row_idx] = new_row
+            elif len(row) < num_of_options_per_question:
+                # Missing bubbles
+                avg_y = np.mean([p[1] for p in row]) if row else 0
+                new_row = row.copy()
+                for ref_x in reference_x:
+                    # Check if a bubble already near ref_x
+                    found = any(abs(p[0] - ref_x) <= tolerance for p in row)
+                    if not found:
+                        new_row.append((ref_x, int(avg_y)))  # impute missing
+                # Sort by X again
+                new_row.sort(key=lambda p: p[0])
+                bubbles[i][row_idx] = new_row
 
-                elif len(row) > num_of_options_per_question:
-                    # Extra bubbles
-                    new_row = []
-                    for ref_x in reference_x:
-                        # Find bubble closest to ref_x
-                        candidates = [p for p in row if abs(p[0] - ref_x) <= tolerance]
-                        if candidates:
-                            # Pick the one closest to ref_x
-                            best = min(candidates, key=lambda p: abs(p[0] - ref_x))
-                            new_row.append(best)
-                    # Sort by X again
-                    new_row.sort(key=lambda p: p[0])
-                    bubbles[i][row_idx] = new_row
+            elif len(row) > num_of_options_per_question:
+                # Extra bubbles
+                new_row = []
+                for ref_x in reference_x:
+                    # Find bubble closest to ref_x
+                    candidates = [p for p in row if abs(p[0] - ref_x) <= tolerance]
+                    if candidates:
+                        # Pick the one closest to ref_x
+                        best = min(candidates, key=lambda p: abs(p[0] - ref_x))
+                        new_row.append(best)
+                # Sort by X again
+                new_row.sort(key=lambda p: p[0])
+                bubbles[i][row_idx] = new_row
 
+# --- Final step: adjust coordinates back to resized_img space ---
+# final_bubbles = [[[] for _ in range(num_of_rows_per_column)] for _ in range(num_of_columns)]
 
+# y_offset = (line_y + 1) if line_y is not None else 0
+
+# for i in range(num_of_columns):
+#     for row_idx in range(num_of_rows_per_column):
+#         adjusted_row = [(x, y + y_offset) for (x, y) in bubbles[i][row_idx]]
+#         final_bubbles[i][row_idx] = adjusted_row
+
+# Now final_bubbles contains all coordinates in resized_img reference
+ # Save
+#np.save("final_bubbles.npy", final_bubbles)
+
+# In another file
+#import numpy as np
+#final_bubbles = np.load("final_bubbles.npy", allow_pickle=True)
 
 
 

@@ -2,6 +2,7 @@ import json
 
 import cv2
 from app.templateconfig.config import get_config
+from app.templateconfig.clustering import get_clustering
 from app.utils.file_handelling import save_image, save_json, read_image
 
 
@@ -19,10 +20,14 @@ class TemplateConfigJob:
         '''
         self.id = data['id']
         self.name = data['name']
+        self.config_type = data['config_type']
         self.template_path = data['template_path']
         self.template_config_path = data['template_config_path']
         self.output_image_path = data['output_image_path']
         self.result_image_path = data['result_image_path']
+        self.num_of_columns = data['num_of_columns']|None
+        self.num_of_rows_per_column = data['num_of_rows_per_column']|None
+        self.num_of_options_per_question = data['num_of_options_per_question']|None
         self.save_intermediate_results = save_intermediate_results
         self.template_config = None
         self.warped_img = None
@@ -33,11 +38,19 @@ class TemplateConfigJob:
         Configure template by processing the image and saving results to NFS storage
         """
         # Get configuration using NFS-aware function
-        bubble_configs, warped_img, result_img = get_config(
-            self.template_path, 
-            self.save_intermediate_results
-        )
-        
+        if self.config_type == 'grid_based':
+            bubble_configs, warped_img, result_img = get_config(
+                self.template_path, 
+                self.save_intermediate_results
+            )
+        if self.config_type == 'clustering_based':
+            bubble_configs, warped_img, result_img = get_clustering(
+                self.template_path, 
+                self.num_of_columns,
+                self.num_of_rows_per_column,
+                self.num_of_options_per_question,
+                self.save_intermediate_results
+            )
         self.template_config = bubble_configs
         self.warped_img = warped_img
         self.result_img = result_img
