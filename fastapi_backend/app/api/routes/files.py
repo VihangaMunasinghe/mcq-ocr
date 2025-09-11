@@ -10,18 +10,34 @@ from app.storage.shared_storage import SharedStorage
 router = APIRouter(prefix="/files", tags=["files"])
 
 @router.post("/upload", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...), folder: str = Query(...)):
+async def upload_file(file: UploadFile = File(...),
+    file_type: str = Form(...)):
     """
     Upload a file to the system
     """
+    # TODO: Get user ID from token
+    user_id = 1
+    
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
-    # TODO: Implement file upload logic
+
+    file_id = str(uuid.uuid4())
+    upload_dir = f'uploads/{file_type}s/{user_id}'
+    final_path = f"{upload_dir}/{file_id}_{file.filename}"
+
+    # Read file content as bytes
+    file_content = await file.read()
+    
+    shared_storage = SharedStorage()
+    await shared_storage.save_file(file_content, final_path)
+    
     return FileUploadResponse(
         message="File uploaded successfully",
         filename=file.filename,
-        file_id="temp_id"
+        file_id=file_id,
+        path=final_path,
+        file_size=file.size
     )
 
 @router.post("/upload/zip", response_model=FileUploadResponse)
@@ -64,8 +80,11 @@ async def upload_chunk(
     chunk_path = temp_dir / f"chunk_{chunk_index:04d}"
     
     try:
+        # Read chunk content as bytes
+        chunk_content = await file.read()
+        
         shared_storage = SharedStorage()
-        await shared_storage.save_chunk(file.file, chunk_path, chunk_index)
+        await shared_storage.save_chunk(chunk_content, chunk_path, chunk_index)
         
         # Save upload metadata
         metadata = {
@@ -96,7 +115,6 @@ async def upload_chunk(
 @router.post("/upload/large/finalize", response_model=FileUploadResponse)
 async def finalize_upload(
     upload_id: str = Form(...),
-    save_path: str = Form(...),
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
@@ -130,10 +148,8 @@ async def finalize_upload(
         
         # Generate final file ID and path
         file_id = str(uuid.uuid4())
-        save_path = f'uploads/{file_type}s/{user_id}/{file_id}'
-        upload_dir = Path(save_path)
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        final_path = upload_dir / f"{file_id}_{original_name}"
+        upload_dir = f'uploads/{file_type}s/{user_id}'
+        final_path = f"{upload_dir}/{file_id}_{original_name}"
         
         # Combine all chunks
         try:
@@ -154,7 +170,8 @@ async def finalize_upload(
             message="Chunked upload completed successfully",
             filename=original_name,
             file_id=file_id,
-            file_size=file_size
+            file_size=file_size,
+            path=final_path
         )
         
     except HTTPException:

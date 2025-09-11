@@ -26,14 +26,39 @@ services:
     environment:
       - PYTHONPATH=/app
       - NFS_SHARED_PATH=/shared
+      - DATABASE_URL=postgresql://mcq_user:mcq_password@postgres:5432/mcq_database
     volumes:
       - ./fastapi_backend:/app
       - nfs_storage:/shared
     depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       shared-storage:
         condition: service_started
+    restart: unless-stopped
+    user: "1000:1000" # Add user permissions for shared storage
+
+  # Database - PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: mcq-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mcq_database
+      POSTGRES_USER: mcq_user
+      POSTGRES_PASSWORD: mcq_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./fastapi_backend/init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcq_user -d mcq_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   # Message Queue
@@ -67,6 +92,8 @@ services:
         mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
         mkdir -p /shared/templates/configs /shared/templates/processed &&
         mkdir -p /shared/results/individual /shared/results/batch /shared/results/detailed &&
+        chmod -R 777 /shared &&
+        chown -R 1000:1000 /shared &&
         echo 'Shared storage ready' &&
         tail -f /dev/null
       "
@@ -91,5 +118,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   rabbitmq-data:
   nfs_storage:

@@ -34,4 +34,5 @@ class FileUploadResponse(BaseModel):
     message: str
     filename: str
     file_id: str
+    path: str
     file_size: int = None
