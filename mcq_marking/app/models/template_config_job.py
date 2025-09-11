@@ -15,12 +15,14 @@ class TemplateConfigJob:
             template_path: str (relative path in NFS storage)
             template_config_path: str (relative path in NFS storage)
             output_image_path: str (relative path in NFS storage)
+            result_image_path: str (relative path in NFS storage)
         '''
         self.id = data['id']
         self.name = data['name']
         self.template_path = data['template_path']
         self.template_config_path = data['template_config_path']
         self.output_image_path = data['output_image_path']
+        self.result_image_path = data['result_image_path']
         self.save_intermediate_results = save_intermediate_results
         self.template_config = None
         self.warped_img = None
@@ -53,6 +55,13 @@ class TemplateConfigJob:
             self.output_image_path, 
             warped_img, 
             "templates"
+        )
+
+        # Save result image to NFS storage
+        save_image(
+            self.result_image_path, 
+            self.result_img, 
+            "intermediate/templates"
         )
         
         return self.template_config, self.warped_img, self.result_img
