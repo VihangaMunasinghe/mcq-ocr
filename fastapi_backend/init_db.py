@@ -16,7 +16,7 @@ from app.database import init_db, test_sync_database_connection, create_tables_s
 
 def main():
     """Main function to initialize the database."""
-    print("🔄 Starting database initialization...")
+    print("Starting database initialization...")
     
     # Test synchronous connection first
     print("Testing database connection...")
@@ -28,23 +28,23 @@ def main():
     print("Creating database tables...")
     try:
         create_tables_sync()
-        print("✅ Database tables created successfully!")
+        print("Database tables created successfully!")
     except Exception as e:
-        print(f"❌ Failed to create tables: {e}")
+        print(f"Failed to create tables: {e}")
         sys.exit(1)
     
-    print("✅ Database initialization completed!")
+    print("Database initialization completed!")
 
 
 async def async_main():
     """Async main function for full initialization."""
-    print("🔄 Starting async database initialization...")
+    print("Starting async database initialization...")
     
     try:
         await init_db()
-        print("✅ Async database initialization completed!")
+        print("Async database initialization completed!")
     except Exception as e:
-        print(f"❌ Async database initialization failed: {e}")
+        print(f"Async database initialization failed: {e}")
         sys.exit(1)
 
 
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    if args.async:
+    if args.async_init:
         asyncio.run(async_main())
     else:
         main()
