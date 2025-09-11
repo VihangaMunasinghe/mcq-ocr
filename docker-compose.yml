@@ -27,8 +27,12 @@ services:
       - PYTHONPATH=/app
     volumes:
       - ./fastapi_backend:/app
+      - nfs_storage:/shared
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      shared-storage:
+        condition: service_started
     restart: unless-stopped
 
   # Message Queue
