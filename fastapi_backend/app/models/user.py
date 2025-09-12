@@ -23,6 +23,8 @@ class User(BaseModel):
     # Relationships
     templates = relationship("Template", back_populates="created_by_user")
     files = relationship("File", back_populates="uploaded_by_user")
+    marking_jobs = relationship("MarkingJob", back_populates="created_by_user")
+    template_config_jobs = relationship("TemplateConfigJob", back_populates="created_by_user")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

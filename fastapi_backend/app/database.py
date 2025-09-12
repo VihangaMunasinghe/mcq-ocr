@@ -128,7 +128,7 @@ async def create_tables():
     Create all database tables asynchronously.
     """
     # Import models to ensure they are registered with Base
-    from .models import User, Template, File
+    from .models import User, Template, File, MarkingJob, TemplateConfigJob
     
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -139,7 +139,7 @@ def create_tables_sync():
     Create all database tables synchronously.
     """
     # Import models to ensure they are registered with Base
-    from .models import User, Template, File
+    from .models import User, Template, File, MarkingJob, TemplateConfigJob
     
     Base.metadata.create_all(bind=sync_engine)
 

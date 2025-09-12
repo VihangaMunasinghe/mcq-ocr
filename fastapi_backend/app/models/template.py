@@ -2,9 +2,13 @@
 Template model for MCQ templates.
 """
 
+from enum import Enum
 from sqlalchemy import Column, String, Text, Integer, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
+
+from app.models.template_config_job import TemplateConfigType
 from .base import BaseModel
+
 
 
 class Template(BaseModel):
@@ -14,19 +18,14 @@ class Template(BaseModel):
     
     name = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    template_type = Column(String(50), nullable=False)  # e.g., 'mcq', 'fill_in_blanks', etc.
+    template_config_type = Column(Enum(TemplateConfigType), nullable=False)
     
     # Template configuration
     total_questions = Column(Integer, nullable=False, default=0)
-    questions_per_page = Column(Integer, nullable=False, default=1)
     options_per_question = Column(Integer, nullable=False, default=4)
     
-    # Template settings
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_public = Column(Boolean, default=False, nullable=False)
-    
     # Template configuration as JSON
-    configuration = Column(JSON, nullable=True)
+    configuration = Column(String(255), nullable=True)
     
     # File references
     template_file_path = Column(String(255), nullable=True)
@@ -38,6 +37,8 @@ class Template(BaseModel):
     # Relationships
     created_by_user = relationship("User", back_populates="templates")
     files = relationship("File", back_populates="template")
+    marking_jobs = relationship("MarkingJob", back_populates="template")
+    template_config_jobs = relationship("TemplateConfigJob", back_populates="template")
     
     def __repr__(self):
         return f"<Template(id={self.id}, name='{self.name}', type='{self.template_type}')>"
