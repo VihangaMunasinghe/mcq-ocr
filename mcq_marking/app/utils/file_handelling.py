@@ -7,14 +7,13 @@ from app.storage.nfs_storage import NFSStorage
 from io import BytesIO
 
 
-def save_image(path, image, file_type='intermediate'):
+def save_image(path, image):
     """
     Save image to NFS storage
     
     Args:
         path: Relative path within the file_type directory
         image: PIL Image or OpenCV image
-        file_type: Type of file for NFS storage organization
     """
     # Convert image to bytes
     if hasattr(image, 'save'):            # PIL Image
@@ -31,45 +30,43 @@ def save_image(path, image, file_type='intermediate'):
         
     # Save to NFS storage
     nfs = NFSStorage()
-    nfs.save_file(image_bytes, path, file_type)
+    nfs.save_file(image_bytes, path)
     
 
-def save_image_using_folder_and_filename(folder_path, filename, image, file_type='intermediate'):
+def save_image_using_folder_and_filename(folder_path, filename, image):
     """Save image using folder and filename with NFS support"""
-    save_image(os.path.join(folder_path, filename), image, file_type)
+    save_image(os.path.join(folder_path, filename), image)
 
-def read_image(path, file_type='uploads', convert_to_grayscale=False):
+def read_image(path, convert_to_grayscale=False):
     """
     Read image from NFS storage
     
     Args:
         path: Relative path within the file_type directory
-        file_type: Type of file directory
         convert_to_grayscale: Whether to convert to grayscale
         
     Returns:
         PIL Image object
     """
     nfs = NFSStorage()
-    image_bytes = nfs.get_file(path, file_type)
+    image_bytes = nfs.get_file(path)
     
     image = Image.open(BytesIO(image_bytes))
     if convert_to_grayscale:
         return image.convert('L')
     return image
 
-def save_json(data, path, file_type='templates'):
+def save_json(data, path):
     """
     Save JSON data to NFS storage
     
     Args:
         data: Data to save as JSON
         path: Relative path within the file_type directory
-        file_type: Type of file directory
     """
     nfs = NFSStorage()
     json_bytes = json.dumps(data, indent=2).encode('utf-8')
-    nfs.save_file(json_bytes, path, file_type)
+    nfs.save_file(json_bytes, path)
 
 def read_json(path, file_type='templates'):
     """
@@ -103,14 +100,13 @@ def read_answer_sheet_paths(folder_path, file_type='uploads'):
     # Return sorted list of relative paths (folder_path/filename)
     return sorted([os.path.join(folder_path, fname) for fname in file_list])
 
-def get_spreadsheet(path, title: str, file_type='results'):
+def get_spreadsheet(path, title: str):
     """
     Get or create a spreadsheet from NFS storage
     
     Args:
         path: Relative path within the file_type directory
         title: Name of the sheet to get or create
-        file_type: Type of file directory (default: 'results')
         
     Returns:
         Tuple of (workbook, sheet)
@@ -121,7 +117,7 @@ def get_spreadsheet(path, title: str, file_type='results'):
     
     try:
         # Try to get existing file from NFS
-        file_bytes = nfs.get_file(path, file_type)
+        file_bytes = nfs.get_file(path)
         workbook = load_workbook(BytesIO(file_bytes))
         
         # Check if a sheet with the given title exists
@@ -137,14 +133,13 @@ def get_spreadsheet(path, title: str, file_type='results'):
     
     return workbook, sheet
 
-def save_spreadsheet(path, workbook, file_type='results'):
+def save_spreadsheet(path, workbook):
     """
     Save spreadsheet to NFS storage
     
     Args:
         path: Relative path within the file_type directory
         workbook: OpenPyXL workbook object to save
-        file_type: Type of file directory (default: 'results')
     """
     nfs = NFSStorage()
     
@@ -154,4 +149,4 @@ def save_spreadsheet(path, workbook, file_type='results'):
     buffer.seek(0)
     
     # Save to NFS storage
-    nfs.save_file(buffer.getvalue(), path, file_type)
+    nfs.save_file(buffer.getvalue(), path)
