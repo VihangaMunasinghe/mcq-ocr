@@ -28,4 +28,4 @@ class TemplateResponse(BaseModel):
     save_intermediate_results: bool
     created_at: datetime
     updated_at: datetime
-    created_by: str
+    created_by: int

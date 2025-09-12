@@ -6,8 +6,8 @@ from .base import BaseModel
 from .user import User
 from .template import Template
 from .file import File
-from .marking_job import MarkingJob
-from .template_config_job import TemplateConfigJob
+from .marking_job import MarkingJob, MarkingJobStatus
+from .template_config_job import TemplateConfigJob, TemplateConfigJobStatus, TemplateConfigJobPriority
 
 __all__ = [
     "BaseModel", 
@@ -15,5 +15,8 @@ __all__ = [
     "Template", 
     "File", 
     "MarkingJob", 
-    "TemplateConfigJob"
+    "MarkingJobStatus",
+    "TemplateConfigJob",
+    "TemplateConfigJobStatus",
+    "TemplateConfigJobPriority"
 ]

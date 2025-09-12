@@ -33,31 +33,45 @@ class RabbitMQManager:
         self.exchange = None
         
     async def connect(self):
-        """Establish connection to RabbitMQ."""
-        try:
-            self.connection = await aio_pika.connect_robust(
-                settings.rabbitmq.rabbitmq_url,
-                heartbeat=60,
-                client_properties={"connection_name": "MCQ-OCR-FastAPI"}
-            )
-            self.channel = await self.connection.channel()
-            await self.channel.set_qos(prefetch_count=1)
-            
-            # Create exchange for routing
-            self.exchange = await self.channel.declare_exchange(
-                "mcq_ocr", 
-                ExchangeType.DIRECT,
-                durable=True
-            )
-            
-            # Declare queues
-            await self._declare_queues()
-            
-            logger.info("Connected to RabbitMQ successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to connect to RabbitMQ: {e}")
-            raise
+        """Establish connection to RabbitMQ with retry logic."""
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to connect to RabbitMQ (attempt {attempt + 1}/{max_retries})...")
+                logger.info(f"Using RabbitMQ URL: {settings.rabbitmq.rabbitmq_url}")
+                
+                self.connection = await aio_pika.connect_robust(
+                    settings.rabbitmq.rabbitmq_url,
+                    heartbeat=60,
+                    client_properties={"connection_name": "MCQ-OCR-FastAPI"}
+                )
+                self.channel = await self.connection.channel()
+                await self.channel.set_qos(prefetch_count=1)
+                
+                # Create exchange for routing
+                self.exchange = await self.channel.declare_exchange(
+                    "mcq_ocr", 
+                    ExchangeType.DIRECT,
+                    durable=True
+                )
+                
+                # Declare queues
+                await self._declare_queues()
+                
+                logger.info("Connected to RabbitMQ successfully")
+                return
+                
+            except Exception as e:
+                logger.error(f"Failed to connect to RabbitMQ (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error("All connection attempts failed")
+                    raise
     
     async def _declare_queues(self):
         """Declare all required queues."""
@@ -269,15 +283,25 @@ class TemplateConfigResultConsumer:
                             job.status = TemplateConfigJobStatus.COMPLETED
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
-                            # Store results
+                            # Store results and update template
                             if 'template_config_path' in result_data:
-                                job.template.configuration = result_data['template_config_path']
+                                job.template.configuration_path = result_data['template_config_path']
                             
                             if 'output_image_path' in result_data:
                                 job.template.template_file_path = result_data['output_image_path']
                             
                             if 'result_image_path' in result_data:
                                 job.result_image_path = result_data['result_image_path']
+                            
+                            # Update template with configuration results
+                            if 'bubble_config' in result_data:
+                                config_data = result_data['bubble_config']
+                                if 'metadata' in config_data:
+                                    metadata = config_data['metadata']
+                                    if 'num_questions' in metadata:
+                                        job.template.total_questions = metadata['num_questions']
+                                    if 'num_options_per_question' in metadata:
+                                        job.template.options_per_question = metadata['num_options_per_question']
                                 
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             

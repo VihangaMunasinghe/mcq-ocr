@@ -27,6 +27,7 @@ services:
       - PYTHONPATH=/app
       - NFS_SHARED_PATH=/shared
       - DATABASE_URL=postgresql://mcq_user:mcq_password@postgres:5432/mcq_database
+      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
     volumes:
       - ./fastapi_backend:/app
       - nfs_storage:/shared
@@ -45,7 +46,7 @@ services:
     image: postgres:15-alpine
     container_name: mcq-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: mcq_database
       POSTGRES_USER: mcq_user

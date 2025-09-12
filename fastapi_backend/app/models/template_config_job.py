@@ -35,13 +35,15 @@ class TemplateConfigJob(BaseModel):
     
     __tablename__ = "template_config_jobs"
     
+    # Basic job information
+    job_uuid = Column(String(50), nullable=False, index=True)
+    name = Column(String(100), nullable=False, index=True)
+    description = Column(String(255), nullable=True)
+    
     # Job status and priority
     status = Column(Enum(TemplateConfigJobStatus), nullable=False, default=TemplateConfigJobStatus.PENDING)
     priority = Column(Enum(TemplateConfigJobPriority), nullable=False, default=TemplateConfigJobPriority.NORMAL)
     
-    # Basic job information
-    name = Column(String(100), nullable=False, index=True)
-    description = Column(String(255), nullable=True)
     
     # File paths (relative to NFS storage)
     template_path = Column(String(500), nullable=False)  # Input template image
@@ -69,7 +71,7 @@ class TemplateConfigJob(BaseModel):
 
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    template_id = Column(Integer, ForeignKey("templates.id"), nullable=True)
+    template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
 
     # Relationships
     created_by_user = relationship("User", back_populates="template_config_jobs")
@@ -92,15 +94,16 @@ class TemplateConfigJob(BaseModel):
         """Convert to job data format for RabbitMQ processing."""
         return {
             'id': self.id,
-            'name': self.template.name,
-            'config_type': self.template.config_type,
+            'name': self.name,
+            'config_type': self.template.config_type.value if self.template and self.template.config_type else 'grid_based',
+            'template_path': self.template_path,
+            'template_config_path': self.template_config_path,
+            'output_image_path': self.output_image_path,
+            'result_image_path': self.result_image_path,
             'num_of_columns': self.num_of_columns,
             'num_of_rows_per_column': self.num_of_rows_per_column,
             'num_of_options_per_question': self.num_of_options_per_question,
-            'template_path': self.template_path,
-            'template_config_path': self.template.configuration_path,
-            'result_image_path': self.result_image_path,
-            'save_intermediate_results': self.save_intermediate_results,
+            'save_intermediate_results': self.save_intermediate_results
         }
 
     def update_image_dimensions(self, 

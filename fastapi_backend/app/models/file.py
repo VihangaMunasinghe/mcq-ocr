@@ -48,7 +48,7 @@ class File(BaseModel):
     error_message = Column(Text, nullable=True)
     
     # Metadata
-    metadata = Column(Text, nullable=True)  # JSON string for additional metadata
+    file_metadata = Column(Text, nullable=True)  # JSON string for additional metadata
     
     # File organization
     is_archived = Column(Boolean, default=False, nullable=False)

@@ -24,7 +24,7 @@ class Template(BaseModel):
     
     # Template configuration
     total_questions = Column(Integer, nullable=False, default=0)
-    options_per_question = Column(Integer, nullable=False, default=4)
+    options_per_question = Column(Integer, nullable=False, default=5)
     
     # Template configuration as JSON
     configuration_path = Column(String(255), nullable=True)
