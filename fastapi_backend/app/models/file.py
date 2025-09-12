@@ -60,7 +60,7 @@ class File(BaseModel):
     
     # Relationships
     uploaded_by_user = relationship("User", back_populates="files")
-    template = relationship("Template", back_populates="files")
+    template = relationship("Template")
     
     def __repr__(self):
         return f"<File(id={self.id}, filename='{self.filename}', type='{self.file_type}', status='{self.status}')>"

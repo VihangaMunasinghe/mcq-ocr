@@ -12,7 +12,7 @@ from typing import Optional
 from app.database import get_async_db
 from app.queue import submit_template_config_job
 
-router = APIRouter(prefix="/api/v1/templates", tags=["templates"])
+router = APIRouter(prefix="/api/templates", tags=["templates"])
 
 @router.post("/", response_model=TemplateResponse)
 async def create_template(
@@ -47,7 +47,7 @@ async def create_template(
         result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{job_uuid}_result.jpg" if template.save_intermediate_results else None
         template_record.configuration_path = template_config_path
         
-        template_record.template_file_path = template.template_path
+        template_record.template_file_path = output_image_path
         template_record.total_questions = 0
         template_record.options_per_question = 5
         await db.commit()
@@ -89,7 +89,6 @@ async def create_template(
             template_file_path=template_record.template_file_path,
             total_questions=template_record.total_questions,
             options_per_question=template_record.options_per_question,
-            save_intermediate_results=template.save_intermediate_results,
             created_at=template_record.created_at,
             updated_at=template_record.updated_at,
             created_by=template_record.created_by
@@ -135,7 +134,6 @@ async def list_templates(
                 template_file_path=template.template_file_path or "",
                 total_questions=template.total_questions,
                 options_per_question=template.options_per_question,
-                save_intermediate_results=template.save_intermediate_results,
                 created_at=template.created_at,
                 updated_at=template.updated_at,
                 created_by=template.created_by

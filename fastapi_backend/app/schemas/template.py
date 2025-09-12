@@ -14,7 +14,7 @@ class TemplateCreate(BaseModel):
     # Additional fields for clustering-based configuration
     num_of_columns: Optional[int] = None
     num_of_rows_per_column: Optional[int] = None
-    num_of_options_per_question: Optional[int] = 4
+    num_of_options_per_question: Optional[int] = None
 
 class TemplateResponse(BaseModel):
     id: str
@@ -25,7 +25,6 @@ class TemplateResponse(BaseModel):
     template_file_path: str
     total_questions: int
     options_per_question: int
-    save_intermediate_results: bool
     created_at: datetime
     updated_at: datetime
     created_by: int
