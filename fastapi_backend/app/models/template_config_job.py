@@ -36,7 +36,7 @@ class TemplateConfigJob(BaseModel):
     __tablename__ = "template_config_jobs"
     
     # Basic job information
-    job_uuid = Column(String(50), nullable=False, index=True)
+    job_uuid = Column(String(50), primary_key=True, nullable=False, index=True)
     name = Column(String(100), nullable=False, index=True)
     description = Column(String(255), nullable=True)
     
@@ -78,7 +78,7 @@ class TemplateConfigJob(BaseModel):
     template = relationship("Template", back_populates="template_config_jobs")
     
     def __repr__(self):
-        return f"<TemplateConfigJob(id={self.id}, name='{self.name}', status='{self.status}')>"
+        return f"<TemplateConfigJob(id={self.job_uuid}, name='{self.name}', status='{self.status}')>"
 
     @property
     def is_completed(self) -> bool:
@@ -93,7 +93,7 @@ class TemplateConfigJob(BaseModel):
     def to_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
         return {
-            'id': self.id,
+            'id': self.job_uuid,
             'name': self.name,
             'config_type': self.template.config_type.value if self.template and self.template.config_type else 'grid_based',
             'template_path': self.template_path,
