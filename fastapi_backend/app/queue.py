@@ -153,6 +153,7 @@ class TemplateConfigProducer:
         try:
             # Get job from database
             result = await db.get(TemplateConfigJob, job_id)
+            
             if not result:
                 raise ValueError(f"TemplateConfigJob with id {job_id} not found")
             
