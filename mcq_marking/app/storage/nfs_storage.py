@@ -50,25 +50,20 @@ class NFSStorage:
                 (dir_path / 'templates').mkdir(exist_ok=True)
 
     def save_file(self, file_content: bytes, file_path: str, 
-                  file_type: str = 'general', metadata: dict = None) -> str:
+                  metadata: dict = None) -> str:
         """
-        Save file content to NFS storage with organized structure
+        Save file content to NFS storage
         
         Args:
             file_content: File content as bytes
-            file_path: Relative path within the file_type directory
-            file_type: Type of file (uploads, processed, templates, etc.)
+            file_path: Full relative path from base storage directory
             metadata: Optional metadata to save alongside the file
             
         Returns:
             Full path to the saved file
         """
-        # Determine the target directory based on file type
-        target_dir = self.base_path / file_type
-        target_dir.mkdir(parents=True, exist_ok=True)
-        
         # Create the full file path
-        full_path = target_dir / file_path
+        full_path = self.base_path / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Save the file
@@ -85,24 +80,23 @@ class NFSStorage:
         
         return str(full_path)
 
-    def get_file(self, file_path: str, file_type: str = 'general') -> bytes:
+    def get_file(self, file_path: str) -> bytes:
         """
         Get file content from NFS storage
         
         Args:
-            file_path: Relative path within the file_type directory
-            file_type: Type of file directory
+            file_path: Full relative path from base storage directory
             
         Returns:
             File content as bytes
         """
-        full_path = self.base_path / file_type / file_path
+        full_path = self.base_path / file_path
         with open(full_path, 'rb') as f:
             return f.read()
 
-    def get_file_metadata(self, file_path: str, file_type: str = 'general') -> dict:
+    def get_file_metadata(self, file_path: str) -> dict:
         """Get file metadata"""
-        full_path = self.base_path / file_type / file_path
+        full_path = self.base_path / file_path
         metadata_path = full_path.with_suffix(full_path.suffix + '.meta')
         
         if metadata_path.exists():
@@ -110,23 +104,19 @@ class NFSStorage:
                 return json.load(f)
         return {}
 
-    def list_files(self, file_type: str = 'general', 
-                   subdirectory: str = None, 
+    def list_files(self, directory: str = "", 
                    pattern: str = "*") -> List[str]:
         """
         List files in the specified directory
         
         Args:
-            file_type: Type of file directory
-            subdirectory: Optional subdirectory within file_type
+            directory: Directory path to list files from
             pattern: File pattern to match (e.g., "*.pdf", "*.jpg")
             
         Returns:
             List of relative file paths
         """
-        target_dir = self.base_path / file_type
-        if subdirectory:
-            target_dir = target_dir / subdirectory
+        target_dir = self.base_path / directory
         
         if not target_dir.exists():
             return []
@@ -134,24 +124,23 @@ class NFSStorage:
         files = []
         for file_path in target_dir.rglob(pattern):
             if file_path.is_file() and not file_path.name.endswith('.meta'):
-                # Return relative path from the file_type directory
-                relative_path = file_path.relative_to(target_dir)
+                # Return relative path from the base directory
+                relative_path = file_path.relative_to(self.base_path)
                 files.append(str(relative_path))
         
         return sorted(files)
 
-    def delete_file(self, file_path: str, file_type: str = 'general') -> bool:
+    def delete_file(self, file_path: str) -> bool:
         """
         Delete file from NFS storage
         
         Args:
-            file_path: Relative path within the file_type directory
-            file_type: Type of file directory
+            file_path: Full relative path from base storage directory
             
         Returns:
             True if file was deleted, False if file didn't exist
         """
-        full_path = self.base_path / file_type / file_path
+        full_path = self.base_path / file_path
         metadata_path = full_path.with_suffix(full_path.suffix + '.meta')
         
         deleted = False
@@ -164,22 +153,19 @@ class NFSStorage:
         
         return deleted
 
-    def copy_file(self, source_path: str, source_type: str,
-                  dest_path: str, dest_type: str) -> str:
+    def copy_file(self, source_path: str, dest_path: str) -> str:
         """
         Copy file within NFS storage
         
         Args:
-            source_path: Source file relative path
-            source_type: Source file type directory
-            dest_path: Destination file relative path
-            dest_type: Destination file type directory
+            source_path: Source file relative path from base storage directory
+            dest_path: Destination file relative path from base storage directory
             
         Returns:
             Full path to the copied file
         """
-        source_full = self.base_path / source_type / source_path
-        dest_full = self.base_path / dest_type / dest_path
+        source_full = self.base_path / source_path
+        dest_full = self.base_path / dest_path
         dest_full.parent.mkdir(parents=True, exist_ok=True)
         
         shutil.copy2(source_full, dest_full)
@@ -192,22 +178,19 @@ class NFSStorage:
         
         return str(dest_full)
 
-    def move_file(self, source_path: str, source_type: str,
-                  dest_path: str, dest_type: str) -> str:
+    def move_file(self, source_path: str, dest_path: str) -> str:
         """
         Move file within NFS storage
         
         Args:
-            source_path: Source file relative path
-            source_type: Source file type directory
-            dest_path: Destination file relative path
-            dest_type: Destination file type directory
+            source_path: Source file relative path from base storage directory
+            dest_path: Destination file relative path from base storage directory
             
         Returns:
             Full path to the moved file
         """
-        source_full = self.base_path / source_type / source_path
-        dest_full = self.base_path / dest_type / dest_path
+        source_full = self.base_path / source_path
+        dest_full = self.base_path / dest_path
         dest_full.parent.mkdir(parents=True, exist_ok=True)
         
         shutil.move(str(source_full), str(dest_full))
@@ -220,32 +203,31 @@ class NFSStorage:
         
         return str(dest_full)
 
-    def create_directory(self, dir_path: str, file_type: str = 'general') -> str:
+    def create_directory(self, dir_path: str) -> str:
         """
         Create directory in NFS storage
         
         Args:
-            dir_path: Relative directory path
-            file_type: Type of file directory
+            dir_path: Relative directory path from base storage directory
             
         Returns:
             Full path to the created directory
         """
-        full_path = self.base_path / file_type / dir_path
+        full_path = self.base_path / dir_path
         full_path.mkdir(parents=True, exist_ok=True)
         return str(full_path)
 
-    def get_directory_structure(self, file_type: str = 'general') -> dict:
+    def get_directory_structure(self, directory: str = "") -> dict:
         """
         Get directory structure as a nested dictionary
         
         Args:
-            file_type: Type of file directory
+            directory: Directory path to get structure for (empty for root)
             
         Returns:
             Nested dictionary representing the directory structure
         """
-        target_dir = self.base_path / file_type
+        target_dir = self.base_path / directory if directory else self.base_path
         
         def build_tree(path: Path) -> dict:
             tree = {}

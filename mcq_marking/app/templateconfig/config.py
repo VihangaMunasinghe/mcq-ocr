@@ -20,7 +20,7 @@ def get_config(img_path, want_intermediate_results=False):
     """
     # Load image from NFS storage
     nfs = NFSStorage()
-    img_bytes = nfs.get_file(img_path, "uploads/templates")
+    img_bytes = nfs.get_file(img_path)
     nparr = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 

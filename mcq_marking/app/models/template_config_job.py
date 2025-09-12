@@ -56,22 +56,19 @@ class TemplateConfigJob:
         # Save configuration JSON to NFS storage
         save_json(
             self.template_config, 
-            self.template_config_path, 
-            "templates"
+            self.template_config_path
         )
         
         # Save warped image to NFS storage
         save_image(
             self.output_image_path, 
-            warped_img, 
-            "templates"
+            warped_img
         )
 
         # Save result image to NFS storage
         save_image(
             self.result_image_path, 
-            self.result_img, 
-            "intermediate/templates"
+            self.result_img
         )
         
         return self.template_config, self.warped_img, self.result_img
