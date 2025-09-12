@@ -37,9 +37,8 @@ class Template(BaseModel):
     
     # Relationships
     created_by_user = relationship("User", back_populates="templates")
-    files = relationship("File", back_populates="template")
-    marking_jobs = relationship("MarkingJob", back_populates="template")
-    template_config_jobs = relationship("TemplateConfigJob", back_populates="template")
+    marking_jobs = relationship("MarkingJob", back_populates="template", cascade="all, delete-orphan")
+    template_config_jobs = relationship("TemplateConfigJob", back_populates="template", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Template(id={self.id}, name='{self.name}', type='{self.config_type}')>"

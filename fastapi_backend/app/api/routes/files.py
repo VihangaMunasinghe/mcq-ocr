@@ -7,7 +7,7 @@ from pathlib import Path
 from app.schemas.file import FileResponse, FileUploadResponse
 from app.storage.shared_storage import SharedStorage
 
-router = APIRouter(prefix="/files", tags=["files"])
+router = APIRouter(prefix="/api/files", tags=["files"])
 
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...),
