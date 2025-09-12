@@ -1,13 +1,10 @@
-import json
-
-import cv2
 from app.templateconfig.config import get_config
 from app.templateconfig.clustering import get_clustering
 from app.utils.file_handelling import save_image, save_json, read_image
 
 
 class TemplateConfigJob:
-    def __init__(self, data: dict, save_intermediate_results: bool = False):
+    def __init__(self, data: dict):
         '''
         data is a dictionary with the following keys:
         data:
@@ -28,7 +25,7 @@ class TemplateConfigJob:
         self.num_of_columns = data['num_of_columns']|None
         self.num_of_rows_per_column = data['num_of_rows_per_column']|None
         self.num_of_options_per_question = data['num_of_options_per_question']|None
-        self.save_intermediate_results = save_intermediate_results
+        self.save_intermediate_results = data['save_intermediate_results']
         self.template_config = None
         self.warped_img = None
         self.result_img = None
