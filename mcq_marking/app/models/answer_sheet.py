@@ -2,14 +2,20 @@ from PIL import Image
 from app.autograder.marking import calculate_score, get_answers
 from app.autograder.utils.draw_shapes import draw_scatter_points
 from app.models.marking_scheme import MarkingScheme
+from pika.adapters.blocking_connection import BlockingChannel
+from pika import BasicProperties
+import json
+import numpy as np
 
 class AnswerSheet:
-    def __init__(self, job_id : int, id : int, name: str, answer_sheet_img : Image, marking_scheme: MarkingScheme):
+    def __init__(self, job_id : int, id : int, path: str, answer_sheet_img : Image, marking_scheme: MarkingScheme, rabbit_channel: BlockingChannel = None, index_task_queue="index_task_queue"):
         self.job_id = job_id
         self.id = id
-        self.name = name
+        self.path = path
         self.answer_sheet_img = answer_sheet_img
         self.marking_scheme = marking_scheme
+        self.rabbit_channel = rabbit_channel
+        self.index_task_queue = index_task_queue
         self.index_number = None
         self.answers_with_coordinates = None
         self.correct = None
@@ -28,10 +34,28 @@ class AnswerSheet:
           self.answers_with_coordinates = get_answers(self.answer_sheet_img, self.answer_sheet_img, bubble_coordinates)
         return self.answers_with_coordinates
     
+    def start_index_recognition(self):
+        if self.rabbit_channel is not None:
+            task_data = {
+                'file_path': self.path,
+                'task_id': self.job_id,
+                'answer_sheet_id': self.id,
+            }
+            task_message = json.dumps(task_data)
+            self.rabbit_channel.basic_publish(
+                exchange='',
+                routing_key=self.index_task_queue,
+                body=task_message,
+                properties=BasicProperties(
+                    delivery_mode=2,  # make message persistent
+                ))
+        else:
+            raise ValueError("Rabbit channel is not set for index recognition task.")
+
     def get_score(self, intermediate_results=False):
+        self.start_index_recognition()
         self.get_answers_and_corresponding_points()
-        # TODO: send for index detection
-        marking_scheme_answers,_ = self.marking_scheme.get_answers_and_corresponding_points()
+        marking_scheme_answers = self.marking_scheme.get_answers_and_corresponding_points()
         choice_distribution = self.marking_scheme.template.get_choice_distribution()
         (
             self.correct,
@@ -43,12 +67,14 @@ class AnswerSheet:
         ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
         if intermediate_results:
             result_img = self.answer_sheet_img.copy()
+            result_img = np.array(result_img)            
             result_img = draw_scatter_points(result_img, self.points["correct"], color=(0, 255, 0))
             result_img = draw_scatter_points(result_img, self.points["incorrect"], color=(0, 0, 255))
             result_img = draw_scatter_points(result_img, self.points["more_than_one_marked"], color=(255, 0, 0))
             result_img = draw_scatter_points(result_img, self.points["not_marked"], color=(255, 255, 0))
             self.result_img = result_img
-            
+        
+        print(f"Score for AnswerSheet ID {self.id}: {len(self.correct)} out of {len(marking_scheme_answers)}")
         return {
             "index_number": self.index_number,
             "correct": self.correct,
@@ -63,4 +89,4 @@ class AnswerSheet:
         }
 
     def __str__(self):
-        return f"AnswerSheet(job_id={self.job_id}, id={self.id}, name={self.name})"
+        return f"AnswerSheet(job_id={self.job_id}, id={self.id}, path={self.path})"

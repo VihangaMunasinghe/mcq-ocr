@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MCQMarkingWorker:
-    def __init__(self, rabbitmq_url: str = "amqp://localhost"):
+    def __init__(self, rabbitmq_url: str = "amqp://admin:@localhost:5672/"):
         self.rabbitmq_url = rabbitmq_url
         self.connection = None
         self.channel = None
@@ -58,7 +58,7 @@ class MCQMarkingWorker:
             logger.info(f"Processing marking job: {job_data.get('id', 'unknown')}")
             
             # Create and process marking job
-            marking_job = MarkingJob(job_data, save_intermediate_results=True)
+            marking_job = MarkingJob(job_data, save_intermediate_results=True, rabbitmq_url=self.rabbitmq_url)
             marking_job.mark_answers()
             
             logger.info(f"Marking job completed: {job_data.get('id', 'unknown')}")
@@ -107,7 +107,7 @@ class MCQMarkingWorker:
 
 def main():
     # Get RabbitMQ URL from environment variable or use default
-    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://localhost')
+    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://admin:secret@localhost:5672/')
     
     worker = MCQMarkingWorker(rabbitmq_url)
     worker.run()

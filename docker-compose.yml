@@ -116,8 +116,25 @@ services:
     environment:
       - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
       - NFS_SHARED_PATH=/shared
+      - INDEX_TASK_QUEUE=index_tasks
     restart: unless-stopped
 
+  index-recognizer:
+    build:
+      context: ./index_recognision
+      dockerfile: Dockerfile
+    volumes:
+      - nfs_storage:/shared # Mount NFS storage
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      shared-storage:
+        condition: service_started
+    environment:
+    - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
+    - RABBITMQ_INCOMING_QUEUE=index_tasks
+    - RABBITMQ_OUTGOING_QUEUE=index_results
+    restart: unless-stopped
 volumes:
   postgres-data:
   rabbitmq-data:
