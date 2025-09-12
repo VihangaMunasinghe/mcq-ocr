@@ -68,35 +68,33 @@ def save_json(data, path):
     json_bytes = json.dumps(data, indent=2).encode('utf-8')
     nfs.save_file(json_bytes, path)
 
-def read_json(path, file_type='templates'):
+def read_json(path):
     """
     Read JSON data from NFS storage
     
     Args:
         path: Relative path within the file_type directory
-        file_type: Type of file directory
         
     Returns:
         Parsed JSON data
     """
     nfs = NFSStorage()
-    json_bytes = nfs.get_file(path, file_type)
+    json_bytes = nfs.get_file(path)
     return json.loads(json_bytes.decode('utf-8'))
 
-def read_answer_sheet_paths(folder_path, file_type='uploads'):
+def read_answer_sheet_paths(folder_path):
     """
     List all answer sheet file paths in a given NFS folder.
 
     Args:
-        folder_path: Relative path within the file_type directory (e.g., 'answer_sheets')
-        file_type: NFS file type directory (default: 'uploads')
+        folder_path: Relative path within the file_type directory (e.g., 'uploads/answer_sheets')
 
     Returns:
         Sorted list of file paths (relative to file_type/folder_path)
     """
     nfs = NFSStorage()
     # List files in the given subdirectory using NFS
-    file_list = nfs.list_files(file_type=file_type, subdirectory=folder_path)
+    file_list = nfs.list_files(directory=folder_path)
     # Return sorted list of relative paths (folder_path/filename)
     return sorted([os.path.join(folder_path, fname) for fname in file_list])
 

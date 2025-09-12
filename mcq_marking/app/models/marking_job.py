@@ -64,9 +64,9 @@ class MarkingJob:
     def setup(self, force_recalculate=False):
         self.connect()
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
-            template_img = read_enhanced_image(self.template_path, 'templates', 1.5)
-            marking_img = read_enhanced_image(self.marking_path, 'uploads/marking_schemes', 1.5)
-            template_config = read_json(self.template_config_path, 'templates')
+            template_img = read_enhanced_image(self.template_path, 1.5)
+            marking_img = read_enhanced_image(self.marking_path, 1.5)
+            template_config = read_json(self.template_config_path)
             self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config,self.config_type)
             self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template)
             self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path, 'uploads/answer_sheets')
