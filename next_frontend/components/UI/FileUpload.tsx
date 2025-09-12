@@ -54,7 +54,7 @@ export function FileUpload({
             const category = type.replace("/*", "");
             return file.type.startsWith(category);
           }
-          return file.type === type;
+          return file.name.endsWith(type);
         })
       ) {
         errors.push(`${file.name} has an unsupported file type`);

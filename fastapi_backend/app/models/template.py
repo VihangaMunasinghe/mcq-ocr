@@ -1,0 +1,45 @@
+"""
+Template model for MCQ templates.
+"""
+
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum
+from sqlalchemy.orm import relationship
+from enum import Enum as PyEnum
+from .base import BaseModel
+
+class TemplateConfigType(PyEnum):
+    """Enum for template configuration type."""
+    GRID_BASED = "grid_based"
+    CLUSTERING_BASED = "clustering_based"
+
+
+class Template(BaseModel):
+    """Template model for MCQ templates."""
+    
+    __tablename__ = "templates"
+    
+    name = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    config_type = Column(Enum(TemplateConfigType), nullable=False)
+    
+    # Template configuration
+    total_questions = Column(Integer, nullable=False, default=0)
+    options_per_question = Column(Integer, nullable=False, default=5)
+    
+    # Template configuration as JSON
+    configuration_path = Column(String(255), nullable=True)
+    
+    # File references
+    template_file_path = Column(String(255), nullable=True)
+    
+    # Foreign keys
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Relationships
+    created_by_user = relationship("User", back_populates="templates")
+    files = relationship("File", back_populates="template")
+    marking_jobs = relationship("MarkingJob", back_populates="template")
+    template_config_jobs = relationship("TemplateConfigJob", back_populates="template")
+    
+    def __repr__(self):
+        return f"<Template(id={self.id}, name='{self.name}', type='{self.config_type}')>"

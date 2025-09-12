@@ -1,6 +1,70 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.routes import files_router, templates_router, users_router
+from app.api.routes.jobs import router as jobs_router
+from app.database import init_db, close_db, test_database_connection
+from app.config import get_settings
+from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
 
-app = FastAPI(title="MCQ Marking System API", version="0.1.0")
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup and shutdown events."""
+    # Startup
+    print("Starting MCQ Marking System API...")
+    
+    try:
+        # Initialize database
+        await init_db()
+        print("Database initialized successfully")
+        
+        # Initialize queue system
+        await initialize_queue_system()
+        print("Queue system initialized successfully")
+        
+    except Exception as e:
+        print(f"Initialization failed: {e}")
+        raise e
+    
+    yield
+    
+    # Shutdown
+    print("Shutting down MCQ Marking System API...")
+    
+    try:
+        # Shutdown queue system
+        await shutdown_queue_system()
+        print("Queue system shutdown complete")
+        
+        # Close database
+        await close_db()
+        print("Database connections closed")
+        
+    except Exception as e:
+        print(f"Shutdown error: {e}")
+    
+    print("Shutdown complete")
+
+
+app = FastAPI(
+    title=settings.app.app_name,
+    version=settings.app.app_version,
+    description="A comprehensive system for MCQ marking and template management",
+    debug=settings.app.debug,
+    lifespan=lifespan
+)
+
+# Configure CORS for large file uploads
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure this properly for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -8,4 +72,38 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint with database and queue connectivity test."""
+    db_status = "healthy"
+    queue_status = "healthy"
+    
+    try:
+        db_connected = await test_database_connection()
+        if not db_connected:
+            db_status = "unhealthy"
+    except Exception:
+        db_status = "unhealthy"
+    
+    try:
+        if not rabbitmq_manager.connection or rabbitmq_manager.connection.is_closed:
+            queue_status = "unhealthy"
+    except Exception:
+        queue_status = "unhealthy"
+    
+    overall_status = "healthy"
+    if db_status == "unhealthy" or queue_status == "unhealthy":
+        overall_status = "degraded"
+    
+    return {
+        "status": overall_status,
+        "database": db_status,
+        "queue": queue_status,
+        "version": settings.app.app_version,
+        "environment": settings.app.environment
+    }
+
+# Include routers
+app.include_router(files_router)
+app.include_router(templates_router)
+app.include_router(users_router)
+app.include_router(jobs_router)
+

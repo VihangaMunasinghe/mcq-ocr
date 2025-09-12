@@ -1,4 +1,68 @@
 services:
+  # Frontend - Next.js (Development)
+  frontend:
+    build:
+      context: ./next_frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./next_frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backend - FastAPI (Development)
+  backend:
+    build:
+      context: ./fastapi_backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - NFS_SHARED_PATH=/shared
+      - DATABASE_URL=postgresql://mcq_user:mcq_password@postgres:5432/mcq_database
+      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
+    volumes:
+      - ./fastapi_backend:/app
+      - nfs_storage:/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      shared-storage:
+        condition: service_started
+    restart: unless-stopped
+    user: "1000:1000" # Add user permissions for shared storage
+
+  # Database - PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: mcq-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: mcq_database
+      POSTGRES_USER: mcq_user
+      POSTGRES_PASSWORD: mcq_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./fastapi_backend/init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcq_user -d mcq_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Message Queue
   rabbitmq:
     image: rabbitmq:3.12-management
     ports:
@@ -29,11 +93,14 @@ services:
         mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
         mkdir -p /shared/templates/configs /shared/templates/processed &&
         mkdir -p /shared/results/individual /shared/results/batch /shared/results/detailed &&
+        chmod -R 777 /shared &&
+        chown -R 1000:1000 /shared &&
         echo 'Shared storage ready' &&
         tail -f /dev/null
       "
     restart: unless-stopped
 
+  # Legacy MCQ marking system (keeping for compatibility)
   mcq-marking-system:
     build:
       context: ./mcq_marking
@@ -52,5 +119,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   rabbitmq-data:
   nfs_storage:
