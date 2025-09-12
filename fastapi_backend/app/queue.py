@@ -271,10 +271,10 @@ class TemplateConfigResultConsumer:
                             
                             # Store results
                             if 'template_config_path' in result_data:
-                                job.template_config_path = result_data['template_config_path']
+                                job.template.configuration = result_data['template_config_path']
                             
                             if 'output_image_path' in result_data:
-                                job.output_image_path = result_data['output_image_path']
+                                job.template.template_file_path = result_data['output_image_path']
                             
                             if 'result_image_path' in result_data:
                                 job.result_image_path = result_data['result_image_path']

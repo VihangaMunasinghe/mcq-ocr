@@ -19,9 +19,7 @@ class MarkingJobStatus(PyEnum):
 
 class MarkingJobPriority(PyEnum):
     """Enum for marking job priority."""
-    LOW = "low"
     NORMAL = "normal"
-    HIGH = "high"
     URGENT = "urgent"
 
 

@@ -2,13 +2,15 @@
 Template model for MCQ templates.
 """
 
-from enum import Enum
-from sqlalchemy import Column, String, Text, Integer, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum
 from sqlalchemy.orm import relationship
-
-from app.models.template_config_job import TemplateConfigType
+from enum import Enum as PyEnum
 from .base import BaseModel
 
+class TemplateConfigType(PyEnum):
+    """Enum for template configuration type."""
+    GRID_BASED = "grid_based"
+    CLUSTERING_BASED = "clustering_based"
 
 
 class Template(BaseModel):
@@ -18,18 +20,17 @@ class Template(BaseModel):
     
     name = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    template_config_type = Column(Enum(TemplateConfigType), nullable=False)
+    config_type = Column(Enum(TemplateConfigType), nullable=False)
     
     # Template configuration
     total_questions = Column(Integer, nullable=False, default=0)
     options_per_question = Column(Integer, nullable=False, default=4)
     
     # Template configuration as JSON
-    configuration = Column(String(255), nullable=True)
+    configuration_path = Column(String(255), nullable=True)
     
     # File references
     template_file_path = Column(String(255), nullable=True)
-    preview_image_path = Column(String(255), nullable=True)
     
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -41,4 +42,4 @@ class Template(BaseModel):
     template_config_jobs = relationship("TemplateConfigJob", back_populates="template")
     
     def __repr__(self):
-        return f"<Template(id={self.id}, name='{self.name}', type='{self.template_type}')>"
+        return f"<Template(id={self.id}, name='{self.name}', type='{self.config_type}')>"
