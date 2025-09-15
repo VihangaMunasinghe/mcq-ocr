@@ -22,9 +22,9 @@ class TemplateConfigJob:
         self.template_config_path = data['template_config_path']
         self.output_image_path = data['output_image_path']
         self.result_image_path = data['result_image_path']
-        self.num_of_columns = data['num_of_columns']|None
-        self.num_of_rows_per_column = data['num_of_rows_per_column']|None
-        self.num_of_options_per_question = data['num_of_options_per_question']|None
+        self.num_of_columns = data.get('num_of_columns',None)
+        self.num_of_rows_per_column = data.get('num_of_rows_per_column',None)
+        self.num_of_options_per_question = data.get('num_of_options_per_question',None)
         self.save_intermediate_results = data['save_intermediate_results']
         self.template_config = None
         self.warped_img = None

@@ -1,4 +1,4 @@
-FROM python:3.11-bullseye
+FROM python:3.11-slim
 COPY requirements.txt ./
 RUN apt-get update && apt-get install -y \
     libgl1 \
@@ -9,5 +9,7 @@ RUN pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.py
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+RUN python -c "import Recognizer"
 
 CMD ["python", "main.py"]
