@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 # Install build dependencies for numpy and other packages
 RUN apt-get update && apt-get install -y \

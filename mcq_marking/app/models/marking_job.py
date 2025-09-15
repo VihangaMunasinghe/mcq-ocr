@@ -54,7 +54,7 @@ class MarkingJob:
             self.channel = self.connection.channel()
             
             # Declare queues
-            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=True)
+            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=False)
             
             logger.info("Marking Job Connected to RabbitMQ")
         except Exception as e:
@@ -69,8 +69,10 @@ class MarkingJob:
             template_config = read_json(self.template_config_path)
             self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config,self.config_type)
             self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template)
-            self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path, 'uploads/answer_sheets')
-            self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results', 'results')
+            logger.info(f"Obtaining papers from {self.answers_folder_path}")
+            self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path)
+            logger.info(f"Found {len(self.answer_sheets)} answer sheets to process.")
+            self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
             self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason'])
@@ -79,7 +81,7 @@ class MarkingJob:
         self.setup()
         self.start_time = time.time()
         for i, answer_sheet_path in enumerate(self.answer_sheets):
-            answer_sheet_img = read_enhanced_image(answer_sheet_path, 'uploads/answer_sheets', 1.5)
+            answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
             score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
             self.add_to_spreadsheet(score)

@@ -38,7 +38,7 @@ class MCQMarkingWorker:
             logger.info(f"Processing template config job: {job_data.get('id', 'unknown')}")
             
             # Create and process template config job
-            template_config_job = TemplateConfigJob(job_data, save_intermediate_results=True)
+            template_config_job = TemplateConfigJob(job_data)
             template_config_job.configure()
             
             logger.info(f"Template config job completed: {job_data.get('id', 'unknown')}")

@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Optional, List, Union
 from datetime import datetime
 import json
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class NFSStorage:
     _instance: Optional['NFSStorage'] = None
@@ -118,6 +122,8 @@ class NFSStorage:
         """
         target_dir = self.base_path / directory
         
+        logger.info(f"Listing files in {target_dir} with pattern {pattern}")
+
         if not target_dir.exists():
             return []
         
