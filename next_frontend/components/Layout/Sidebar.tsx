@@ -87,7 +87,7 @@ export function Sidebar() {
   };
 
   return (
-    <>
+    <div className="flex">
       {/* Mobile menu button */}
       <div className="md:hidden fixed top-4 left-4 z-30">
         <button
@@ -114,7 +114,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-20 flex flex-col bg-white border-r border-gray-200 pt-5 pb-4 transition-all duration-300 transform
+          flex flex-col bg-white border-r border-gray-200 pt-5 pb-4 transition-all duration-300 transform
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
           ${collapsed ? "w-20" : "w-64"}
@@ -202,6 +202,6 @@ export function Sidebar() {
           </nav>
         </div>
       </aside>
-    </>
+    </div>
   );
 }
