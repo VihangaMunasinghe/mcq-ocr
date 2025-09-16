@@ -40,7 +40,7 @@ class TemplateConfigJob:
                 self.template_path, 
                 self.save_intermediate_results
             )
-        if self.config_type == 'clustering_based':
+        elif self.config_type == 'clustering_based':
             bubble_configs, warped_img, result_img = get_clustering(
                 self.template_path, 
                 self.num_of_columns,

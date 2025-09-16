@@ -17,7 +17,7 @@ class TemplateCreate(BaseModel):
     num_of_options_per_question: Optional[int] = None
 
 class TemplateResponse(BaseModel):
-    id: str
+    id: int
     name: str
     description: Optional[str] = None
     config_type: TemplateConfigType

@@ -24,7 +24,6 @@ async def create_template(
     Create a new template and submit configuration job to queue
     """
     user_id = 1 # TODO: Get from authentication
-    job_uuid = uuid.uuid4().hex[:8]
     try:
         # Step 1: Add details to template table
         template_record = Template(
@@ -41,10 +40,12 @@ async def create_template(
         db.add(template_record)
         await db.commit()
         await db.refresh(template_record)
+
+        random_id = str(uuid.uuid4())[:8]
         
-        template_config_path = f"templates/{user_id}/{template_record.id}_{job_uuid}_config.json"
-        output_image_path = f"templates/{user_id}/{template_record.id}_{job_uuid}_template.jpg"
-        result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{job_uuid}_result.jpg" if template.save_intermediate_results else None
+        template_config_path = f"templates/{user_id}/{template_record.id}_{random_id}_config.json"
+        output_image_path = f"templates/{user_id}/{template_record.id}_{random_id}_template.jpg"
+        result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{random_id}_result.jpg" if template.save_intermediate_results else None
         template_record.configuration_path = template_config_path
         
         template_record.template_file_path = output_image_path
@@ -55,7 +56,6 @@ async def create_template(
         
         # Step 3: Add details to job table
         config_job = TemplateConfigJob(
-            job_uuid=job_uuid,
             name=f"Config for {template.name}",
             description=f"Template configuration for {template.name}",
             template_id=template_record.id,
@@ -77,11 +77,11 @@ async def create_template(
         await db.refresh(config_job)
         
         # Step 4: Put the message to queue (in background)
-        background_tasks.add_task(submit_template_config_job, config_job.id, db)
+        background_tasks.add_task(submit_template_config_job, config_job.id)
         
         # Step 5: Return the response
         return TemplateResponse(
-            id=str(template_record.id),
+            id=template_record.id,
             name=template_record.name,
             description=template_record.description,
             config_type=template_record.config_type,
@@ -126,7 +126,7 @@ async def list_templates(
         
         return [
             TemplateResponse(
-                id=str(template.id),
+                id=template.id,
                 name=template.name,
                 description=template.description,
                 config_type=template.config_type,
@@ -165,7 +165,7 @@ async def get_template(
             )
         
         return TemplateResponse(
-            id=str(template.id),
+            id=template.id,
             name=template.name,
             description=template.description,
             config_type=template.config_type,
@@ -215,7 +215,7 @@ async def update_template(
         await db.refresh(template)
         
         return TemplateResponse(
-            id=str(template.id),
+            id=template.id,
             name=template.name,
             description=template.description,
             config_type=template.config_type,
