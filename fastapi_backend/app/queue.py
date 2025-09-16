@@ -12,9 +12,11 @@ import aio_pika
 from aio_pika import Connection, Channel, Queue, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from .config import get_settings
-from .database import get_async_db
+from .database import get_async_db, AsyncSessionLocal
 from .models import MarkingJob, TemplateConfigJob, MarkingJobStatus, TemplateConfigJobStatus
 
 logger = logging.getLogger(__name__)
@@ -151,13 +153,15 @@ class TemplateConfigProducer:
     async def submit_template_config_job(self, job_id: int, db: AsyncSession):
         """Submit a template configuration job to the queue."""
         try:
-            # Get job from database
-            result = await db.get(TemplateConfigJob, job_id)
-            
-            if not result:
+            # Get job from database with Template eagerly loaded to avoid async lazy-load
+            result = await db.execute(
+                select(TemplateConfigJob)
+                .options(selectinload(TemplateConfigJob.template))
+                .where(TemplateConfigJob.id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            if not job:
                 raise ValueError(f"TemplateConfigJob with id {job_id} not found")
-            
-            job = result
             
             # Update job status
             job.status = TemplateConfigJobStatus.PENDING
@@ -191,7 +195,6 @@ class TemplateConfigProducer:
             # Update job status to failed
             if 'job' in locals():
                 job.status = TemplateConfigJobStatus.FAILED
-                job.error_message = str(e)
                 await db.commit()
             raise
 
@@ -244,7 +247,6 @@ class MarkingJobProducer:
             # Update job status to failed
             if 'job' in locals():
                 job.status = MarkingJobStatus.FAILED
-                job.error_message = str(e)
                 await db.commit()
             raise
 
@@ -271,8 +273,14 @@ class TemplateConfigResultConsumer:
                 # Get database session
                 async for db in get_async_db():
                     try:
-                        # Get job from database
-                        job_result = await db.get(TemplateConfigJob, job_id)
+                        # Get job from database with Template eagerly loaded to avoid async lazy-load
+                        sel = (
+                            select(TemplateConfigJob)
+                            .options(selectinload(TemplateConfigJob.template))
+                            .where(TemplateConfigJob.id == job_id)
+                        )
+                        job_result = await db.execute(sel)
+                        job_result = job_result.scalar_one_or_none()
                         if not job_result:
                             logger.error(f"TemplateConfigJob {job_id} not found")
                             return
@@ -318,11 +326,9 @@ class TemplateConfigResultConsumer:
                             
                         else:
                             job.status = TemplateConfigJobStatus.FAILED
-                            job.error_message = result_data.get('error_message', 'Unknown error')
-                            if 'error_details' in result_data:
-                                job.error_details = result_data['error_details']
+                            error_message = result_data.get('error_message', 'Unknown error')
                             
-                            logger.error(f"Template config job {job_id} failed: {job.error_message}")
+                            logger.error(f"Template config job {job_id} failed: {error_message}")
                         
                         await db.commit()
                         
@@ -415,11 +421,9 @@ class MarkingJobResultConsumer:
                             
                         else:
                             job.status = MarkingJobStatus.FAILED
-                            job.error_message = result_data.get('error_message', 'Unknown error')
-                            if 'error_details' in result_data:
-                                job.error_details = result_data['error_details']
+                            error_message = result_data.get('error_message', 'Unknown error')
                             
-                            logger.error(f"Marking job {job_id} failed: {job.error_message}")
+                            logger.error(f"Marking job {job_id} failed: {error_message}")
                         
                         await db.commit()
                         
@@ -495,12 +499,24 @@ async def shutdown_queue_system():
         logger.error(f"Error during queue system shutdown: {e}")
 
 
-# Convenience functions for external use
-async def submit_template_config_job(job_id: int, db: AsyncSession) -> bool:
+# # Convenience functions for external use
+# async def submit_template_config_job(job_id: int, db: AsyncSession) -> bool:
+#     """Submit a template configuration job to the queue."""
+#     return await template_config_producer.submit_template_config_job(job_id, db)
+
+
+# async def submit_marking_job(job_id: int, db: AsyncSession) -> bool:
+#     """Submit a marking job to the queue."""
+#     return await marking_job_producer.submit_marking_job(job_id, db)
+
+
+# Helpers for background tasks (manage own session; avoid using request-scoped session)
+async def submit_template_config_job(job_id: int) -> bool:
     """Submit a template configuration job to the queue."""
-    return await template_config_producer.submit_template_config_job(job_id, db)
+    async with AsyncSessionLocal() as session:
+        return await template_config_producer.submit_template_config_job(job_id, session)
 
-
-async def submit_marking_job(job_id: int, db: AsyncSession) -> bool:
+async def submit_marking_job(job_id: int) -> bool:
     """Submit a marking job to the queue."""
-    return await marking_job_producer.submit_marking_job(job_id, db)
+    async with AsyncSessionLocal() as session:
+        return await marking_job_producer.submit_marking_job(job_id, session)

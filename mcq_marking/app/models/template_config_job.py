@@ -3,6 +3,11 @@ from app.templateconfig.clustering import get_clustering
 from app.utils.file_handelling import save_image, save_json, read_image
 
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class TemplateConfigJob:
     def __init__(self, data: dict):
         '''
@@ -40,7 +45,7 @@ class TemplateConfigJob:
                 self.template_path, 
                 self.save_intermediate_results
             )
-        if self.config_type == 'clustering_based':
+        elif self.config_type == 'clustering_based':
             bubble_configs, warped_img, result_img = get_clustering(
                 self.template_path, 
                 self.num_of_columns,
@@ -51,25 +56,32 @@ class TemplateConfigJob:
         self.template_config = bubble_configs
         self.warped_img = warped_img
         self.result_img = result_img
-        
-        
+                
         # Save configuration JSON to NFS storage
         save_json(
             self.template_config, 
             self.template_config_path
         )
+        logger.info(f"Template config saved to NFS storage")
         
-        # Save warped image to NFS storage
-        save_image(
-            self.output_image_path, 
-            warped_img
-        )
+        # Save warped image to NFS storage 
+        if warped_img is not None:
+            save_image(
+                self.output_image_path, 
+                warped_img
+            )
+        else:
+            logger.warning("Warped image is None, skipping save")
 
         # Save result image to NFS storage
-        save_image(
-            self.result_image_path, 
-            self.result_img
-        )
+        if self.result_img is not None:
+            save_image(
+                self.result_image_path, 
+                self.result_img
+            )
+            logger.info(f"Result image saved to NFS storage")
+        else:
+            logger.warning("Result image is None, skipping save")
         
         return self.template_config, self.warped_img, self.result_img
             

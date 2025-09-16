@@ -2,6 +2,7 @@ import json
 import os
 from PIL import Image
 import cv2
+import numpy as np
 from openpyxl import Workbook, load_workbook
 from app.storage.nfs_storage import NFSStorage
 from io import BytesIO
@@ -15,6 +16,10 @@ def save_image(path, image):
         path: Relative path within the file_type directory
         image: PIL Image or OpenCV image
     """
+    # Validate image before processing
+    if image is None:
+        raise ValueError("Cannot save None image")
+    
     # Convert image to bytes
     if hasattr(image, 'save'):            # PIL Image
         img_bytes = BytesIO()
@@ -22,6 +27,10 @@ def save_image(path, image):
         image_bytes = img_bytes.getvalue()
     else:
         # OpenCV image (numpy array)
+        # Check if image is empty
+        if not isinstance(image, np.ndarray) or image.size == 0:
+            raise ValueError("Cannot save empty OpenCV image")
+        
         success, img_bytes = cv2.imencode('.png', image)
         if success:
             image_bytes = img_bytes.tobytes()

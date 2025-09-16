@@ -14,7 +14,7 @@ def get_clustering(img_path,Num_of_columns,Num_of_rows_per_column,Num_of_options
     #img = cv2.imread("../samples/templates/2.jpg")
     # Load image from NFS storage
     nfs = NFSStorage()
-    img_bytes = nfs.get_file(img_path, "uploads/templates")
+    img_bytes = nfs.get_file(img_path)
     nparr = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
