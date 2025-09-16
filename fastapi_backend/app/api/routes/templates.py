@@ -17,7 +17,6 @@ router = APIRouter(prefix="/api/templates", tags=["templates"])
 @router.post("/", response_model=TemplateResponse)
 async def create_template(
     template: TemplateCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -77,7 +76,7 @@ async def create_template(
         await db.refresh(config_job)
         
         # Step 4: Put the message to queue (in background)
-        background_tasks.add_task(submit_template_config_job, config_job.id, db)
+        await submit_template_config_job(config_job.id, db)
         
         # Step 5: Return the response
         return TemplateResponse(

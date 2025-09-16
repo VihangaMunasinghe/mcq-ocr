@@ -56,7 +56,6 @@ class JobResponse(BaseModel):
 @router.post("/template-config", response_model=JobResponse)
 async def create_template_config_job(
     job_data: TemplateConfigJobCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_database_session)
 ):
     """Create and submit a template configuration job."""
@@ -90,7 +89,7 @@ async def create_template_config_job(
         await db.refresh(job)
         
         # Submit to queue in background
-        background_tasks.add_task(submit_template_config_job, job.id, db)
+        submit_template_config_job(job.id, db)
         
         return JobResponse(
             id=job.id,
@@ -110,7 +109,6 @@ async def create_template_config_job(
 @router.post("/marking", response_model=JobResponse)
 async def create_marking_job(
     job_data: MarkingJobCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_database_session)
 ):
     """Create and submit a marking job."""
@@ -143,7 +141,7 @@ async def create_marking_job(
         await db.refresh(job)
         
         # Submit to queue in background
-        background_tasks.add_task(submit_marking_job, job.id, db)
+        submit_marking_job(job.id, db)
         
         return JobResponse(
             id=job.id,

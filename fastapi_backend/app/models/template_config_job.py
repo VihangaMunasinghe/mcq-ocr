@@ -36,8 +36,8 @@ class TemplateConfigJob(BaseModel):
     __tablename__ = "template_config_jobs"
     
     # Basic job information
-    job_uuid = Column(String(50), primary_key=True, nullable=False, index=True)
-    name = Column(String(100), nullable=False, index=True)
+    job_uuid = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     
     # Job status and priority
