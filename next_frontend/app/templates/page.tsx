@@ -12,6 +12,71 @@ import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { Template } from "@/models/template";
 import TemplateCard from "./components/template_card";
 import ViewTemplateModal from "./components/view-template-modal";
+import { FormUploadModal } from "@/components/Modals/FormUploadModal";
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+
+const selectFormConfig= [
+  {
+    name: "config_type",
+    label: "Config Type",
+    options: [
+      { value: "grid_based", label: "Grid Based" },
+      { value: "linear", label: "Linear" },
+      { value: "custom", label: "Custom" },
+    ],
+    defaultValue: "grid_based",
+  },
+  {
+    name: "save_intermediate_results",
+    label: "Save Intermediate Results",
+    options: [
+      { value: "true", label: "Yes" },
+      { value: "false", label: "No" },
+    ],
+    defaultValue: "false",
+  },
+];
+
+const inputFormConfig = [
+    {
+      name: "name",
+      label: "Name",
+      type: "text",
+      placeholder: "Enter name",
+      required: true,
+      defaultValue: "",
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "text",
+      placeholder: "Enter description",
+      defaultValue: "",
+    },
+    {
+      name: "num_of_columns",
+      label: "Number of Columns",
+      type: "number",
+      placeholder: "3",
+      defaultValue: "3",
+    },
+    {
+      name: "num_of_rows_per_column",
+      label: "Rows per Column",
+      type: "number",
+      placeholder: "30",
+      defaultValue: "30",
+    },
+    {
+      name: "num_of_options_per_question",
+      label: "Options per Question",
+      type: "number",
+      placeholder: "5",
+      defaultValue: "5",
+    },
+  ];
+  
 
 export default function Templates() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -96,10 +161,27 @@ export default function Templates() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleUpload = (files: File[]) => {
-    // In a real app, this would make an API call to upload the files
-    console.log("Uploading files:", files);
-    showToast("Template uploaded successfully", "success");
+  const handleUpload = (formData: FormData) => {
+    console.log("Uploading form:", formData);
+
+    fetch(`${BACKEND_URL}/files/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Success:', data);
+        showToast("Template uploaded successfully", "success");
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        showToast("Failed to upload template", "error");
+      });
   };
 
   return (
@@ -139,13 +221,16 @@ export default function Templates() {
           </div>
 
           {/* File Upload Modal */}
-          <FileUploadModal
+          <FormUploadModal
             isOpen={isUploadModalOpen}
             onClose={() => setIsUploadModalOpen(false)}
             onUpload={handleUpload}
+            type="template"
             title="Upload MCQ Template"
             acceptedFileTypes="jpg, jpeg, png"
             maxFiles={1}
+            selectFormConfig={selectFormConfig}
+            inputFormConfig={inputFormConfig}
           />
 
           {/* Delete Confirmation Modal */}
