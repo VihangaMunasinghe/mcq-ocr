@@ -1,6 +1,6 @@
 from app.templateconfig.config import get_config
 from app.templateconfig.clustering import get_clustering
-from app.utils.file_handelling import save_image, save_json, read_image
+from app.utils.file_handelling import save_image, save_json, file_exists
 
 
 import logging
@@ -82,8 +82,19 @@ class TemplateConfigJob:
             logger.info(f"Result image saved to NFS storage")
         else:
             logger.warning("Result image is None, skipping save")
+
+        #Check files exist
+        if not file_exists(self.template_config_path):
+            logger.error(f"Template config file does not exist")
+            return False
+        if self.result_img is not None and not file_exists(self.output_image_path):
+            logger.error(f"Output image file does not exist")
+            return False
+        if not file_exists(self.result_image_path):
+            logger.error(f"Result image file does not exist")
+            return False
         
-        return self.template_config, self.warped_img, self.result_img
+        return True
             
 
     def __str__(self):

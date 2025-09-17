@@ -159,97 +159,102 @@ class NFSStorage:
         
         return deleted
 
-    def copy_file(self, source_path: str, dest_path: str) -> str:
-        """
-        Copy file within NFS storage
-        
-        Args:
-            source_path: Source file relative path from base storage directory
-            dest_path: Destination file relative path from base storage directory
-            
-        Returns:
-            Full path to the copied file
-        """
-        source_full = self.base_path / source_path
-        dest_full = self.base_path / dest_path
-        dest_full.parent.mkdir(parents=True, exist_ok=True)
-        
-        shutil.copy2(source_full, dest_full)
-        
-        # Copy metadata if it exists
-        source_meta = source_full.with_suffix(source_full.suffix + '.meta')
-        dest_meta = dest_full.with_suffix(dest_full.suffix + '.meta')
-        if source_meta.exists():
-            shutil.copy2(source_meta, dest_meta)
-        
-        return str(dest_full)
+    def file_exists(self, file_path: str) -> bool:
+        """Check if file exists in NFS storage"""
+        full_path = self.base_path / file_path
+        return full_path.exists()
 
-    def move_file(self, source_path: str, dest_path: str) -> str:
-        """
-        Move file within NFS storage
+    # def copy_file(self, source_path: str, dest_path: str) -> str:
+    #     """
+    #     Copy file within NFS storage
         
-        Args:
-            source_path: Source file relative path from base storage directory
-            dest_path: Destination file relative path from base storage directory
+    #     Args:
+    #         source_path: Source file relative path from base storage directory
+    #         dest_path: Destination file relative path from base storage directory
             
-        Returns:
-            Full path to the moved file
-        """
-        source_full = self.base_path / source_path
-        dest_full = self.base_path / dest_path
-        dest_full.parent.mkdir(parents=True, exist_ok=True)
+    #     Returns:
+    #         Full path to the copied file
+    #     """
+    #     source_full = self.base_path / source_path
+    #     dest_full = self.base_path / dest_path
+    #     dest_full.parent.mkdir(parents=True, exist_ok=True)
         
-        shutil.move(str(source_full), str(dest_full))
+    #     shutil.copy2(source_full, dest_full)
         
-        # Move metadata if it exists
-        source_meta = source_full.with_suffix(source_full.suffix + '.meta')
-        dest_meta = dest_full.with_suffix(dest_full.suffix + '.meta')
-        if source_meta.exists():
-            shutil.move(str(source_meta), str(dest_meta))
+    #     # Copy metadata if it exists
+    #     source_meta = source_full.with_suffix(source_full.suffix + '.meta')
+    #     dest_meta = dest_full.with_suffix(dest_full.suffix + '.meta')
+    #     if source_meta.exists():
+    #         shutil.copy2(source_meta, dest_meta)
         
-        return str(dest_full)
+    #     return str(dest_full)
 
-    def create_directory(self, dir_path: str) -> str:
-        """
-        Create directory in NFS storage
+    # def move_file(self, source_path: str, dest_path: str) -> str:
+    #     """
+    #     Move file within NFS storage
         
-        Args:
-            dir_path: Relative directory path from base storage directory
+    #     Args:
+    #         source_path: Source file relative path from base storage directory
+    #         dest_path: Destination file relative path from base storage directory
             
-        Returns:
-            Full path to the created directory
-        """
-        full_path = self.base_path / dir_path
-        full_path.mkdir(parents=True, exist_ok=True)
-        return str(full_path)
+    #     Returns:
+    #         Full path to the moved file
+    #     """
+    #     source_full = self.base_path / source_path
+    #     dest_full = self.base_path / dest_path
+    #     dest_full.parent.mkdir(parents=True, exist_ok=True)
+        
+    #     shutil.move(str(source_full), str(dest_full))
+        
+    #     # Move metadata if it exists
+    #     source_meta = source_full.with_suffix(source_full.suffix + '.meta')
+    #     dest_meta = dest_full.with_suffix(dest_full.suffix + '.meta')
+    #     if source_meta.exists():
+    #         shutil.move(str(source_meta), str(dest_meta))
+        
+    #     return str(dest_full)
 
-    def get_directory_structure(self, directory: str = "") -> dict:
-        """
-        Get directory structure as a nested dictionary
+    # def create_directory(self, dir_path: str) -> str:
+    #     """
+    #     Create directory in NFS storage
         
-        Args:
-            directory: Directory path to get structure for (empty for root)
+    #     Args:
+    #         dir_path: Relative directory path from base storage directory
             
-        Returns:
-            Nested dictionary representing the directory structure
-        """
-        target_dir = self.base_path / directory if directory else self.base_path
+    #     Returns:
+    #         Full path to the created directory
+    #     """
+    #     full_path = self.base_path / dir_path
+    #     full_path.mkdir(parents=True, exist_ok=True)
+    #     return str(full_path)
+
+    # def get_directory_structure(self, directory: str = "") -> dict:
+    #     """
+    #     Get directory structure as a nested dictionary
         
-        def build_tree(path: Path) -> dict:
-            tree = {}
-            if path.is_dir():
-                for item in sorted(path.iterdir()):
-                    if item.is_dir():
-                        tree[item.name] = build_tree(item)
-                    else:
-                        tree[item.name] = {
-                            'type': 'file',
-                            'size': item.stat().st_size,
-                            'modified': datetime.fromtimestamp(item.stat().st_mtime).isoformat()
-                        }
-            return tree
+    #     Args:
+    #         directory: Directory path to get structure for (empty for root)
+            
+    #     Returns:
+    #         Nested dictionary representing the directory structure
+    #     """
+    #     target_dir = self.base_path / directory if directory else self.base_path
         
-        return build_tree(target_dir)
+    #     def build_tree(path: Path) -> dict:
+    #         tree = {}
+    #         if path.is_dir():
+    #             for item in sorted(path.iterdir()):
+    #                 if item.is_dir():
+    #                     tree[item.name] = build_tree(item)
+    #                 else:
+    #                     tree[item.name] = {
+    #                         'type': 'file',
+    #                         'size': item.stat().st_size,
+    #                         'modified': datetime.fromtimestamp(item.stat().st_mtime).isoformat()
+    #                     }
+    #         return tree
+        
+    #     return build_tree(target_dir)
 
     def get_storage_info(self) -> dict:
         """Get storage usage information"""
