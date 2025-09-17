@@ -80,17 +80,19 @@ async def health_check():
         db_connected = await test_database_connection()
         if not db_connected:
             db_status = "unhealthy"
-    except Exception:
-        db_status = "unhealthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
     
     try:
         if not rabbitmq_manager.connection or rabbitmq_manager.connection.is_closed:
-            queue_status = "unhealthy"
-    except Exception:
-        queue_status = "unhealthy"
+            queue_status = "unhealthy: connection not available"
+        else:
+            queue_status = "healthy"
+    except Exception as e:
+        queue_status = f"unhealthy: {str(e)}"
     
     overall_status = "healthy"
-    if db_status == "unhealthy" or queue_status == "unhealthy":
+    if db_status != "healthy" or queue_status != "healthy":
         overall_status = "degraded"
     
     return {
@@ -100,6 +102,35 @@ async def health_check():
         "version": settings.app.app_version,
         "environment": settings.app.environment
     }
+
+@app.get("/debug/queue")
+async def debug_queue():
+    """Debug endpoint to check queue system status."""
+    try:
+        connection_status = "disconnected"
+        if rabbitmq_manager.connection:
+            if rabbitmq_manager.connection.is_closed:
+                connection_status = "closed"
+            else:
+                connection_status = "connected"
+        
+        return {
+            "rabbitmq_connection": connection_status,
+            "queues_available": list(rabbitmq_manager.queues.keys()) if rabbitmq_manager.queues else [],
+            "exchange_available": rabbitmq_manager.exchange is not None,
+            "settings": {
+                "rabbitmq_url": settings.rabbitmq.rabbitmq_url,
+                "rabbitmq_host": settings.rabbitmq.rabbitmq_host,
+                "rabbitmq_port": settings.rabbitmq.rabbitmq_port
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "rabbitmq_connection": "error",
+            "queues_available": [],
+            "exchange_available": False
+        }
 
 # Include routers
 app.include_router(files_router)

@@ -105,8 +105,17 @@ class MCQMarkingWorker:
     def _process_template_config(self, job_data):
         """Process template configuration job and return result"""
         template_config_job = TemplateConfigJob(job_data)
-        result = template_config_job.configure()
-        return result
+        success = template_config_job.configure()
+        
+        if success:
+            return {
+                'template_config_path': template_config_job.template_config_path,
+                'output_image_path': template_config_job.output_image_path,
+                'result_image_path': template_config_job.result_image_path,
+                'bubble_config': template_config_job.template_config
+            }
+        else:
+            return False
 
     def process_template_config_job(self, ch, method, properties, body):
         """Process template configuration job from RabbitMQ"""

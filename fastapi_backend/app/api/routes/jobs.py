@@ -3,17 +3,23 @@ API routes for job management and queue operations.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+import logging
 
-from ...database import get_async_db
-from ...models import MarkingJob, TemplateConfigJob, MarkingJobStatus, TemplateConfigJobStatus, User, Template
-from ...queue import submit_template_config_job, submit_marking_job
-from ...api.deps import get_database_session
+from app.database import get_async_db
+from app.models.marking_job import MarkingJob
+from app.models.template_config_job import TemplateConfigJob
+from app.models.marking_job import MarkingJobStatus
+from app.models.template import Template, TemplateConfigStatus
+from app.queue import submit_template_config_job, submit_marking_job
+from app.api.deps import get_database_session
+
 
 router = APIRouter(prefix="/api/v1/jobs", tags=["jobs"])
+logger = logging.getLogger(__name__)
 
 
 # Pydantic models for requests/responses
@@ -56,7 +62,6 @@ class JobResponse(BaseModel):
 @router.post("/template-config", response_model=JobResponse)
 async def create_template_config_job(
     job_data: TemplateConfigJobCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_database_session)
 ):
     """Create and submit a template configuration job."""
@@ -81,7 +86,7 @@ async def create_template_config_job(
             result_image_path=job_data.result_image_path,
             save_intermediate_results=job_data.save_intermediate_results,
             priority=job_data.priority,
-            status=TemplateConfigJobStatus.PENDING,
+            status=TemplateConfigStatus.PENDING,
             created_by=1  # TODO: Get from authentication
         )
         
@@ -89,8 +94,12 @@ async def create_template_config_job(
         await db.commit()
         await db.refresh(job)
         
-        # Submit to queue in background
-        background_tasks.add_task(submit_template_config_job, job.id, db)
+        # Submit to queue (await directly to maintain async context)
+        try:
+            await submit_template_config_job(job.id)
+        except Exception as e:
+            logger.warning(f"Failed to submit template config job to queue: {e}")
+            # Job is still created in database, can be retried later
         
         return JobResponse(
             id=job.id,
@@ -110,7 +119,6 @@ async def create_template_config_job(
 @router.post("/marking", response_model=JobResponse)
 async def create_marking_job(
     job_data: MarkingJobCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_database_session)
 ):
     """Create and submit a marking job."""
@@ -134,7 +142,7 @@ async def create_marking_job(
             intermediate_results_path=job_data.intermediate_results_path,
             save_intermediate_results=job_data.save_intermediate_results,
             priority=job_data.priority,
-            status=MarkingJobStatus.PENDING,
+            status=TemplateConfigStatus.PENDING,
             created_by=1  # TODO: Get from authentication
         )
         
@@ -142,8 +150,12 @@ async def create_marking_job(
         await db.commit()
         await db.refresh(job)
         
-        # Submit to queue in background
-        background_tasks.add_task(submit_marking_job, job.id, db)
+        # Submit to queue (await directly to maintain async context)
+        try:
+            await submit_marking_job(job.id)
+        except Exception as e:
+            logger.warning(f"Failed to submit marking job to queue: {e}")
+            # Job is still created in database, can be retried later
         
         return JobResponse(
             id=job.id,
@@ -165,7 +177,7 @@ async def create_marking_job(
 async def list_template_config_jobs(
     skip: int = 0,
     limit: int = 100,
-    status_filter: Optional[str] = None,
+    status_filter: Optional[TemplateConfigStatus] = None,
     db: AsyncSession = Depends(get_database_session)
 ):
     """List template configuration jobs."""
@@ -173,8 +185,8 @@ async def list_template_config_jobs(
         query = select(TemplateConfigJob)
         
         if status_filter:
-            query = query.where(TemplateConfigJob.status == status_filter)
-        
+            query = query.where(TemplateConfigJob.status == TemplateConfigStatus.PENDING)
+            
         query = query.offset(skip).limit(limit).order_by(TemplateConfigJob.created_at.desc())
         
         result = await db.execute(query)
@@ -201,7 +213,7 @@ async def list_template_config_jobs(
 async def list_marking_jobs(
     skip: int = 0,
     limit: int = 100,
-    status_filter: Optional[str] = None,
+    status_filter: Optional[MarkingJobStatus] = None,
     db: AsyncSession = Depends(get_database_session)
 ):
     """List marking jobs."""
@@ -209,7 +221,7 @@ async def list_marking_jobs(
         query = select(MarkingJob)
         
         if status_filter:
-            query = query.where(MarkingJob.status == status_filter)
+            query = query.where(MarkingJob.status == MarkingJobStatus.PENDING)
         
         query = query.offset(skip).limit(limit).order_by(MarkingJob.created_at.desc())
         

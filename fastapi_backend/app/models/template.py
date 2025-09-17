@@ -32,7 +32,7 @@ class Template(BaseModel):
     status = Column(Enum(TemplateConfigStatus), nullable=False, default=TemplateConfigStatus.PENDING)
     
     # Template configuration
-    total_questions = Column(Integer, nullable=False, default=0)
+    num_questions = Column(Integer, nullable=False, default=0)
     options_per_question = Column(Integer, nullable=False, default=5)
     
     # Template configuration as JSON
