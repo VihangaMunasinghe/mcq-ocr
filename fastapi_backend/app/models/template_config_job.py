@@ -5,16 +5,9 @@ TemplateConfigJob model for handling template configuration operations.
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
+
+from fastapi_backend.app.models.template import TemplateConfigStatus
 from .base import BaseModel
-
-
-class TemplateConfigJobStatus(PyEnum):
-    """Enum for template configuration job status."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
 
 
 class TemplateConfigJobPriority(PyEnum):
@@ -39,8 +32,7 @@ class TemplateConfigJob(BaseModel):
     name = Column(String(100), nullable=False, index=True)
     description = Column(String(255), nullable=True)
     
-    # Job status and priority
-    status = Column(Enum(TemplateConfigJobStatus), nullable=False, default=TemplateConfigJobStatus.PENDING)
+    # Job priority
     priority = Column(Enum(TemplateConfigJobPriority), nullable=False, default=TemplateConfigJobPriority.NORMAL)
     
     
@@ -77,17 +69,11 @@ class TemplateConfigJob(BaseModel):
     template = relationship("Template", back_populates="template_config_jobs")
     
     def __repr__(self):
-        return f"<TemplateConfigJob(id={self.job_id}, name='{self.name}', status='{self.status}')>"
+        return f"<TemplateConfigJob(id={self.job_id}, name='{self.name}')>"
 
-    @property
-    def is_completed(self) -> bool:
-        """Check if the job is completed."""
-        return self.status == TemplateConfigJobStatus.COMPLETED
-
-    @property
-    def is_failed(self) -> bool:
-        """Check if the job has failed."""
-        return self.status == TemplateConfigJobStatus.FAILED
+    def get_status(self) -> TemplateConfigStatus:
+        """Get the status of the job."""
+        return self.template.status
 
     def to_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
@@ -122,9 +108,8 @@ class TemplateConfigJob(BaseModel):
 
     def mark_as_failed(self, error_message: str, error_details: dict = None):
         """Mark the job as failed with error information."""
-        self.status = TemplateConfigJobStatus.FAILED
-        # Remove usage of error_message, error_details, current_retry_count if not present as columns
+        self.template.status = TemplateConfigStatus.FAILED
 
     def mark_as_completed(self):
         """Mark the job as completed."""
-        self.status = TemplateConfigJobStatus.COMPLETED
+        self.template.status = TemplateConfigStatus.COMPLETED
