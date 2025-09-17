@@ -48,15 +48,15 @@ class MarkingJob(BaseModel):
 
     # Output paths
     output_path = Column(String(500), nullable=False)
-    intermediate_results_path = Column(String(500), nullable=True)
+    intermediate_results_path = Column(String(500), nullable=False)
 
     # Processing settings
     save_intermediate_results = Column(Boolean, default=False, nullable=False)
 
     # Job metrics and results
     total_answer_sheets = Column(Integer, nullable=True)
-    processed_answer_sheets = Column(Integer, default=0, nullable=False)
-    failed_answer_sheets = Column(Integer, default=0, nullable=False)
+    processed_answer_sheets = Column(Integer, default=0, nullable=True)
+    failed_answer_sheets = Column(Integer, default=0, nullable=True)
 
     # Processing time tracking
     processing_started_at = Column(String(50), nullable=True)  # ISO datetime string
@@ -107,22 +107,17 @@ class MarkingJob(BaseModel):
     @property
     def can_retry(self) -> bool:
         """Check if the job can be retried."""
-        return (
-            self.auto_retry and 
-            self.current_retry_count < self.max_retry_attempts and 
-            self.status == MarkingJobStatus.FAILED
-        )
+        return self.status == MarkingJobStatus.FAILED
     
     def to_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
         return {
             'id': self.id,
             'name': self.name,
-            'template_path': self.template_path,
+            'template_id': self.template_id,
             'marking_path': self.marking_scheme_path,
             'answers_folder_path': self.answer_sheets_folder_path,
             'output_path': self.output_path,
-            'template_config_path': self.template_config_path,
             'intermediate_results_path': self.intermediate_results_path,
             'save_intermediate_results': self.save_intermediate_results
         }
