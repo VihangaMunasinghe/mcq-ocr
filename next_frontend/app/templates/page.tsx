@@ -161,28 +161,57 @@ export default function Templates() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleUpload = (formData: FormData) => {
+  const handleUpload = async (formData: FormData) => {
     console.log("Uploading form:", formData);
 
-    fetch(`${BACKEND_URL}/files/upload`, {
+    const file_formData = new FormData();
+    const file = formData.get("file") as File;
+    file_formData.append("file", file);
+    file_formData.append("file_type", "template");
+    const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
       method: 'POST',
-      body: formData,
+      body: file_formData,
+    });
+
+    if (!uploadResponse.ok) {
+      console.error('Upload failed:', uploadResponse.statusText);
+      showToast("File upload failed", "error");
+      return;
+    }
+
+    const uploadData = await uploadResponse.json();
+    console.log('Upload success:', uploadData);
+
+    showToast("Template uploaded successfully", "success");
+    const filePath = uploadData.path; // <-- key returned from backend
+    
+    const template_json_payload = JSON.stringify(
+      {
+        name: formData.get("name"),
+        description: formData.get("description"),
+        config_type: formData.get("config_type"),
+        template_path: filePath,
+        save_intermediate_results: formData.get("save_intermediate_results") === "true",
+        num_of_columns: parseInt(formData.get("num_of_columns") as string, 10),
+        num_of_rows_per_column: parseInt(formData.get("num_of_rows_per_column") as string, 10),
+        num_of_options_per_question: parseInt(formData.get("num_of_options_per_question") as string, 10),
+      }
+    );
+
+
+    const processResponse = await fetch(`${BACKEND_URL}/templates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: template_json_payload,
     })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Success:', data);
-        showToast("Template uploaded successfully", "success");
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        showToast("Failed to upload template", "error");
-      });
-  };
+    if (!processResponse.ok) {
+      console.error('Processing failed:', processResponse.statusText);
+      showToast("Template processing failed", "error");
+      return;}
+    const processData = await processResponse.json();
+    console.log('Processing success:', processData);
+    setIsUploadModalOpen(false);
+    };
 
   return (
     <ProtectedRoute>
