@@ -5,8 +5,8 @@ from sqlalchemy import select
 import uuid
 
 from app.schemas.template import TemplateResponse, TemplateCreate
-from app.models import Template, TemplateConfigJob, TemplateConfigJobStatus
-from app.models.template import TemplateConfigType
+from app.models import Template, TemplateConfigJob
+from app.models.template import TemplateConfigStatus, TemplateConfigType
 from app.models.template_config_job import TemplateConfigJobPriority
 from typing import Optional
 from app.database import get_async_db
@@ -30,6 +30,7 @@ async def create_template(
             name=template.name,
             description=template.description,
             config_type=template.config_type,
+            status=TemplateConfigStatus.PENDING,
             total_questions=0,  # Will be updated after configuration
             options_per_question=5,  # Default, will be updated after configuration
             template_file_path=None,
@@ -64,7 +65,6 @@ async def create_template(
             output_image_path=output_image_path,
             result_image_path=result_image_path,
             save_intermediate_results=template.save_intermediate_results,
-            status=TemplateConfigJobStatus.PENDING,
             priority=TemplateConfigJobPriority.NORMAL,
             num_of_columns=template.num_of_columns,
             num_of_rows_per_column=template.num_of_rows_per_column,

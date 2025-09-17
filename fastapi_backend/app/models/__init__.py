@@ -4,10 +4,10 @@ Database models for MCQ OCR System.
 
 from .base import BaseModel
 from .user import User
-from .template import Template
+from .template import Template, TemplateConfigStatus
 from .file import File
 from .marking_job import MarkingJob, MarkingJobStatus
-from .template_config_job import TemplateConfigJob, TemplateConfigJobStatus, TemplateConfigJobPriority
+from .template_config_job import TemplateConfigJob, TemplateConfigJobPriority
 
 __all__ = [
     "BaseModel", 
@@ -17,6 +17,6 @@ __all__ = [
     "MarkingJob", 
     "MarkingJobStatus",
     "TemplateConfigJob",
-    "TemplateConfigJobStatus",
+    "TemplateConfigStatus",
     "TemplateConfigJobPriority"
 ]
