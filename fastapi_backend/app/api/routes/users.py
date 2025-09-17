@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.database import get_async_db
@@ -9,25 +10,31 @@ from app.models.user import User
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
+logger = logging.getLogger(__name__)
+
 @router.get("/")
 async def list_users(
     db: AsyncSession = Depends(get_async_db)
 ):
     """List all users """
-    users = await db.execute(select(User).order_by(User.created_at.desc()))
-
-    return [
-        UserResponse(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            is_active=user.is_active,
-            is_superuser=user.is_superuser,
-            last_login=user.last_login
-        )
-        for user in users.scalars().all()
-    ]
+    try:
+        users = await db.execute(select(User).order_by(User.created_at.desc()))
+        users = users.scalars().all()
+        return [
+            UserResponse(
+                id=user.id,
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                is_active=user.is_active,
+                is_superuser=user.is_superuser,
+                last_login=user.last_login
+            )
+                for user in users
+            ]
+    except Exception as e:
+        logger.error(f"Failed to list users: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list users")
 
 @router.get("/{user_id}")
 async def get_user(
@@ -50,7 +57,7 @@ async def get_user(
         is_superuser=user.is_superuser,
         last_login=user.last_login
     )
-    return {"message": "User retrieved successfully", "user": user_response}
+    return user_response
 
 @router.post("/")
 async def create_user(
@@ -89,7 +96,8 @@ async def create_user(
         return user_response
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+        logger.error(f"Failed to create user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create user")
 
 @router.put("/{user_id}")
 async def update_user(
@@ -121,7 +129,8 @@ async def update_user(
         return user_response
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
+        logger.error(f"Failed to update user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user")
 
 @router.delete("/{user_id}")
 async def delete_user(
@@ -148,6 +157,7 @@ async def delete_user(
         
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+        logger.error(f"Failed to delete user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete user")
 
 
