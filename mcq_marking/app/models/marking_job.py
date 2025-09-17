@@ -6,7 +6,7 @@ from app.autograder.utils.image_processing import read_enhanced_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template
-from app.utils.file_handelling import get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
+from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,10 +88,13 @@ class MarkingJob:
             if self.save_intermediate_results:
                 save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
         save_spreadsheet(self.output_path, self.spreadsheet_workbook)
+        if not file_exists(self.output_path):
+            logger.error(f"Output path does not exist")
+            return False
         print(f"Marking is complete. Results have been saved in {self.output_path}")
         print(f"Total time taken: {time.time() - self.start_time} seconds")
 
-        return self.output_path
+        return True
 
     def add_to_spreadsheet(self, score: dict):
         self.spreadsheet_sheet.append([
