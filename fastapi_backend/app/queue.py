@@ -266,7 +266,7 @@ class TemplateConfigResultConsumer:
                 result_data = json.loads(message.body.decode())
                 job_id = result_data.get('job_id')
                 
-                if not job_id:
+                if not job_id :
                     logger.error("No job_id in template config result message")
                     return
                 
@@ -288,23 +288,23 @@ class TemplateConfigResultConsumer:
                         job = job_result
                         
                         # Update job with results
-                        if result_data.get('success', False):
+                        if result_data.get('status', 'failed') == 'completed':
                             job.status = TemplateConfigJobStatus.COMPLETED
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Store results and update template
-                            if 'template_config_path' in result_data:
-                                job.template.configuration_path = result_data['template_config_path']
+                            if 'template_config_path' in result_data['result']:
+                                job.template.configuration_path = result_data['result']['template_config_path']
                             
-                            if 'output_image_path' in result_data:
-                                job.template.template_file_path = result_data['output_image_path']
+                            if 'output_image_path' in result_data['result']:
+                                job.template.template_file_path = result_data['result']['output_image_path']
                             
-                            if 'result_image_path' in result_data:
-                                job.result_image_path = result_data['result_image_path']
+                            if 'result_image_path' in result_data['result']:
+                                job.result_image_path = result_data['result']['result_image_path']
                             
                             # Update template with configuration results
-                            if 'bubble_config' in result_data:
-                                config_data = result_data['bubble_config']
+                            if 'bubble_config' in result_data['result']:
+                                config_data = result_data['result']['bubble_config']
                                 if 'metadata' in config_data:
                                     metadata = config_data['metadata']
                                     if 'num_questions' in metadata:
@@ -315,8 +315,8 @@ class TemplateConfigResultConsumer:
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Update image dimensions if provided
-                            if 'image_dimensions' in result_data:
-                                dims = result_data['image_dimensions']
+                            if 'image_dimensions' in result_data['result']:
+                                dims = result_data['result']['image_dimensions']
                                 job.original_image_width = dims.get('original_width')
                                 job.original_image_height = dims.get('original_height')
                                 job.processed_image_width = dims.get('processed_width')
