@@ -75,7 +75,18 @@ const inputFormConfig = [
       defaultValue: "5",
     },
   ];
-  
+
+  const fileFormConfig = [
+    {
+      name: "template_image",           // required
+      label: "Upload your template image",
+      accept: ".jpg,.jpeg,.png",       // correct key
+      maxSize: 10 * 1024 * 1024,       // correct key
+      maxFiles: 1,
+      required: true,
+      fullWidth: true,
+    },
+  ];
 
 export default function Templates() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -164,7 +175,7 @@ export default function Templates() {
     console.log("Uploading form:", formData);
 
     const file_formData = new FormData();
-    const file = formData.get("file") as File;
+    const file = formData.get("template_image") as File;
     file_formData.append("file", file);
     file_formData.append("file_type", "template");
     const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
@@ -255,8 +266,7 @@ export default function Templates() {
             onUpload={handleUpload}
             type="template"
             title="Upload MCQ Template"
-            acceptedFileTypes="jpg, jpeg, png"
-            maxFiles={1}
+            fileFormConfig={fileFormConfig}
             selectFormConfig={selectFormConfig}
             inputFormConfig={inputFormConfig}
           />

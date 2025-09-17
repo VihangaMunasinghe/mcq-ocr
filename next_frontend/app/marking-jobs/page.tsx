@@ -23,6 +23,7 @@ import {
   faEye,
   faFile,
 } from "@fortawesome/free-solid-svg-icons";
+import { FormUploadModal } from "@/components/Modals/FormUploadModal";
 
 type JobStatus =
   | "pending"
@@ -53,6 +54,80 @@ interface ReviewQuestion {
   suggestedAnswer: string;
   issue: string;
 }
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+
+const selectFormConfig= [
+  {
+    name: "config_type",
+    label: "Config Type",
+    options: [
+      { value: "grid_based", label: "Grid Based" },
+      { value: "clustering_based", label: "Cluster Based" }
+    ],
+    defaultValue: "grid_based",
+  },
+  {
+    name: "save_intermediate_results",
+    label: "Save Intermediate Results",
+    options: [
+      { value: "true", label: "Yes" },
+      { value: "false", label: "No" },
+    ],
+    defaultValue: "false",
+  },
+];
+
+const inputFormConfig = [
+    {
+      name: "name",
+      label: "Name",
+      type: "text",
+      placeholder: "Enter name",
+      required: true,
+      defaultValue: "",
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "text",
+      placeholder: "Enter description",
+      defaultValue: "",
+    },
+    {
+      name: "num_of_columns",
+      label: "Number of Columns",
+      type: "number",
+      placeholder: "3",
+      defaultValue: "3",
+    },
+    {
+      name: "num_of_rows_per_column",
+      label: "Rows per Column",
+      type: "number",
+      placeholder: "30",
+      defaultValue: "30",
+    },
+    {
+      name: "num_of_options_per_question",
+      label: "Options per Question",
+      type: "number",
+      placeholder: "5",
+      defaultValue: "5",
+    },
+  ];
+
+  const fileFormConfig = [
+    {
+      name: "profile_image",           // required
+      label: "Upload your profile image",
+      accept: ".jpg,.jpeg,.png",       // correct key
+      maxSize: 10 * 1024 * 1024,       // correct key
+      maxFiles: 1,
+      required: true,
+      fullWidth: true,
+    },
+  ];  
 
 export default function MarkingJobs() {
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
@@ -186,12 +261,43 @@ export default function MarkingJobs() {
     showToast("Job paused successfully", "info");
   };
 
-  const handleNewJob = (files: File[]) => {
-    console.log("Creating new job with files:", files);
-    showToast("New marking job created successfully", "success");
-    setIsUploadModalOpen(false);
-  };
+  const handleNewJob = async (formData: FormData) => {
+    console.log("Uploading form:", formData);
 
+    const file_formData = new FormData();
+    const file = formData.get("some_key") as File;
+    file_formData.append("file", file);
+    file_formData.append("file_type", "template");
+    const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
+      method: 'POST',
+      body: file_formData,
+    });
+
+    if (!uploadResponse.ok) {
+      console.error('Upload failed:', uploadResponse.statusText);
+      showToast("File upload failed", "error");
+      return;
+    }
+
+    const uploadData = await uploadResponse.json();
+    console.log('Upload success:', uploadData);
+
+    showToast("Template uploaded successfully", "success");
+    const filePath = uploadData.path; // <-- key returned from backend
+    
+    const template_json_payload = JSON.stringify(
+      {
+        name: formData.get("name"),
+        description: formData.get("description"),
+        config_type: formData.get("config_type"),
+        template_path: filePath,
+        save_intermediate_results: formData.get("save_intermediate_results") === "true",
+        num_of_columns: parseInt(formData.get("num_of_columns") as string, 10),
+        num_of_rows_per_column: parseInt(formData.get("num_of_rows_per_column") as string, 10),
+        num_of_options_per_question: parseInt(formData.get("num_of_options_per_question") as string, 10),
+      }
+    );
+    }
   const handleReviewJob = (job: MarkingJob) => {
     setSelectedJobData(job);
     const mockReviewQuestions: ReviewQuestion[] = [
@@ -479,13 +585,15 @@ export default function MarkingJobs() {
             />
           </div>
 
-          <FileUploadModal
+          <FormUploadModal
+            type="marking_scheme"
             isOpen={isUploadModalOpen}
             onClose={() => setIsUploadModalOpen(false)}
             onUpload={handleNewJob}
             title="Create New Marking Job"
-            acceptedFileTypes=".pdf,.jpg,.jpeg,.png"
-            maxFileSize={10 * 1024 * 1024}
+            selectFormConfig={selectFormConfig}
+            inputFormConfig={inputFormConfig}
+            fileFormConfig={fileFormConfig}
           />
 
           <VerificationModal
