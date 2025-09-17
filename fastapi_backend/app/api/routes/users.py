@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy import select
@@ -38,7 +39,7 @@ async def list_users(
 
 @router.get("/{user_id}")
 async def get_user(
-    user_id: str,
+    user_id: int,
     db: AsyncSession = Depends(get_async_db)
     ):
 
@@ -75,10 +76,10 @@ async def create_user(
             email=user.email,
             first_name=user.first_name,
             last_name=user.last_name,
-            password=user.password,
+            hashed_password=user.password,
             is_active=True,
             is_superuser=False,
-            last_login=None
+            last_login=datetime.now()
         )
         db.add(user)
         await db.commit()
@@ -101,7 +102,7 @@ async def create_user(
 
 @router.put("/{user_id}")
 async def update_user(
-    user_id: str, 
+    user_id: int, 
     userUpdate: UserUpdate, 
     db: AsyncSession = Depends(get_async_db)):
     """Update a user by ID"""
@@ -134,7 +135,7 @@ async def update_user(
 
 @router.delete("/{user_id}")
 async def delete_user(
-    user_id: str, 
+    user_id: int, 
     db: AsyncSession = Depends(get_async_db)
 ):
     """Delete a user by ID"""
