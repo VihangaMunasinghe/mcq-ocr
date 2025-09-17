@@ -36,10 +36,10 @@ class Template(BaseModel):
     options_per_question = Column(Integer, nullable=False, default=5)
     
     # Template configuration as JSON
-    configuration_path = Column(String(255), nullable=True)
+    configuration_path = Column(String(500), nullable=True)
     
     # File references
-    template_file_path = Column(String(255), nullable=True)
+    template_file_path = Column(String(500), nullable=True)
     
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
