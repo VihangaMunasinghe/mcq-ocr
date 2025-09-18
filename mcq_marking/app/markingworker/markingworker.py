@@ -130,7 +130,11 @@ class MCQMarkingWorker:
         """Process marking job and return result"""
         marking_job = MarkingJob(job_data, rabbitmq_url=self.rabbitmq_url)
         result = marking_job.mark_answers()
-        return result
+        if result:
+            return result
+        else:
+            logger.error(f"Marking job failed: {job_data['id']}")
+            return False
 
     def process_marking_job(self, ch, method, properties, body):
         """Process marking job from RabbitMQ"""

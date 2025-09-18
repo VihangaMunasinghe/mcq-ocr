@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 import pika
 import os
 import logging
@@ -101,7 +102,17 @@ class MarkingJob:
         logger.info(f"Marking is complete. Results have been saved in {self.output_path}")
         logger.info(f"Total time taken: {time.time() - self.start_time} seconds")
 
-        return True
+        result = {
+            'intermediate_results_path': self.intermediate_results_path,
+            'output_path': self.output_path,
+            'total_answer_sheets': len(self.answer_sheets),
+            'processed_answer_sheets': len(self.answer_sheets),
+            'failed_answer_sheets': 0,
+            'processing_started_at': datetime.fromtimestamp(self.start_time).isoformat(),
+            'processing_completed_at': datetime.now().isoformat(),
+            'results_summary': None
+        }
+        return result
 
     def add_to_spreadsheet(self, score: dict):
         self.spreadsheet_sheet.append([
