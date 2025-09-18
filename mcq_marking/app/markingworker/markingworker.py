@@ -128,7 +128,7 @@ class MCQMarkingWorker:
     
     def _process_marking_job(self, job_data):
         """Process marking job and return result"""
-        marking_job = MarkingJob(job_data, save_intermediate_results=True, rabbitmq_url=self.rabbitmq_url)
+        marking_job = MarkingJob(job_data, rabbitmq_url=self.rabbitmq_url)
         result = marking_job.mark_answers()
         return result
 

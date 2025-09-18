@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 class MarkingJob:
-    def __init__(self, data: dict, save_intermediate_results: bool = False, rabbitmq_url: str = "amqp://localhost"):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost"):
         '''
         data is a dictionary with the following keys:
         data:
@@ -23,10 +23,12 @@ class MarkingJob:
             name: str
             template_path: str
             marking_path: str
-            answers_path: str
+            answers_folder_path: str
             output_path: str
+            config_type: str
             template_config_path: str
             intermediate_results_path: str
+            save_intermediate_results: bool
         '''
         self.job_id = data['id']
         self.name = data['name']
@@ -37,7 +39,7 @@ class MarkingJob:
         self.template_config_path = data['template_config_path']
         self.intermediate_results_path = data['intermediate_results_path']
         self.config_type = data['config_type']
-        self.save_intermediate_results = save_intermediate_results
+        self.save_intermediate_results = data['save_intermediate_results']
         self.rabbitmq_url = rabbitmq_url
         self.connection = None
         self.channel = None
