@@ -1,5 +1,6 @@
 import json
 import os
+import zipfile
 import aiofiles
 import shutil
 from typing import Optional
@@ -79,4 +80,19 @@ class SharedStorage:
     
     async def delete_directory(self, file_path: str):
         shutil.rmtree(self.base_path / file_path)
-            
+    
+    async def delete_file(self, file_path: str):
+        os.remove(self.base_path / file_path)
+
+    async def unzip_file(self, file_path: str):
+        try:   
+            with zipfile.ZipFile(self.base_path / file_path, 'r') as zip_ref:
+                folder_path = self.base_path / file_path.replace('.zip', '')
+                folder_path.mkdir(parents=True, exist_ok=True)
+                zip_ref.extractall(folder_path)
+                await self.delete_file(file_path)
+                final_path = f"{file_path.replace('.zip', '')}/{zip_ref.namelist()[0]}"
+        except Exception as e:
+            raise Exception(f"Failed to unzip file: {str(e)}")
+
+        return str(final_path)

@@ -114,6 +114,8 @@ def file_exists(path):
     Args:
         path: Relative path within the file_type directory
     """
+    if path is None:
+        return False
     nfs = NFSStorage()
     return nfs.file_exists(path)
 

@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
-from fastapi_backend.app.models.template import TemplateConfigStatus
+from app.models.template import TemplateConfigStatus
 from .base import BaseModel
 
 
@@ -77,19 +77,42 @@ class TemplateConfigJob(BaseModel):
 
     def to_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'config_type': self.template.config_type.value if self.template and self.template.config_type else 'grid_based',
-            'template_path': self.template_path,
-            'template_config_path': self.template_config_path,
-            'output_image_path': self.output_image_path,
-            'result_image_path': self.result_image_path,
-            'num_of_columns': self.num_of_columns,
-            'num_of_rows_per_column': self.num_of_rows_per_column,
-            'num_of_options_per_question': self.num_of_options_per_question,
-            'save_intermediate_results': self.save_intermediate_results
-        }
+        try:
+            config_type = 'grid_based'  # Default value
+            if self.template and self.template.config_type:
+                config_type = self.template.config_type.value
+            
+            return {
+                'id': self.id,
+                'name': self.name,
+                'config_type': config_type,
+                'template_path': self.template_path,
+                'template_config_path': self.template_config_path,
+                'output_image_path': self.output_image_path,
+                'result_image_path': self.result_image_path,
+                'num_of_columns': self.num_of_columns,
+                'num_of_rows_per_column': self.num_of_rows_per_column,
+                'num_of_options_per_question': self.num_of_options_per_question,
+                'save_intermediate_results': self.save_intermediate_results
+            }
+        except Exception as e:
+            # Log the error and return a safe default
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in to_job_data for job {self.id}: {e}")
+            return {
+                'id': self.id,
+                'name': self.name or 'Unknown',
+                'config_type': 'grid_based',
+                'template_path': self.template_path or '',
+                'template_config_path': self.template_config_path or '',
+                'output_image_path': self.output_image_path or '',
+                'result_image_path': self.result_image_path or '',
+                'num_of_columns': self.num_of_columns,
+                'num_of_rows_per_column': self.num_of_rows_per_column,
+                'num_of_options_per_question': self.num_of_options_per_question,
+                'save_intermediate_results': self.save_intermediate_results or False
+            }
 
     def update_image_dimensions(self, 
                               original_width: int, 

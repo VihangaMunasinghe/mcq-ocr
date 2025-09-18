@@ -6,8 +6,11 @@ import uuid
 from pathlib import Path
 from app.schemas.file import FileResponse, FileUploadResponse
 from app.storage.shared_storage import SharedStorage
+import logging
 
 router = APIRouter(prefix="/api/files", tags=["files"])
+
+logger = logging.getLogger(__name__)
 
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...),
@@ -31,6 +34,16 @@ async def upload_file(file: UploadFile = File(...),
     
     shared_storage = SharedStorage()
     await shared_storage.save_file(file_content, final_path)
+
+    # If zip file
+    if file.filename.endswith('.zip'):
+        try:
+            logger.info(f"Unzipping file: {final_path}")
+            final_path = await shared_storage.unzip_file(final_path)
+            logger.info(f"Unzipped file: {final_path}")
+        except Exception as e:
+            logger.error(f"Failed to unzip file: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to unzip file")
     
     return FileUploadResponse(
         message="File uploaded successfully",
@@ -38,21 +51,6 @@ async def upload_file(file: UploadFile = File(...),
         file_id=file_id,
         path=final_path,
         file_size=file.size
-    )
-
-@router.post("/upload/zip", response_model=FileUploadResponse)
-async def upload_zip_file(file: UploadFile = File(...), folder: str = Query(...)):
-    """
-    Upload a zip file to the system
-    """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
-
-    # TODO: Implement zip file upload logic
-    return FileUploadResponse(
-        message="Zip file uploaded successfully",
-        filename=file.filename,
-        file_id="temp_id"
     )
 
 # Chunked upload endpoints for very large files

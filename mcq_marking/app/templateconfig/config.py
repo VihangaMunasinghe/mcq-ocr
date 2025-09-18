@@ -74,7 +74,8 @@ def get_config(img_path, want_intermediate_results=False):
     bubble_configs = {
         "metadata": {
             "num_questions": sum(column_row_distribution),
-            "column_row_distribution": column_row_distribution
+            "column_row_distribution": column_row_distribution,
+            "options_per_question": len(first_row)/len(column_row_distribution)
         },
         "bubble_configs": {
             "x_offset": int(x_offset),

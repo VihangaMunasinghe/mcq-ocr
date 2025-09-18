@@ -65,13 +65,12 @@ class TemplateConfigJob:
         logger.info(f"Template config saved to NFS storage")
         
         # Save warped image to NFS storage 
-        if warped_img is not None:
-            save_image(
-                self.output_image_path, 
-                warped_img
-            )
-        else:
-            logger.warning("Warped image is None, skipping save")
+        
+        save_image(
+            self.output_image_path, 
+            warped_img
+        )
+        logger.info(f"Warped image saved to NFS storage")
 
         # Save result image to NFS storage
         if self.result_img is not None:
@@ -81,16 +80,16 @@ class TemplateConfigJob:
             )
             logger.info(f"Result image saved to NFS storage")
         else:
-            logger.warning("Result image is None, skipping save")
+            logger.info("Result image is None, skipping save")
 
         #Check files exist
         if not file_exists(self.template_config_path):
             logger.error(f"Template config file does not exist")
             return False
-        if self.result_img is not None and not file_exists(self.output_image_path):
+        if not file_exists(self.output_image_path):
             logger.error(f"Output image file does not exist")
             return False
-        if not file_exists(self.result_image_path):
+        if self.result_img is not None and self.result_image_path is not None and not file_exists(self.result_image_path):
             logger.error(f"Result image file does not exist")
             return False
         

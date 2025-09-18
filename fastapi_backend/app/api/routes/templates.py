@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
+import logging
 
 from app.schemas.template import TemplateResponse, TemplateCreate
 from app.models import Template, TemplateConfigJob
@@ -13,11 +14,11 @@ from app.database import get_async_db
 from app.queue import submit_template_config_job
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
+logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=TemplateResponse)
 async def create_template(
     template: TemplateCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -30,11 +31,11 @@ async def create_template(
             name=template.name,
             description=template.description,
             config_type=template.config_type,
-            status=TemplateConfigStatus.PENDING,
-            total_questions=0,  # Will be updated after configuration
-            options_per_question=5,  # Default, will be updated after configuration
-            template_file_path=None,
-            configuration_path=None,  # Will be set after processing
+            status=TemplateConfigStatus.QUEUED,
+            num_questions=0,  # Will be updated after configuration
+            options_per_question=0,  # Default, will be updated after configuration
+            template_file_path='pending',
+            configuration_path='pending',  # Will be set after processing
             created_by=user_id
         )
         
@@ -47,13 +48,6 @@ async def create_template(
         template_config_path = f"templates/{user_id}/{template_record.id}_{random_id}_config.json"
         output_image_path = f"templates/{user_id}/{template_record.id}_{random_id}_template.jpg"
         result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{random_id}_result.jpg" if template.save_intermediate_results else None
-        template_record.configuration_path = template_config_path
-        
-        template_record.template_file_path = output_image_path
-        template_record.total_questions = 0
-        template_record.options_per_question = 5
-        await db.commit()
-        await db.refresh(template_record)
         
         # Step 3: Add details to job table
         config_job = TemplateConfigJob(
@@ -76,18 +70,34 @@ async def create_template(
         await db.commit()
         await db.refresh(config_job)
         
-        # Step 4: Put the message to queue (in background)
-        background_tasks.add_task(submit_template_config_job, config_job.id)
+        # Step 4: Put the message to queue (submit directly to avoid async context issues)
+        try:
+            logger.info(f"Submitting template config job {config_job.id} to queue")
+            await submit_template_config_job(config_job.id)
+            logger.info(f"Successfully submitted template config job {config_job.id} to queue")
+        except Exception as e:
+            logger.error(f"Failed to submit template config job {config_job.id} to queue: {e}")
+            # Update job status to failed
+            try:
+                config_job.status = TemplateConfigStatus.FAILED
+                await db.commit()
+                logger.info(f"Updated job {config_job.id} status to failed")
+            except Exception as commit_error:
+                logger.error(f"Failed to update job status to failed: {commit_error}")
+        #     # Job is still created in database, can be retried later
+        #     # Don't raise the exception here to allow template creation to succeed
+        #     # The job can be retried later via the jobs API
         
         # Step 5: Return the response
         return TemplateResponse(
             id=template_record.id,
             name=template_record.name,
+            status=template_record.status,
             description=template_record.description,
             config_type=template_record.config_type,
-            configuration_path=template_config_path,
+            configuration_path=template_record.configuration_path,
             template_file_path=template_record.template_file_path,
-            total_questions=template_record.total_questions,
+            num_questions=template_record.num_questions,
             options_per_question=template_record.options_per_question,
             created_at=template_record.created_at,
             updated_at=template_record.updated_at,
@@ -129,10 +139,11 @@ async def list_templates(
                 id=template.id,
                 name=template.name,
                 description=template.description,
+                status=template.status,
                 config_type=template.config_type,
                 configuration_path=template.configuration_path or "",
                 template_file_path=template.template_file_path or "",
-                total_questions=template.total_questions,
+                num_questions=template.num_questions,
                 options_per_question=template.options_per_question,
                 created_at=template.created_at,
                 updated_at=template.updated_at,
@@ -168,12 +179,12 @@ async def get_template(
             id=template.id,
             name=template.name,
             description=template.description,
+            status=template.status,
             config_type=template.config_type,
             configuration_path=template.configuration_path or "",
             template_file_path=template.template_file_path or "",
-            total_questions=template.total_questions,
+            num_questions=template.num_questions,
             options_per_question=template.options_per_question,
-            save_intermediate_results=template.save_intermediate_results,
             created_at=template.created_at,
             updated_at=template.updated_at,
             created_by=template.created_by
@@ -218,12 +229,12 @@ async def update_template(
             id=template.id,
             name=template.name,
             description=template.description,
+            status=template.status,
             config_type=template.config_type,
             configuration_path=template.configuration_path or "",
             template_file_path=template.template_file_path or "",
-            total_questions=template.total_questions,
+            num_questions=template.num_questions,
             options_per_question=template.options_per_question,
-            save_intermediate_results=template_update.save_intermediate_results,
             created_at=template.created_at,
             updated_at=template.updated_at,
             created_by=template.created_by
