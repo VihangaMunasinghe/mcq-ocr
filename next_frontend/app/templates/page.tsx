@@ -226,7 +226,6 @@ export default function Templates() {
   return (
     <ProtectedRoute>
       <MainLayout>
-        <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">
               My Templates
@@ -290,7 +289,6 @@ export default function Templates() {
               viewingTemplate={viewingTemplate}
             />
           )}
-        </div>
       </MainLayout>
     </ProtectedRoute>
   );

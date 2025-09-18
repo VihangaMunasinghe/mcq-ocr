@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import MainLayout from "../../components/Layout/MainLayout";
 import { Table, TableColumn } from "../../components/UI/Table";
@@ -57,24 +57,60 @@ interface ReviewQuestion {
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
 
-const selectFormConfig= [
+const templates = [
   {
-    name: "config_type",
-    label: "Config Type",
-    options: [
-      { value: "grid_based", label: "Grid Based" },
-      { value: "clustering_based", label: "Cluster Based" }
-    ],
-    defaultValue: "grid_based",
+    id: 1,
+    name: "Math Quiz MCQ Template",
+    type: "MCQ",
+    created: "2023-04-01",
+    lastUsed: "2023-04-10",
+    status: "active",
+    questionCount: 30,
+    description: "Multiple choice questions for 10th grade math exam",
   },
   {
-    name: "save_intermediate_results",
-    label: "Save Intermediate Results",
-    options: [
-      { value: "true", label: "Yes" },
-      { value: "false", label: "No" },
-    ],
-    defaultValue: "false",
+    id: 2,
+    name: "English Grammar MCQ",
+    type: "MCQ",
+    created: "2023-03-15",
+    lastUsed: "2023-04-05",
+    status: "active",
+    questionCount: 25,
+    description: "Grammar assessment for high school students",
+  },
+  {
+    id: 3,
+    name: "Science Lab Report",
+    type: "Report",
+    created: "2023-02-28",
+    lastUsed: "2023-03-20",
+    status: "active",
+  },
+  {
+    id: 4,
+    name: "History Assignment Rubric",
+    type: "Rubric",
+    created: "2023-01-10",
+    lastUsed: "2023-02-15",
+    status: "inactive",
+  },
+  {
+    id: 5,
+    name: "Programming Test MCQ",
+    type: "MCQ",
+    created: "2023-03-05",
+    lastUsed: "2023-04-12",
+    status: "active",
+    questionCount: 40,
+    description: "Computer science fundamentals assessment",
+  },
+  {
+    id: 6,
+    name: "Geography Project Rubric",
+    type: "Rubric",
+    created: "2023-02-20",
+    lastUsed: "2023-03-10",
+    status: "active",
   },
 ];
 
@@ -94,39 +130,27 @@ const inputFormConfig = [
       placeholder: "Enter description",
       defaultValue: "",
     },
-    {
-      name: "num_of_columns",
-      label: "Number of Columns",
-      type: "number",
-      placeholder: "3",
-      defaultValue: "3",
-    },
-    {
-      name: "num_of_rows_per_column",
-      label: "Rows per Column",
-      type: "number",
-      placeholder: "30",
-      defaultValue: "30",
-    },
-    {
-      name: "num_of_options_per_question",
-      label: "Options per Question",
-      type: "number",
-      placeholder: "5",
-      defaultValue: "5",
-    },
   ];
 
   const fileFormConfig = [
     {
-      name: "profile_image",           // required
-      label: "Upload your profile image",
+      name: "marking_scheme",           // required
+      label: "Upload your marking scheme",
       accept: ".jpg,.jpeg,.png",       // correct key
       maxSize: 10 * 1024 * 1024,       // correct key
       maxFiles: 1,
       required: true,
       fullWidth: true,
     },
+    {
+      name: "answer_sheets",           // required
+      label: "Upload answer sheets zip file",
+      accept: ".zip",                  // correct key
+      maxSize: 200 * 1024 * 1024,       // correct key
+      maxFiles: 1,
+      required: true,
+      fullWidth: true,
+    }
   ];  
 
 export default function MarkingJobs() {
@@ -140,6 +164,8 @@ export default function MarkingJobs() {
   const [selectedJobData, setSelectedJobData] = useState<MarkingJob | null>(
     null
   );
+  const [templatesData, setTemplatesData] = useState<any[]>([]);
+  const [selectFormConfig, setSelectFormConfig] = useState<any[]>([]);
   const { showToast } = useToast();
 
   const markingJobs: MarkingJob[] = [
@@ -234,6 +260,59 @@ export default function MarkingJobs() {
     },
   ];
 
+  useEffect(()=>{
+    // Fetch templates from backend
+    const fetchTemplates = async () => {
+      try {
+        // Do your fetch call here
+        const data = templates; // Replace with actual fetched data
+        setTemplatesData(data);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+        showToast("Error fetching templates", "error");
+      }
+    };
+
+    fetchTemplates();    
+  },[isUploadModalOpen]);
+
+  // Setup template selection options dynamically
+  useEffect(() => {
+    const selectFormConfig= [
+      {
+        name: "template_id",
+        label: "Template",
+        options: [
+          ...templatesData
+            .map((template) => ({
+              value: template.id.toString(),
+              label: `${template.name} (${template.questionCount} questions)`,
+            })),
+        ],
+        defaultValue: "grid_based",
+      },
+      {
+        name: "save_intermediate_results",
+        label: "Save Intermediate Results",
+        options: [
+          { value: "true", label: "Yes" },
+          { value: "false", label: "No" },
+        ],
+        defaultValue: "false",
+      },
+      {
+        name: "priority",
+        label: "Job Priority",
+        options: [
+          { value: "normal", label: "Normal" },
+          { value: "urgent", label: "Urgent" },
+        ]
+      }
+    ];
+    setSelectFormConfig(selectFormConfig);
+  },
+  [templatesData]);
+
   const filteredJobs =
     statusFilter === "all"
       ? markingJobs
@@ -264,14 +343,16 @@ export default function MarkingJobs() {
   const handleNewJob = async (formData: FormData) => {
     console.log("Uploading form:", formData);
 
-    const file_formData = new FormData();
-    const file = formData.get("some_key") as File;
-    file_formData.append("file", file);
-    file_formData.append("file_type", "template");
+    // Upload marking scheme file first
+    const marking_file_formData = new FormData();
+    const file = formData.get("marking_scheme") as File;
+    marking_file_formData.append("file", file);
+    marking_file_formData.append("file_type", "marking_scheme");
     const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
       method: 'POST',
-      body: file_formData,
+      body: marking_file_formData,
     });
+
 
     if (!uploadResponse.ok) {
       console.error('Upload failed:', uploadResponse.statusText);
@@ -283,20 +364,50 @@ export default function MarkingJobs() {
     console.log('Upload success:', uploadData);
 
     showToast("Template uploaded successfully", "success");
-    const filePath = uploadData.path; // <-- key returned from backend
+    const marking_filePath = uploadData.path; // <-- key returned from backend
     
-    const template_json_payload = JSON.stringify(
+    // Upload answer sheets file next
+    const answer_sheets_formData = new FormData();
+    const answer_file = formData.get("answer_sheets") as File;
+    answer_sheets_formData.append("file", answer_file);
+    answer_sheets_formData.append("folder", "answer_sheets");
+    const zip_uploadResponse = await fetch(`${BACKEND_URL}/files/upload/zip`, {
+      method: 'POST',
+      body: answer_sheets_formData,
+    });
+    if (!zip_uploadResponse.ok) {
+      console.error('Upload failed:', zip_uploadResponse.statusText);
+      showToast("Answer sheets upload failed", "error");
+      return;
+    }
+    const zip_uploadData = await zip_uploadResponse.json();
+    console.log('Upload success:', zip_uploadData);
+    const answer_sheets_folderPath = zip_uploadData.path; // <-- key returned from backend
+
+    const marking_job_json_payload = JSON.stringify(
       {
         name: formData.get("name"),
         description: formData.get("description"),
-        config_type: formData.get("config_type"),
-        template_path: filePath,
+        template_id: parseInt(formData.get("template_id") as string, 10),
+        marking_scheme_path: marking_filePath,
+        answer_sheets_folder_path: answer_sheets_folderPath,
         save_intermediate_results: formData.get("save_intermediate_results") === "true",
-        num_of_columns: parseInt(formData.get("num_of_columns") as string, 10),
-        num_of_rows_per_column: parseInt(formData.get("num_of_rows_per_column") as string, 10),
-        num_of_options_per_question: parseInt(formData.get("num_of_options_per_question") as string, 10),
+        priority: formData.get("priority") as string,
       }
     );
+
+    // Create marking job
+    const processResponse = await fetch(`${BACKEND_URL}/jobs/marking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: marking_job_json_payload,});
+    
+    if (!processResponse.ok) {
+      console.error('Processing failed:', processResponse.statusText);
+      showToast("Marking job creation failed", "error");
+      return;}
+    const processData = await processResponse.json();
+    console.log('Processing success:', processData);
     }
   const handleReviewJob = (job: MarkingJob) => {
     setSelectedJobData(job);
@@ -524,7 +635,6 @@ export default function MarkingJobs() {
   return (
     <ProtectedRoute>
       <MainLayout>
-        <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">
               Marking Jobs
@@ -834,7 +944,6 @@ export default function MarkingJobs() {
               </Button>
             </div>
           </Modal>
-        </div>
       </MainLayout>
     </ProtectedRoute>
   );
