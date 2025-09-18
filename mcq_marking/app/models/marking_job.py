@@ -87,11 +87,8 @@ class MarkingJob:
             logger.info(f"Processing answer sheet: {answer_sheet_path}")
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
-            logger.info(f"Getting score for answer sheet: {answer_sheet_path}")
             score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
-            logger.info(f"Score: {score}")
             self.add_to_spreadsheet(score)
-            logger.info(f"Added score to spreadsheet")
             if self.save_intermediate_results:
                 save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
                 logger.info(f"Saved intermediate results")
