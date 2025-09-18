@@ -2,7 +2,7 @@
 type ConfigType = "grid_based" | "clustering_based";
 
 // Define template status
-type TemplateStatus = "queued" | "processing" | "ready" | "failed";
+type TemplateStatus = "queued" | "processing" | "completed" | "failed";
 
 interface Template {
   id: number;
