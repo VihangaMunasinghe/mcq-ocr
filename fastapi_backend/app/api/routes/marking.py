@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from typing import List
 
+from app.queue import submit_marking_job
+
 router = APIRouter(prefix="/api/markings", tags=['markings'])
 
 logger = logging.getLogger(__name__)
@@ -80,6 +82,23 @@ async def create_marking(
         random_id = str(uuid.uuid4())[:8]
         marking_record.intermediate_results_path = f"intermediate/markings/{user_id}/{marking_record.id}_{random_id}_intermediate/"
         marking_record.output_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
+
+        await db.commit()
+        await db.refresh(marking_record)
+
+        try:
+            logger.info(f"Submitting marking job {marking_record.id} to queue")
+            await submit_marking_job(marking_record.id)
+            logger.info(f"Successfully submitted marking job {marking_record.id} to queue")
+        except Exception as e:
+            logger.error(f"Failed to submit marking job {marking_record.id} to queue: {e}")
+            # Update job status to failed
+            try:
+                marking_record.status = MarkingJobStatus.FAILED
+                await db.commit()
+                logger.info(f"Updated job {marking_record.id} status to failed")
+            except Exception as commit_error:
+                logger.error(f"Failed to update job status to failed: {commit_error}")
         
         marking_response = MarkingResponse(
           id=marking_record.id,

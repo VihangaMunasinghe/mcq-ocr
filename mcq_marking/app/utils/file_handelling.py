@@ -6,7 +6,9 @@ import numpy as np
 from openpyxl import Workbook, load_workbook
 from app.storage.nfs_storage import NFSStorage
 from io import BytesIO
+import logging
 
+logger = logging.getLogger(__name__)
 
 def save_image(path, image):
     """
@@ -105,7 +107,7 @@ def read_answer_sheet_paths(folder_path):
     # List files in the given subdirectory using NFS
     file_list = nfs.list_files(directory=folder_path)
     # Return sorted list of relative paths (folder_path/filename)
-    return sorted([os.path.join(folder_path, fname) for fname in file_list])
+    return sorted(file_list)
 
 def file_exists(path):
     """
