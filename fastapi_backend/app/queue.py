@@ -313,7 +313,7 @@ class TemplateConfigResultConsumer:
                         
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
-                            job.status = TemplateConfigStatus.COMPLETED
+                            job.template.status = TemplateConfigStatus.COMPLETED
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Store results and update template
