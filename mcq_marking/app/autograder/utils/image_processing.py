@@ -19,32 +19,63 @@ def read_enhanced_image(path, enhance_contrast_val, resize = True):
 def get_homography(img1, img2):
     orig_image = np.array(img1)
     skewed_image = np.array(img2)
-    # using surf for feature matching
+    
+    print(f"Template image shape: {orig_image.shape}")
+    print(f"Answer image shape: {skewed_image.shape}")
+    
+    # using SIFT for feature matching (more robust than SURF)
     try:
-        surf = cv2.xfeatures2d.SURF_create(500)
+        sift = cv2.SIFT_create(nfeatures=1000)
     except Exception:
-        surf = cv2.SIFT_create()
+        sift = cv2.SIFT_create()
+    
     # Finding the matching features between the two images
-    kp1, des1 = surf.detectAndCompute(orig_image, None)
-    kp2, des2 = surf.detectAndCompute(skewed_image, None)
+    kp1, des1 = sift.detectAndCompute(orig_image, None)
+    kp2, des2 = sift.detectAndCompute(skewed_image, None)
+    
+    print(f"Template keypoints: {len(kp1)}")
+    print(f"Answer keypoints: {len(kp2)}")
+    
+    if des1 is None or des2 is None:
+        print("No descriptors found in one or both images")
+        return None
+    
     # Using the FLANN detector to remove the outliers
-    FLANN_INDEX_KDTREE = 0
+    FLANN_INDEX_KDTREE = 1
     index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
     search_params = dict(checks=50)
     flann = cv2.FlannBasedMatcher(index_params, search_params)
     matches = flann.knnMatch(des1, des2, k=2)
+    
+    # Apply Lowe's ratio test
     good = []
     for m, n in matches:
-        if m.distance < 0.7 * n.distance:
+        if m.distance < 0.75 * n.distance:  # More lenient ratio
             good.append(m)
+    
+    print(f"Good matches found: {len(good)}")
+    
     # Setting the min match count for the match count of labels
-    MIN_MATCH_COUNT = 10
+    MIN_MATCH_COUNT = 15  # Increased minimum matches
     if len(good) > MIN_MATCH_COUNT:
         src_pts = np.float32(
             [kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
         dst_pts = np.float32(
             [kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        
+        print(f"Source points shape: {src_pts.shape}")
+        print(f"Destination points shape: {dst_pts.shape}")
+        
         H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        
+        if H is not None:
+            print(f"Homography matrix calculated successfully")
+            print(f"Homography matrix:\n{H}")
+        else:
+            print("Failed to calculate homography matrix")
+    else:
+        print(f"Not enough matches found: {len(good)}/{MIN_MATCH_COUNT}")
+        H = None
     return H
 
 def get_binary_image(img):

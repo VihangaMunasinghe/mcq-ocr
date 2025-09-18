@@ -34,7 +34,7 @@ class AnswerSheet:
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers_with_coordinates is None or force_recalculate:
             bubble_coordinates = self.marking_scheme.template.get_bubble_coordinates()
-            self.answers_with_coordinates = get_answers(self.answer_sheet_img, self.answer_sheet_img, bubble_coordinates)
+            self.answers_with_coordinates = get_answers(self.marking_scheme.template.template_img, self.answer_sheet_img, bubble_coordinates)
         return self.answers_with_coordinates
     
     def start_index_recognition(self):
