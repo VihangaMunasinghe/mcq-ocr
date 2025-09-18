@@ -14,8 +14,7 @@ def get_coordinates_of_bubbles_grid(config):
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
 
-            # TODO: Make this dynamic based on the number of choices for each question
-            for choice in range(5):  # Process the 5 answer choices (a, b, c, d, e)
+            for choice in range(config['metadata']['num_options_per_question']):
                 x = x_row + (choice * x_offset)
                 coordinates.append([int(x), int(y_row)])
 

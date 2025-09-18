@@ -78,8 +78,8 @@ def get_config(img_path, want_intermediate_results=False):
             "options_per_question": len(first_row)/len(column_row_distribution)
         },
         "bubble_configs": {
-            "x_offset": int(x_offset),
-            "y_offset": int(y_offset),
+            "x_offset": float(x_offset),
+            "y_offset": float(y_offset),
             "columns": {
                 str(i + 1): {
                     "starting_x": int(pt[2][0]),
