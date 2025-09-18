@@ -25,7 +25,7 @@ async def upload_file(file: UploadFile = File(...),
         raise HTTPException(status_code=400, detail="No file provided")
     
 
-    file_id = str(uuid.uuid4())
+    file_id = str(uuid.uuid4())[:8]
     upload_dir = f'uploads/{file_type}s/{user_id}'
     final_path = f"{upload_dir}/{file_id}_{file.filename}"
 
@@ -145,7 +145,7 @@ async def finalize_upload(
             )
         
         # Generate final file ID and path
-        file_id = str(uuid.uuid4())
+        file_id = str(uuid.uuid4())[:8]
         upload_dir = f'uploads/{file_type}s/{user_id}'
         final_path = f"{upload_dir}/{file_id}_{original_name}"
         

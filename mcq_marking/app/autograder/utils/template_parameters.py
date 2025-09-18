@@ -14,20 +14,21 @@ def get_coordinates_of_bubbles_grid(config):
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
 
-            for choice in range(config['metadata']['num_options_per_question']):
+            for choice in range(config['metadata']['options_per_question']):
                 x = x_row + (choice * x_offset)
-                coordinates.append([int(x), int(y_row)])
+                coordinates.append([int(round(x)), int(round(y_row))])
 
     return coordinates
 
 
 def get_choice_distribution(config):
-    return [5 for _ in range(config['metadata']['num_questions'])]
+    options_per_question = config['metadata']['options_per_question']
+    return [options_per_question for _ in range(config['metadata']['num_questions'])]
 
 def reconstruct_bubbles(template_config):
     num_columns = template_config["metadata"]["num_columns"]
     num_rows = template_config["metadata"]["column_row_distribution"]
-    num_options = template_config["metadata"]["num_options_per_question"]
+    num_options = template_config["metadata"]["options_per_question"]
 
     # initialize empty 3D list
     coordinates = [[[] for _ in range(num_rows)] for _ in range(num_columns)]
