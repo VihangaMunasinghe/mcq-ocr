@@ -17,7 +17,10 @@ from sqlalchemy.orm import selectinload
 
 from .config import get_settings
 from .database import get_async_db, AsyncSessionLocal
-from .models import MarkingJob, TemplateConfigJob, MarkingJobStatus, TemplateConfigJobStatus
+from app.models.marking_job import MarkingJob
+from app.models.template_config_job import TemplateConfigJob
+from app.models.marking_job import MarkingJobStatus
+from app.models.template import TemplateConfigStatus
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -164,12 +167,17 @@ class TemplateConfigProducer:
                 raise ValueError(f"TemplateConfigJob with id {job_id} not found")
             
             # Update job status
-            job.status = TemplateConfigJobStatus.PENDING
+            job.status = TemplateConfigStatus.QUEUED
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
             await db.commit()
             
             # Create message payload
-            message = job.to_job_data()
+            try:
+                message = job.to_job_data()
+                logger.info(f"Created job data for job {job_id}: {message}")
+            except Exception as e:
+                logger.error(f"Failed to create job data for job {job_id}: {e}")
+                raise
             
             # Determine priority based on job priority
             priority_map = {
@@ -180,12 +188,22 @@ class TemplateConfigProducer:
             }
             priority = priority_map.get(job.priority.value, 5)
             
+            # Check if RabbitMQ connection is available
+            if not self.rabbitmq.connection or self.rabbitmq.connection.is_closed:
+                logger.error("RabbitMQ connection is not available")
+                raise ConnectionError("RabbitMQ connection is not available")
+            
             # Publish to queue
-            await self.rabbitmq.publish_message(
-                routing_key="template.config",
-                message=message,
-                priority=priority
-            )
+            try:
+                await self.rabbitmq.publish_message(
+                    routing_key="template.config",
+                    message=message,
+                    priority=priority
+                )
+                logger.info(f"Successfully published template config job {job_id} to queue")
+            except Exception as e:
+                logger.error(f"Failed to publish message to queue for job {job_id}: {e}")
+                raise
             
             logger.info(f"Submitted template config job {job_id} to queue")
             return True
@@ -194,8 +212,11 @@ class TemplateConfigProducer:
             logger.error(f"Failed to submit template config job {job_id}: {e}")
             # Update job status to failed
             if 'job' in locals():
-                job.status = TemplateConfigJobStatus.FAILED
-                await db.commit()
+                try:
+                    job.status = TemplateConfigStatus.FAILED
+                    await db.commit()
+                except Exception as commit_error:
+                    logger.error(f"Failed to update job status to failed: {commit_error}")
             raise
 
 
@@ -216,7 +237,7 @@ class MarkingJobProducer:
             job = result
             
             # Update job status
-            job.status = MarkingJobStatus.PENDING
+            job.status = MarkingJobStatus.QUEUED
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
             await db.commit()
             
@@ -266,7 +287,7 @@ class TemplateConfigResultConsumer:
                 result_data = json.loads(message.body.decode())
                 job_id = result_data.get('job_id')
                 
-                if not job_id:
+                if not job_id :
                     logger.error("No job_id in template config result message")
                     return
                 
@@ -288,35 +309,35 @@ class TemplateConfigResultConsumer:
                         job = job_result
                         
                         # Update job with results
-                        if result_data.get('success', False):
-                            job.status = TemplateConfigJobStatus.COMPLETED
+                        if result_data.get('status', 'failed') == 'completed':
+                            job.status = TemplateConfigStatus.COMPLETED
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Store results and update template
-                            if 'template_config_path' in result_data:
-                                job.template.configuration_path = result_data['template_config_path']
+                            if 'template_config_path' in result_data['result']:
+                                job.template.configuration_path = result_data['result']['template_config_path']
                             
-                            if 'output_image_path' in result_data:
-                                job.template.template_file_path = result_data['output_image_path']
+                            if 'output_image_path' in result_data['result']:
+                                job.template.template_file_path = result_data['result']['output_image_path']
                             
-                            if 'result_image_path' in result_data:
-                                job.result_image_path = result_data['result_image_path']
+                            if 'result_image_path' in result_data['result']:
+                                job.result_image_path = result_data['result']['result_image_path']
                             
                             # Update template with configuration results
-                            if 'bubble_config' in result_data:
-                                config_data = result_data['bubble_config']
+                            if 'bubble_config' in result_data['result']:
+                                config_data = result_data['result']['bubble_config']
                                 if 'metadata' in config_data:
                                     metadata = config_data['metadata']
                                     if 'num_questions' in metadata:
-                                        job.template.total_questions = metadata['num_questions']
-                                    if 'num_options_per_question' in metadata:
-                                        job.template.options_per_question = metadata['num_options_per_question']
+                                        job.template.num_questions = metadata['num_questions']
+                                    if 'options_per_question' in metadata:
+                                        job.template.options_per_question = metadata['options_per_question']
                                 
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Update image dimensions if provided
-                            if 'image_dimensions' in result_data:
-                                dims = result_data['image_dimensions']
+                            if 'image_dimensions' in result_data['result']:
+                                dims = result_data['result']['image_dimensions']
                                 job.original_image_width = dims.get('original_width')
                                 job.original_image_height = dims.get('original_height')
                                 job.processed_image_width = dims.get('processed_width')
@@ -325,7 +346,7 @@ class TemplateConfigResultConsumer:
                             logger.info(f"Template config job {job_id} completed successfully")
                             
                         else:
-                            job.status = TemplateConfigJobStatus.FAILED
+                            job.status = TemplateConfigStatus.FAILED
                             error_message = result_data.get('error_message', 'Unknown error')
                             
                             logger.error(f"Template config job {job_id} failed: {error_message}")
@@ -470,9 +491,12 @@ marking_job_consumer = MarkingJobResultConsumer(rabbitmq_manager)
 async def initialize_queue_system():
     """Initialize the complete queue system."""
     try:
+        logger.info("Starting queue system initialization...")
         await rabbitmq_manager.connect()
+        logger.info("RabbitMQ connection established successfully")
         
         # Start consumers in background tasks
+        logger.info("Starting background consumers...")
         asyncio.create_task(template_config_consumer.start_consuming())
         asyncio.create_task(marking_job_consumer.start_consuming())
         
@@ -512,7 +536,7 @@ async def shutdown_queue_system():
 
 # Helpers for background tasks (manage own session; avoid using request-scoped session)
 async def submit_template_config_job(job_id: int) -> bool:
-    """Submit a template configuration job to the queue."""
+    """Submit a template configuration job to the queue."""   
     async with AsyncSessionLocal() as session:
         return await template_config_producer.submit_template_config_job(job_id, session)
 

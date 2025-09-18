@@ -107,6 +107,18 @@ def read_answer_sheet_paths(folder_path):
     # Return sorted list of relative paths (folder_path/filename)
     return sorted([os.path.join(folder_path, fname) for fname in file_list])
 
+def file_exists(path):
+    """
+    Check if file exists in NFS storage
+    
+    Args:
+        path: Relative path within the file_type directory
+    """
+    if path is None:
+        return False
+    nfs = NFSStorage()
+    return nfs.file_exists(path)
+
 def get_spreadsheet(path, title: str):
     """
     Get or create a spreadsheet from NFS storage

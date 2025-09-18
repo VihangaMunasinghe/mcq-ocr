@@ -5,16 +5,9 @@ TemplateConfigJob model for handling template configuration operations.
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
+
+from app.models.template import TemplateConfigStatus
 from .base import BaseModel
-
-
-class TemplateConfigJobStatus(PyEnum):
-    """Enum for template configuration job status."""
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
 
 
 class TemplateConfigJobPriority(PyEnum):
@@ -39,8 +32,7 @@ class TemplateConfigJob(BaseModel):
     name = Column(String(100), nullable=False, index=True)
     description = Column(String(255), nullable=True)
     
-    # Job status and priority
-    status = Column(Enum(TemplateConfigJobStatus), nullable=False, default=TemplateConfigJobStatus.PENDING)
+    # Job priority
     priority = Column(Enum(TemplateConfigJobPriority), nullable=False, default=TemplateConfigJobPriority.NORMAL)
     
     
@@ -77,33 +69,50 @@ class TemplateConfigJob(BaseModel):
     template = relationship("Template", back_populates="template_config_jobs")
     
     def __repr__(self):
-        return f"<TemplateConfigJob(id={self.job_id}, name='{self.name}', status='{self.status}')>"
+        return f"<TemplateConfigJob(id={self.job_id}, name='{self.name}')>"
 
-    @property
-    def is_completed(self) -> bool:
-        """Check if the job is completed."""
-        return self.status == TemplateConfigJobStatus.COMPLETED
-
-    @property
-    def is_failed(self) -> bool:
-        """Check if the job has failed."""
-        return self.status == TemplateConfigJobStatus.FAILED
+    def get_status(self) -> TemplateConfigStatus:
+        """Get the status of the job."""
+        return self.template.status
 
     def to_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'config_type': self.template.config_type.value if self.template and self.template.config_type else 'grid_based',
-            'template_path': self.template_path,
-            'template_config_path': self.template_config_path,
-            'output_image_path': self.output_image_path,
-            'result_image_path': self.result_image_path,
-            'num_of_columns': self.num_of_columns,
-            'num_of_rows_per_column': self.num_of_rows_per_column,
-            'num_of_options_per_question': self.num_of_options_per_question,
-            'save_intermediate_results': self.save_intermediate_results
-        }
+        try:
+            config_type = 'grid_based'  # Default value
+            if self.template and self.template.config_type:
+                config_type = self.template.config_type.value
+            
+            return {
+                'id': self.id,
+                'name': self.name,
+                'config_type': config_type,
+                'template_path': self.template_path,
+                'template_config_path': self.template_config_path,
+                'output_image_path': self.output_image_path,
+                'result_image_path': self.result_image_path,
+                'num_of_columns': self.num_of_columns,
+                'num_of_rows_per_column': self.num_of_rows_per_column,
+                'num_of_options_per_question': self.num_of_options_per_question,
+                'save_intermediate_results': self.save_intermediate_results
+            }
+        except Exception as e:
+            # Log the error and return a safe default
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in to_job_data for job {self.id}: {e}")
+            return {
+                'id': self.id,
+                'name': self.name or 'Unknown',
+                'config_type': 'grid_based',
+                'template_path': self.template_path or '',
+                'template_config_path': self.template_config_path or '',
+                'output_image_path': self.output_image_path or '',
+                'result_image_path': self.result_image_path or '',
+                'num_of_columns': self.num_of_columns,
+                'num_of_rows_per_column': self.num_of_rows_per_column,
+                'num_of_options_per_question': self.num_of_options_per_question,
+                'save_intermediate_results': self.save_intermediate_results or False
+            }
 
     def update_image_dimensions(self, 
                               original_width: int, 
@@ -122,9 +131,8 @@ class TemplateConfigJob(BaseModel):
 
     def mark_as_failed(self, error_message: str, error_details: dict = None):
         """Mark the job as failed with error information."""
-        self.status = TemplateConfigJobStatus.FAILED
-        # Remove usage of error_message, error_details, current_retry_count if not present as columns
+        self.template.status = TemplateConfigStatus.FAILED
 
     def mark_as_completed(self):
         """Mark the job as completed."""
-        self.status = TemplateConfigJobStatus.COMPLETED
+        self.template.status = TemplateConfigStatus.COMPLETED

@@ -12,6 +12,14 @@ class TemplateConfigType(PyEnum):
     GRID_BASED = "grid_based"
     CLUSTERING_BASED = "clustering_based"
 
+class TemplateConfigStatus(PyEnum):
+    """Enum for template configuration job status."""
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
 
 class Template(BaseModel):
     """Template model for MCQ templates."""
@@ -21,16 +29,17 @@ class Template(BaseModel):
     name = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     config_type = Column(Enum(TemplateConfigType), nullable=False)
+    status = Column(Enum(TemplateConfigStatus), nullable=False, default=TemplateConfigStatus.QUEUED)
     
     # Template configuration
-    total_questions = Column(Integer, nullable=False, default=0)
+    num_questions = Column(Integer, nullable=False, default=0)
     options_per_question = Column(Integer, nullable=False, default=5)
     
     # Template configuration as JSON
-    configuration_path = Column(String(255), nullable=True)
+    configuration_path = Column(String(500), nullable=True)
     
     # File references
-    template_file_path = Column(String(255), nullable=True)
+    template_file_path = Column(String(500), nullable=True)
     
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
