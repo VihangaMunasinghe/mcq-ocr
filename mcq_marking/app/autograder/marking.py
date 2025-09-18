@@ -1,6 +1,10 @@
+import cv2
 import numpy as np
+from PIL import Image
 from app.autograder.utils.image_processing import get_binary_image, get_homography
 import logging
+
+from app.utils.file_handelling import save_image
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +24,10 @@ def get_corresponding_points(points, H):
         correspondingPoints[i][1] = correspondingPoints[i][1] / \
             correspondingPoints[i][2]
         
-    # # Adjusting
-    # delta_x = -4  # The observed shift in the x direction
-    # delta_y = -9  # The observed shift in the y direction
-
-    # Apply the shift to each point in correspondingPoints
     adjusted_points = [(x[0], x[1]) for x in correspondingPoints]
     if isinstance(adjusted_points, np.ndarray):
         adjusted_points = np.array(adjusted_points)
 
-    # Returning the corresponding points for the 2nd image related to 1st image
     #return correspondingPoints
     return adjusted_points
 
@@ -61,13 +59,52 @@ def check_neighbours_pixels(img, points):
 def get_answers(template_img, answers_image, bubble_coordinates):
     # Find homography Matrix
     homography = get_homography(template_img, answers_image)
-    logger.info(f"Got homography")
+    logger.info(f"Homography matrix: {homography}")
+    logger.info(f"Bubble coordinates count: {len(bubble_coordinates)}")
+    
+    if homography is None:
+        logger.error("Failed to calculate homography matrix - not enough feature matches")
+        # Return empty results or handle the error appropriately
+        return []
+    
+    # Check if homography is essentially an identity matrix (indicating poor feature matching)
+    identity_threshold = 0.1
+    is_identity = (abs(homography[0, 0] - 1.0) < identity_threshold and 
+                   abs(homography[1, 1] - 1.0) < identity_threshold and
+                   abs(homography[0, 1]) < identity_threshold and
+                   abs(homography[1, 0]) < identity_threshold and
+                   abs(homography[0, 2]) < identity_threshold and
+                   abs(homography[1, 2]) < identity_threshold)
+    
+    if is_identity:
+        logger.warning("Homography matrix is essentially identity - feature matching may have failed")
+        logger.warning("This may indicate that the template and answer sheet are too similar or too different")
+        # Continue with the identity matrix but log the issue
+    
     # Find related points in the two image
     correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
-    logger.info(f"Got corresponding points")
+    logger.info(f"Corresponding points count: {len(correspondingPoints)}")
+    logger.info(f"First few corresponding points: {correspondingPoints[:3]}")
+    # Draw corresponding points on the answers image
+    answers_image_with_points = answers_image.copy()
+    # Convert PIL Image to numpy array for OpenCV
+    answers_image_with_points_array = np.array(answers_image_with_points)
+    # Convert RGB to BGR for OpenCV
+    answers_image_with_points_array = cv2.cvtColor(answers_image_with_points_array, cv2.COLOR_RGB2BGR)
+    for point in correspondingPoints:
+        # Convert point to tuple of integers, rounding for better precision
+        if isinstance(point, (list, np.ndarray)):
+            point_tuple = (int(round(point[0])), int(round(point[1])))
+        else:
+            point_tuple = (int(round(point[0])), int(round(point[1])))
+        cv2.circle(answers_image_with_points_array, point_tuple, 5, (0, 0, 255), -1)
+    
+    # Convert back to PIL Image for saving
+    answers_image_with_points = Image.fromarray(cv2.cvtColor(answers_image_with_points_array, cv2.COLOR_BGR2RGB))
+    # Save the answers image with points
+    save_image(f"intermediate/answers/answers_image_with_points.jpg", answers_image_with_points)
     # Check neighbouring pixels and get whether option is marked or not
     answers = check_neighbours_pixels(answers_image, correspondingPoints)
-    logger.info(f"Got answers")
     answers_with_coordinates = [(answer, coordinate) for answer, coordinate in zip(answers, correspondingPoints)]
     return answers_with_coordinates
 
