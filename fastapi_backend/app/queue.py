@@ -167,7 +167,7 @@ class TemplateConfigProducer:
                 raise ValueError(f"TemplateConfigJob with id {job_id} not found")
             
             # Update job status
-            job.status = TemplateConfigStatus.PENDING
+            job.status = TemplateConfigStatus.QUEUED
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
             await db.commit()
             
@@ -237,7 +237,7 @@ class MarkingJobProducer:
             job = result
             
             # Update job status
-            job.status = MarkingJobStatus.PENDING
+            job.status = MarkingJobStatus.QUEUED
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
             await db.commit()
             

@@ -32,7 +32,5 @@ class MarkingCreate(BaseModel):
     template_id: int
     marking_scheme_path: str
     answer_sheets_folder_path: str
-    intermediate_results_path: str
-    output_path: str
     save_intermediate_results: bool
     priority: MarkingJobPriority

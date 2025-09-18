@@ -14,7 +14,7 @@ class TemplateConfigType(PyEnum):
 
 class TemplateConfigStatus(PyEnum):
     """Enum for template configuration job status."""
-    PENDING = "pending"
+    QUEUED = "queued"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -29,7 +29,7 @@ class Template(BaseModel):
     name = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     config_type = Column(Enum(TemplateConfigType), nullable=False)
-    status = Column(Enum(TemplateConfigStatus), nullable=False, default=TemplateConfigStatus.PENDING)
+    status = Column(Enum(TemplateConfigStatus), nullable=False, default=TemplateConfigStatus.QUEUED)
     
     # Template configuration
     num_questions = Column(Integer, nullable=False, default=0)

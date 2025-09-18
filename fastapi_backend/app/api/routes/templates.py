@@ -31,7 +31,7 @@ async def create_template(
             name=template.name,
             description=template.description,
             config_type=template.config_type,
-            status=TemplateConfigStatus.PENDING,
+            status=TemplateConfigStatus.QUEUED,
             num_questions=0,  # Will be updated after configuration
             options_per_question=0,  # Default, will be updated after configuration
             template_file_path='pending',

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 import logging
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from typing import List
 
-router = APIRouter(prefix="api/markings", tags=['markings'])
+router = APIRouter(prefix="/api/markings", tags=['markings'])
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +65,10 @@ async def create_marking(
         marking_record = MarkingJob(
           name=marking.name,
           description=marking.description,
-          status=MarkingJobStatus.PENDING,
+          status=MarkingJobStatus.QUEUED,
           template_id=marking.template_id,
           marking_scheme_path=marking.marking_scheme_path,
           answer_sheets_folder_path=marking.answer_sheets_folder_path,
-          intermediate_results_path=marking.intermediate_results_path,
-          output_path=marking.output_path,
           save_intermediate_results=marking.save_intermediate_results,
           priority=marking.priority,
           created_by=user_id
@@ -77,6 +76,11 @@ async def create_marking(
         db.add(marking_record)
         await db.commit()
         await db.refresh(marking_record)
+
+        random_id = str(uuid.uuid4())[:8]
+        marking_record.intermediate_results_path = f"intermediate/markings/{user_id}/{marking_record.id}_{random_id}_intermediate/"
+        marking_record.output_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
+        
         marking_response = MarkingResponse(
           id=marking_record.id,
           name=marking_record.name,
