@@ -59,8 +59,6 @@ def check_neighbours_pixels(img, points):
 def get_answers(template_img, answers_image, bubble_coordinates):
     # Find homography Matrix
     homography = get_homography(template_img, answers_image)
-    logger.info(f"Homography matrix: {homography}")
-    logger.info(f"Bubble coordinates count: {len(bubble_coordinates)}")
     
     if homography is None:
         logger.error("Failed to calculate homography matrix - not enough feature matches")
@@ -83,26 +81,6 @@ def get_answers(template_img, answers_image, bubble_coordinates):
     
     # Find related points in the two image
     correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
-    logger.info(f"Corresponding points count: {len(correspondingPoints)}")
-    logger.info(f"First few corresponding points: {correspondingPoints[:3]}")
-    # Draw corresponding points on the answers image
-    answers_image_with_points = answers_image.copy()
-    # Convert PIL Image to numpy array for OpenCV
-    answers_image_with_points_array = np.array(answers_image_with_points)
-    # Convert RGB to BGR for OpenCV
-    answers_image_with_points_array = cv2.cvtColor(answers_image_with_points_array, cv2.COLOR_RGB2BGR)
-    for point in correspondingPoints:
-        # Convert point to tuple of integers, rounding for better precision
-        if isinstance(point, (list, np.ndarray)):
-            point_tuple = (int(round(point[0])), int(round(point[1])))
-        else:
-            point_tuple = (int(round(point[0])), int(round(point[1])))
-        cv2.circle(answers_image_with_points_array, point_tuple, 5, (0, 0, 255), -1)
-    
-    # Convert back to PIL Image for saving
-    answers_image_with_points = Image.fromarray(cv2.cvtColor(answers_image_with_points_array, cv2.COLOR_BGR2RGB))
-    # Save the answers image with points
-    save_image(f"intermediate/answers/answers_image_with_points.jpg", answers_image_with_points)
     # Check neighbouring pixels and get whether option is marked or not
     answers = check_neighbours_pixels(answers_image, correspondingPoints)
     answers_with_coordinates = [(answer, coordinate) for answer, coordinate in zip(answers, correspondingPoints)]
