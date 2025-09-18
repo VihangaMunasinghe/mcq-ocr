@@ -5,7 +5,7 @@ import logging
 from app.autograder.utils.image_processing import read_enhanced_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
-from app.models.template import Template
+from app.models.template import Template, TemplateConfigType
 from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 
 # Configure logging
@@ -66,10 +66,11 @@ class MarkingJob:
     def setup(self, force_recalculate=False):
         self.connect()
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
-            template_img = read_enhanced_image(self.template_path, 1.5)
+            template_img = read_enhanced_image(self.template_path, 1.5, resize=False)
             marking_img = read_enhanced_image(self.marking_path, 1.5)
             template_config = read_json(self.template_config_path)
-            self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config,self.config_type)
+            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
+            self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config, config_type)
             self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template)
             logger.info(f"Obtaining papers from {self.answers_folder_path}")
             self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path)
@@ -83,18 +84,25 @@ class MarkingJob:
         self.setup()
         self.start_time = time.time()
         for i, answer_sheet_path in enumerate(self.answer_sheets):
+            logger.info(f"Processing answer sheet: {answer_sheet_path}")
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
+            logger.info(f"Getting score for answer sheet: {answer_sheet_path}")
             score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
+            logger.info(f"Score: {score}")
             self.add_to_spreadsheet(score)
+            logger.info(f"Added score to spreadsheet")
             if self.save_intermediate_results:
                 save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
+                logger.info(f"Saved intermediate results")
+        logger.info(f"Saving spreadsheet")
         save_spreadsheet(self.output_path, self.spreadsheet_workbook)
+        logger.info(f"Saved spreadsheet")
         if not file_exists(self.output_path):
             logger.error(f"Output path does not exist")
             return False
-        print(f"Marking is complete. Results have been saved in {self.output_path}")
-        print(f"Total time taken: {time.time() - self.start_time} seconds")
+        logger.info(f"Marking is complete. Results have been saved in {self.output_path}")
+        logger.info(f"Total time taken: {time.time() - self.start_time} seconds")
 
         return True
 

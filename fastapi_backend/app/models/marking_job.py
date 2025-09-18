@@ -117,7 +117,7 @@ class MarkingJob(BaseModel):
             'template_id': self.template_id,
             'template_path': self.template.template_file_path,
             'template_config_path': self.template.configuration_path,
-            'config_type': self.template.config_type,
+            'config_type': self.template.config_type.value,
             'marking_path': self.marking_scheme_path,
             'answers_folder_path': self.answer_sheets_folder_path,
             'output_path': self.output_path,

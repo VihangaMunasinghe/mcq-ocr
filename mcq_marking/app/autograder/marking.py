@@ -1,5 +1,8 @@
 import numpy as np
 from app.autograder.utils.image_processing import get_binary_image, get_homography
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_corresponding_points(points, H):
     points = np.array(points)
@@ -58,12 +61,13 @@ def check_neighbours_pixels(img, points):
 def get_answers(template_img, answers_image, bubble_coordinates):
     # Find homography Matrix
     homography = get_homography(template_img, answers_image)
+    logger.info(f"Got homography")
     # Find related points in the two image
     correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
-
+    logger.info(f"Got corresponding points")
     # Check neighbouring pixels and get whether option is marked or not
     answers = check_neighbours_pixels(answers_image, correspondingPoints)
-
+    logger.info(f"Got answers")
     answers_with_coordinates = [(answer, coordinate) for answer, coordinate in zip(answers, correspondingPoints)]
     return answers_with_coordinates
 
