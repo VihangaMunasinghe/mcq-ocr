@@ -246,7 +246,7 @@ export default function MarkingJobs() {
           : templates.length === 0
           ? [{ value: "", label: "No templates available" }]
           : templates
-              .filter(template => template.status === "ready") // Only show ready templates
+              .filter(template => template.status === "completed") // Only show ready templates
               .map((template) => ({
                 value: template.id.toString(),
                 label: `${template.name} (${template.num_questions} questions)`,
@@ -275,43 +275,6 @@ export default function MarkingJobs() {
     ];
     setSelectFormConfig(newSelectFormConfig);
   }, [templates, loadingTemplates, templatesError]);
-
-  // Setup template selection options dynamically
-  useEffect(() => {
-    const selectFormConfig= [
-      {
-        name: "template_id",
-        label: "Template",
-        options: [
-          ...templates
-            .map((template) => ({
-              value: template.id.toString(),
-              label: `${template.name} (${template.num_questions} questions)`,
-            })),
-        ],
-        defaultValue: "grid_based",
-      },
-      {
-        name: "save_intermediate_results",
-        label: "Save Intermediate Results",
-        options: [
-          { value: "true", label: "Yes" },
-          { value: "false", label: "No" },
-        ],
-        defaultValue: "false",
-      },
-      {
-        name: "priority",
-        label: "Job Priority",
-        options: [
-          { value: "normal", label: "Normal" },
-          { value: "urgent", label: "Urgent" },
-        ]
-      }
-    ];
-    setSelectFormConfig(selectFormConfig);
-  },
-  [templates]);
 
   const filteredJobs =
     statusFilter === "all"
