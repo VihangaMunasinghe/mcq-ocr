@@ -7,7 +7,6 @@ import { Table, TableColumn } from "../../components/UI/Table";
 import { Button } from "../../components/UI/Button";
 import { Select } from "../../components/UI/Select";
 import { Modal } from "../../components/UI/Modal";
-import { FileUploadModal } from "../../components/Modals/FileUploadModal";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -24,6 +23,7 @@ import {
   faFile,
 } from "@fortawesome/free-solid-svg-icons";
 import { FormUploadModal } from "@/components/Modals/FormUploadModal";
+import { Template } from "@/models/template";
 
 type JobStatus =
   | "pending"
@@ -39,7 +39,6 @@ interface MarkingJob {
   template: string;
   templateType: string;
   created: string;
-  deadline: string;
   status: JobStatus;
   submissions: number;
   marked: number;
@@ -56,63 +55,6 @@ interface ReviewQuestion {
 }
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
-
-const templates = [
-  {
-    id: 1,
-    name: "Math Quiz MCQ Template",
-    type: "MCQ",
-    created: "2023-04-01",
-    lastUsed: "2023-04-10",
-    status: "active",
-    questionCount: 30,
-    description: "Multiple choice questions for 10th grade math exam",
-  },
-  {
-    id: 2,
-    name: "English Grammar MCQ",
-    type: "MCQ",
-    created: "2023-03-15",
-    lastUsed: "2023-04-05",
-    status: "active",
-    questionCount: 25,
-    description: "Grammar assessment for high school students",
-  },
-  {
-    id: 3,
-    name: "Science Lab Report",
-    type: "Report",
-    created: "2023-02-28",
-    lastUsed: "2023-03-20",
-    status: "active",
-  },
-  {
-    id: 4,
-    name: "History Assignment Rubric",
-    type: "Rubric",
-    created: "2023-01-10",
-    lastUsed: "2023-02-15",
-    status: "inactive",
-  },
-  {
-    id: 5,
-    name: "Programming Test MCQ",
-    type: "MCQ",
-    created: "2023-03-05",
-    lastUsed: "2023-04-12",
-    status: "active",
-    questionCount: 40,
-    description: "Computer science fundamentals assessment",
-  },
-  {
-    id: 6,
-    name: "Geography Project Rubric",
-    type: "Rubric",
-    created: "2023-02-20",
-    lastUsed: "2023-03-10",
-    status: "active",
-  },
-];
 
 const inputFormConfig = [
     {
@@ -164,9 +106,43 @@ export default function MarkingJobs() {
   const [selectedJobData, setSelectedJobData] = useState<MarkingJob | null>(
     null
   );
-  const [templatesData, setTemplatesData] = useState<any[]>([]);
   const [selectFormConfig, setSelectFormConfig] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const fetchTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      setTemplatesError(null);
+      
+      const params = new URLSearchParams({
+        skip: '0',
+        limit: '20'
+      });
+
+      const response = await fetch(`${BACKEND_URL}/templates?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch templates: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setTemplates(data);
+    } catch (err) {
+      console.error('Error fetching templates:', err);
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to fetch templates');
+      showToast("Failed to load templates", "error");
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
 
   const markingJobs: MarkingJob[] = [
     {
@@ -175,7 +151,6 @@ export default function MarkingJobs() {
       template: "Math Quiz MCQ Template",
       templateType: "MCQ",
       created: "2023-04-01",
-      deadline: "2023-04-15",
       status: "completed",
       submissions: 32,
       marked: 32,
@@ -186,7 +161,6 @@ export default function MarkingJobs() {
       template: "English Grammar MCQ",
       templateType: "MCQ",
       created: "2023-04-05",
-      deadline: "2023-04-20",
       status: "review-required",
       submissions: 28,
       marked: 24,
@@ -198,7 +172,6 @@ export default function MarkingJobs() {
       template: "Science Test Template",
       templateType: "Test",
       created: "2023-04-02",
-      deadline: "2023-04-12",
       status: "completed",
       submissions: 45,
       marked: 45,
@@ -209,7 +182,6 @@ export default function MarkingJobs() {
       template: "History Assignment Rubric",
       templateType: "Rubric",
       created: "2023-04-08",
-      deadline: "2023-04-22",
       status: "in-progress",
       submissions: 19,
       marked: 8,
@@ -220,7 +192,6 @@ export default function MarkingJobs() {
       template: "Geography Quiz Template",
       templateType: "Quiz",
       created: "2023-04-10",
-      deadline: "2023-04-25",
       status: "pending",
       submissions: 0,
       marked: 0,
@@ -231,7 +202,6 @@ export default function MarkingJobs() {
       template: "Science Lab Report",
       templateType: "Report",
       created: "2023-03-28",
-      deadline: "2023-04-11",
       status: "completed",
       submissions: 24,
       marked: 24,
@@ -242,7 +212,6 @@ export default function MarkingJobs() {
       template: "Programming Test MCQ",
       templateType: "MCQ",
       created: "2023-04-07",
-      deadline: "2023-04-21",
       status: "processing",
       submissions: 22,
       marked: 0,
@@ -253,28 +222,59 @@ export default function MarkingJobs() {
       template: "Art Project Rubric",
       templateType: "Rubric",
       created: "2023-03-25",
-      deadline: "2023-04-08",
       status: "cancelled",
       submissions: 18,
       marked: 5,
     },
   ];
 
-  useEffect(()=>{
-    // Fetch templates from backend
-    const fetchTemplates = async () => {
-      try {
-        // Do your fetch call here
-        const data = templates; // Replace with actual fetched data
-        setTemplatesData(data);
-      } catch (error) {
-        console.error('Error fetching templates:', error);
-        showToast("Error fetching templates", "error");
+  useEffect(() => {
+    if (isUploadModalOpen) {
+      fetchTemplates();
+    }
+  }, [isUploadModalOpen]);
+  
+  useEffect(() => {
+    const newSelectFormConfig = [
+      {
+        name: "template_id",
+        label: "Template",
+        options: loadingTemplates 
+          ? [{ value: "", label: "Loading templates..." }]
+          : templatesError
+          ? [{ value: "", label: "Error loading templates" }]
+          : templates.length === 0
+          ? [{ value: "", label: "No templates available" }]
+          : templates
+              .filter(template => template.status === "ready") // Only show ready templates
+              .map((template) => ({
+                value: template.id.toString(),
+                label: `${template.name} (${template.num_questions} questions)`,
+              })),
+        defaultValue: templates.length > 0 ? templates[0]?.id.toString() : "",
+        disabled: loadingTemplates || !!templatesError || templates.length === 0,
+      },
+      {
+        name: "save_intermediate_results",
+        label: "Save Intermediate Results",
+        options: [
+          { value: "true", label: "Yes" },
+          { value: "false", label: "No" },
+        ],
+        defaultValue: "false",
+      },
+      {
+        name: "priority",
+        label: "Job Priority",
+        options: [
+          { value: "normal", label: "Normal" },
+          { value: "urgent", label: "Urgent" },
+        ],
+        defaultValue: "normal",
       }
-    };
-
-    fetchTemplates();    
-  },[isUploadModalOpen]);
+    ];
+    setSelectFormConfig(newSelectFormConfig);
+  }, [templates, loadingTemplates, templatesError]);
 
   // Setup template selection options dynamically
   useEffect(() => {
@@ -283,10 +283,10 @@ export default function MarkingJobs() {
         name: "template_id",
         label: "Template",
         options: [
-          ...templatesData
+          ...templates
             .map((template) => ({
               value: template.id.toString(),
-              label: `${template.name} (${template.questionCount} questions)`,
+              label: `${template.name} (${template.num_questions} questions)`,
             })),
         ],
         defaultValue: "grid_based",
@@ -311,7 +311,7 @@ export default function MarkingJobs() {
     ];
     setSelectFormConfig(selectFormConfig);
   },
-  [templatesData]);
+  [templates]);
 
   const filteredJobs =
     statusFilter === "all"
@@ -370,8 +370,8 @@ export default function MarkingJobs() {
     const answer_sheets_formData = new FormData();
     const answer_file = formData.get("answer_sheets") as File;
     answer_sheets_formData.append("file", answer_file);
-    answer_sheets_formData.append("folder", "answer_sheets");
-    const zip_uploadResponse = await fetch(`${BACKEND_URL}/files/upload/zip`, {
+    answer_sheets_formData.append("file_type", "answer_sheet");
+    const zip_uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
       method: 'POST',
       body: answer_sheets_formData,
     });
@@ -397,7 +397,7 @@ export default function MarkingJobs() {
     );
 
     // Create marking job
-    const processResponse = await fetch(`${BACKEND_URL}/jobs/marking`, {
+    const processResponse = await fetch(`${BACKEND_URL}/markings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: marking_job_json_payload,});
@@ -524,7 +524,6 @@ export default function MarkingJobs() {
     { header: "Template", accessor: "template", sortable: true },
     { header: "Type", accessor: "templateType", sortable: true },
     { header: "Created", accessor: "created", sortable: true },
-    { header: "Deadline", accessor: "deadline", sortable: true },
     {
       header: "Status",
       accessor: (job: MarkingJob) => getStatusBadge(job.status),

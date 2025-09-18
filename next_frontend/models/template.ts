@@ -1,15 +1,22 @@
-// Define template types for MCQ grading system
-type TemplateType = "MCQ" | "Quiz" | "Rubric" | "Report" | "Test";
+// Define template config types
+type ConfigType = "grid_based" | "clustering_based";
+
+// Define template status
+type TemplateStatus = "queued" | "processing" | "ready" | "failed";
 
 interface Template {
   id: number;
   name: string;
-  type: TemplateType;
-  created: string;
-  lastUsed: string;
-  status: "active" | "inactive";
-  questionCount?: number;
-  description?: string;
+  status: TemplateStatus;
+  description: string;
+  config_type: ConfigType;
+  configuration_path: string;
+  template_file_path: string;
+  num_questions: number;
+  options_per_question: number;
+  created_at: string;   // ISO timestamp
+  updated_at: string;   // ISO timestamp
+  created_by: number;   // user id
 }
 
-export type { Template, TemplateType };
+export type { Template, TemplateStatus, ConfigType };

@@ -6,11 +6,13 @@ import {
   faTrash,
   faEdit,
   faEllipsisH,
-  faFile,
   faCalendar,
   faCheckCircle,
+  faTh,
+  faProjectDiagram,
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
-import { Template, TemplateType } from "@/models/template";
+import { Template, ConfigType } from "@/models/template";
 import { Button } from "@/components/UI/Button";
 
 interface TemplateCardProps {
@@ -19,20 +21,50 @@ interface TemplateCardProps {
   confirmDelete: (id: number) => void;
 }
 
-const getTemplateIcon = (type: TemplateType) => {
-  switch (type) {
-    case "MCQ":
+const getConfigIcon = (configType: ConfigType) => {
+  switch (configType) {
+    case "grid_based":
       return (
         <FontAwesomeIcon
-          icon={faCheckCircle}
-          className="h-6 w-6 text-green-600"
+          icon={faTh}
+          className="h-6 w-6 text-blue-600"
+        />
+      );
+    case "clustering_based":
+      return (
+        <FontAwesomeIcon 
+          icon={faProjectDiagram} 
+          className="h-6 w-6 text-purple-600" 
         />
       );
     default:
       return (
-        <FontAwesomeIcon icon={faFileText} className="h-6 w-6 text-blue-600" />
+        <FontAwesomeIcon icon={faFileText} className="h-6 w-6 text-gray-600" />
       );
   }
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "ready":
+      return "bg-green-100 text-green-800";
+    case "processing":
+      return "bg-blue-100 text-blue-800";
+    case "queued":
+      return "bg-yellow-100 text-yellow-800";
+    case "failed":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
+
+const formatDate = (isoString: string) => {
+  return new Date(isoString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardProps) => {
@@ -42,16 +74,18 @@ const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardPro
         <div className="flex items-center">
           <div
             className={`p-2 rounded-md ${
-              template.type === "MCQ" ? "bg-green-50" : "bg-blue-50"
+              template.config_type === "grid_based" ? "bg-blue-50" : "bg-purple-50"
             }`}
           >
-            {getTemplateIcon(template.type)}
+            {getConfigIcon(template.config_type)}
           </div>
           <div className="ml-3">
             <h3 className="text-lg font-medium text-gray-900">
               {template.name}
             </h3>
-            <p className="text-sm text-gray-500">{template.type}</p>
+            <p className="text-sm text-gray-500 capitalize">
+              {template.config_type.replace('_', ' ')}
+            </p>
           </div>
         </div>
         <div className="relative">
@@ -66,28 +100,34 @@ const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardPro
         </div>
       </div>
 
+      {template.description && (
+        <div className="mt-3">
+          <p className="text-sm text-gray-600 line-clamp-2">
+            {template.description}
+          </p>
+        </div>
+      )}
+
       <div className="mt-4 space-y-2">
         <div className="flex items-center text-sm text-gray-500">
-          <FontAwesomeIcon icon={faCalendar} className="h-4 w-4 mr-1" />
-          Created: {template.created}
+          <FontAwesomeIcon icon={faCalendar} className="h-4 w-4 mr-2" />
+          Created: {formatDate(template.created_at)}
         </div>
         <div className="flex items-center text-sm text-gray-500">
-          <FontAwesomeIcon icon={faFile} className="h-4 w-4 mr-1" />
-          Last used: {template.lastUsed}
+          <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4 mr-2" />
+          Questions: {template.num_questions}
         </div>
-        {template.questionCount && (
-          <div className="flex items-center text-sm text-gray-500">
-            <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4 mr-1" />
-            Questions: {template.questionCount}
-          </div>
-        )}
-        <div className="flex items-center text-sm">
+        <div className="flex items-center text-sm text-gray-500">
+          <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4 mr-2" />
+          Options per Q: {template.options_per_question}
+        </div>
+        <div className="flex items-center text-sm text-gray-500">
+          <FontAwesomeIcon icon={faUser} className="h-4 w-4 mr-2" />
+          Created by: User #{template.created_by}
+        </div>
+        <div className="flex items-center">
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              template.status === "active"
-                ? "bg-green-100 text-green-800"
-                : "bg-gray-100 text-gray-800"
-            }`}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(template.status)}`}
           >
             {template.status.charAt(0).toUpperCase() + template.status.slice(1)}
           </span>
