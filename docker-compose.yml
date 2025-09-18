@@ -92,7 +92,6 @@ services:
         mkdir -p /shared/uploads /shared/templates /shared/results /shared/reports /shared/temp /shared/backups &&
         mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
         mkdir -p /shared/templates/configs /shared/templates/processed &&
-        mkdir -p /shared/results/individual /shared/results/batch /shared/results/detailed &&
         chmod -R 777 /shared &&
         chown -R 1000:1000 /shared &&
         echo 'Shared storage ready' &&
