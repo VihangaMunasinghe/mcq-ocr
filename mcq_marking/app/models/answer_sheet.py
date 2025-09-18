@@ -6,6 +6,9 @@ from pika.adapters.blocking_connection import BlockingChannel
 from pika import BasicProperties
 import json
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AnswerSheet:
     def __init__(self, job_id : int, id : int, path: str, answer_sheet_img : Image, marking_scheme: MarkingScheme, rabbit_channel: BlockingChannel = None, index_task_queue="index_task_queue"):
@@ -30,8 +33,8 @@ class AnswerSheet:
 
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers_with_coordinates is None or force_recalculate:
-          bubble_coordinates = self.marking_scheme.template.get_bubble_coordinates()
-          self.answers_with_coordinates = get_answers(self.answer_sheet_img, self.answer_sheet_img, bubble_coordinates)
+            bubble_coordinates = self.marking_scheme.template.get_bubble_coordinates()
+            self.answers_with_coordinates = get_answers(self.answer_sheet_img, self.answer_sheet_img, bubble_coordinates)
         return self.answers_with_coordinates
     
     def start_index_recognition(self):
@@ -65,6 +68,7 @@ class AnswerSheet:
             self.columnwise_total,
             self.points,
         ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
+        logger.info(f"Calculated score")
         if intermediate_results:
             result_img = self.answer_sheet_img.copy()
             result_img = np.array(result_img)            
@@ -73,8 +77,6 @@ class AnswerSheet:
             result_img = draw_scatter_points(result_img, self.points["more_than_one_marked"], color=(255, 0, 0))
             result_img = draw_scatter_points(result_img, self.points["not_marked"], color=(255, 255, 0))
             self.result_img = result_img
-        
-        print(f"Score for AnswerSheet ID {self.id}: {len(self.correct)} out of {len(marking_scheme_answers)}")
         return {
             "index_number": self.index_number,
             "correct": self.correct,

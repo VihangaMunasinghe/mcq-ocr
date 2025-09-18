@@ -230,7 +230,10 @@ class MarkingJobProducer:
         """Submit a marking job to the queue."""
         try:
             # Get job from database
-            result = await db.get(MarkingJob, job_id)
+            result = await db.execute(
+                select(MarkingJob).options(selectinload(MarkingJob.template)).where(MarkingJob.id == job_id)
+            )
+            result = result.scalar_one_or_none()
             if not result:
                 raise ValueError(f"MarkingJob with id {job_id} not found")
             

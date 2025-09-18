@@ -5,9 +5,10 @@ import numpy as np
 from app.utils.file_handelling import read_image
 
 
-def read_enhanced_image(path, enhance_contrast_val):
+def read_enhanced_image(path, enhance_contrast_val, resize = True):
     img = read_image(path, convert_to_grayscale=True)
-    img = img.resize((1200, 1600))
+    if resize:
+        img = img.resize((1200, 1600))
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(enhance_contrast_val)
     color = ImageEnhance.Color(img)

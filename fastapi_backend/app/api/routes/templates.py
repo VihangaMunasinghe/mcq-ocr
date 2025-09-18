@@ -84,9 +84,6 @@ async def create_template(
                 logger.info(f"Updated job {config_job.id} status to failed")
             except Exception as commit_error:
                 logger.error(f"Failed to update job status to failed: {commit_error}")
-        #     # Job is still created in database, can be retried later
-        #     # Don't raise the exception here to allow template creation to succeed
-        #     # The job can be retried later via the jobs API
         
         # Step 5: Return the response
         return TemplateResponse(
