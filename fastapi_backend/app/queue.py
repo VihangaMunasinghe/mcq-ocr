@@ -420,26 +420,23 @@ class MarkingJobResultConsumer:
                         job = job_result
                         
                         # Update job with results
-                        if result_data.get('success', False):
+                        if result_data.get('status', 'failed') == 'completed':
                             job.status = MarkingJobStatus.COMPLETED
                             job.processing_completed_at = datetime.utcnow().isoformat()
                             
                             # Store processing metrics
-                            if 'total_answer_sheets' in result_data:
-                                job.total_answer_sheets = result_data['total_answer_sheets']
+                            if 'total_answer_sheets' in result_data['result']:
+                                job.total_answer_sheets = result_data['result']['total_answer_sheets']
                             
-                            if 'processed_answer_sheets' in result_data:
-                                job.processed_answer_sheets = result_data['processed_answer_sheets']
+                            if 'processed_answer_sheets' in result_data['result']:
+                                job.processed_answer_sheets = result_data['result']['processed_answer_sheets']
                             
-                            if 'failed_answer_sheets' in result_data:
-                                job.failed_answer_sheets = result_data['failed_answer_sheets']
-                            
-                            if 'processing_duration' in result_data:
-                                job.processing_duration_seconds = result_data['processing_duration']
+                            if 'failed_answer_sheets' in result_data['result']:
+                                job.failed_answer_sheets = result_data['result']['failed_answer_sheets']
                             
                             # Store results summary
-                            if 'results_summary' in result_data:
-                                job.results_summary = result_data['results_summary']
+                            if 'results_summary' in result_data['result']:
+                                job.results_summary = result_data['result']['results_summary']
                             
                             logger.info(f"Marking job {job_id} completed successfully")
                             

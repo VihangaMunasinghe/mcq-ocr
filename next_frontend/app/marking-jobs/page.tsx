@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProtectedRoute } from "../../components/ProtectedRoute";
 import MainLayout from "../../components/Layout/MainLayout";
 import { Table, TableColumn } from "../../components/UI/Table";
 import { Button } from "../../components/UI/Button";
 import { Select } from "../../components/UI/Select";
 import { Modal } from "../../components/UI/Modal";
-import { FileUploadModal } from "../../components/Modals/FileUploadModal";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -23,6 +22,8 @@ import {
   faEye,
   faFile,
 } from "@fortawesome/free-solid-svg-icons";
+import { FormUploadModal } from "@/components/Modals/FormUploadModal";
+import { Template } from "@/models/template";
 
 type JobStatus =
   | "pending"
@@ -38,7 +39,6 @@ interface MarkingJob {
   template: string;
   templateType: string;
   created: string;
-  deadline: string;
   status: JobStatus;
   submissions: number;
   marked: number;
@@ -54,6 +54,47 @@ interface ReviewQuestion {
   issue: string;
 }
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+
+const inputFormConfig = [
+    {
+      name: "name",
+      label: "Name",
+      type: "text",
+      placeholder: "Enter name",
+      required: true,
+      defaultValue: "",
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "text",
+      placeholder: "Enter description",
+      defaultValue: "",
+    },
+  ];
+
+  const fileFormConfig = [
+    {
+      name: "marking_scheme",           // required
+      label: "Upload your marking scheme",
+      accept: ".jpg,.jpeg,.png",       // correct key
+      maxSize: 10 * 1024 * 1024,       // correct key
+      maxFiles: 1,
+      required: true,
+      fullWidth: true,
+    },
+    {
+      name: "answer_sheets",           // required
+      label: "Upload answer sheets zip file",
+      accept: ".zip",                  // correct key
+      maxSize: 200 * 1024 * 1024,       // correct key
+      maxFiles: 1,
+      required: true,
+      fullWidth: true,
+    }
+  ];  
+
 export default function MarkingJobs() {
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -65,7 +106,43 @@ export default function MarkingJobs() {
   const [selectedJobData, setSelectedJobData] = useState<MarkingJob | null>(
     null
   );
+  const [selectFormConfig, setSelectFormConfig] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const fetchTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      setTemplatesError(null);
+      
+      const params = new URLSearchParams({
+        skip: '0',
+        limit: '20'
+      });
+
+      const response = await fetch(`${BACKEND_URL}/templates?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch templates: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setTemplates(data);
+    } catch (err) {
+      console.error('Error fetching templates:', err);
+      setTemplatesError(err instanceof Error ? err.message : 'Failed to fetch templates');
+      showToast("Failed to load templates", "error");
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
 
   const markingJobs: MarkingJob[] = [
     {
@@ -74,7 +151,6 @@ export default function MarkingJobs() {
       template: "Math Quiz MCQ Template",
       templateType: "MCQ",
       created: "2023-04-01",
-      deadline: "2023-04-15",
       status: "completed",
       submissions: 32,
       marked: 32,
@@ -85,7 +161,6 @@ export default function MarkingJobs() {
       template: "English Grammar MCQ",
       templateType: "MCQ",
       created: "2023-04-05",
-      deadline: "2023-04-20",
       status: "review-required",
       submissions: 28,
       marked: 24,
@@ -97,7 +172,6 @@ export default function MarkingJobs() {
       template: "Science Test Template",
       templateType: "Test",
       created: "2023-04-02",
-      deadline: "2023-04-12",
       status: "completed",
       submissions: 45,
       marked: 45,
@@ -108,7 +182,6 @@ export default function MarkingJobs() {
       template: "History Assignment Rubric",
       templateType: "Rubric",
       created: "2023-04-08",
-      deadline: "2023-04-22",
       status: "in-progress",
       submissions: 19,
       marked: 8,
@@ -119,7 +192,6 @@ export default function MarkingJobs() {
       template: "Geography Quiz Template",
       templateType: "Quiz",
       created: "2023-04-10",
-      deadline: "2023-04-25",
       status: "pending",
       submissions: 0,
       marked: 0,
@@ -130,7 +202,6 @@ export default function MarkingJobs() {
       template: "Science Lab Report",
       templateType: "Report",
       created: "2023-03-28",
-      deadline: "2023-04-11",
       status: "completed",
       submissions: 24,
       marked: 24,
@@ -141,7 +212,6 @@ export default function MarkingJobs() {
       template: "Programming Test MCQ",
       templateType: "MCQ",
       created: "2023-04-07",
-      deadline: "2023-04-21",
       status: "processing",
       submissions: 22,
       marked: 0,
@@ -152,12 +222,59 @@ export default function MarkingJobs() {
       template: "Art Project Rubric",
       templateType: "Rubric",
       created: "2023-03-25",
-      deadline: "2023-04-08",
       status: "cancelled",
       submissions: 18,
       marked: 5,
     },
   ];
+
+  useEffect(() => {
+    if (isUploadModalOpen) {
+      fetchTemplates();
+    }
+  }, [isUploadModalOpen]);
+  
+  useEffect(() => {
+    const newSelectFormConfig = [
+      {
+        name: "template_id",
+        label: "Template",
+        options: loadingTemplates 
+          ? [{ value: "", label: "Loading templates..." }]
+          : templatesError
+          ? [{ value: "", label: "Error loading templates" }]
+          : templates.length === 0
+          ? [{ value: "", label: "No templates available" }]
+          : templates
+              .filter(template => template.status === "completed") // Only show ready templates
+              .map((template) => ({
+                value: template.id.toString(),
+                label: `${template.name} (${template.num_questions} questions)`,
+              })),
+        defaultValue: templates.length > 0 ? templates[0]?.id.toString() : "",
+        disabled: loadingTemplates || !!templatesError || templates.length === 0,
+      },
+      {
+        name: "save_intermediate_results",
+        label: "Save Intermediate Results",
+        options: [
+          { value: "true", label: "Yes" },
+          { value: "false", label: "No" },
+        ],
+        defaultValue: "false",
+      },
+      {
+        name: "priority",
+        label: "Job Priority",
+        options: [
+          { value: "normal", label: "Normal" },
+          { value: "urgent", label: "Urgent" },
+        ],
+        defaultValue: "normal",
+      }
+    ];
+    setSelectFormConfig(newSelectFormConfig);
+  }, [templates, loadingTemplates, templatesError]);
 
   const filteredJobs =
     statusFilter === "all"
@@ -186,12 +303,75 @@ export default function MarkingJobs() {
     showToast("Job paused successfully", "info");
   };
 
-  const handleNewJob = (files: File[]) => {
-    console.log("Creating new job with files:", files);
-    showToast("New marking job created successfully", "success");
-    setIsUploadModalOpen(false);
-  };
+  const handleNewJob = async (formData: FormData) => {
+    console.log("Uploading form:", formData);
 
+    // Upload marking scheme file first
+    const marking_file_formData = new FormData();
+    const file = formData.get("marking_scheme") as File;
+    marking_file_formData.append("file", file);
+    marking_file_formData.append("file_type", "marking_scheme");
+    const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
+      method: 'POST',
+      body: marking_file_formData,
+    });
+
+
+    if (!uploadResponse.ok) {
+      console.error('Upload failed:', uploadResponse.statusText);
+      showToast("File upload failed", "error");
+      return;
+    }
+
+    const uploadData = await uploadResponse.json();
+    console.log('Upload success:', uploadData);
+
+    showToast("Template uploaded successfully", "success");
+    const marking_filePath = uploadData.path; // <-- key returned from backend
+    
+    // Upload answer sheets file next
+    const answer_sheets_formData = new FormData();
+    const answer_file = formData.get("answer_sheets") as File;
+    answer_sheets_formData.append("file", answer_file);
+    answer_sheets_formData.append("file_type", "answer_sheet");
+    const zip_uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
+      method: 'POST',
+      body: answer_sheets_formData,
+    });
+    if (!zip_uploadResponse.ok) {
+      console.error('Upload failed:', zip_uploadResponse.statusText);
+      showToast("Answer sheets upload failed", "error");
+      return;
+    }
+    const zip_uploadData = await zip_uploadResponse.json();
+    console.log('Upload success:', zip_uploadData);
+    const answer_sheets_folderPath = zip_uploadData.path; // <-- key returned from backend
+
+    const marking_job_json_payload = JSON.stringify(
+      {
+        name: formData.get("name"),
+        description: formData.get("description"),
+        template_id: parseInt(formData.get("template_id") as string, 10),
+        marking_scheme_path: marking_filePath,
+        answer_sheets_folder_path: answer_sheets_folderPath,
+        save_intermediate_results: formData.get("save_intermediate_results") === "true",
+        priority: formData.get("priority") as string,
+      }
+    );
+
+    // Create marking job
+    const processResponse = await fetch(`${BACKEND_URL}/markings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: marking_job_json_payload,});
+    
+    if (!processResponse.ok) {
+      console.error('Processing failed:', processResponse.statusText);
+      showToast("Marking job creation failed", "error");
+      return;}
+    const processData = await processResponse.json();
+    console.log('Processing success:', processData);
+    }
   const handleReviewJob = (job: MarkingJob) => {
     setSelectedJobData(job);
     const mockReviewQuestions: ReviewQuestion[] = [
@@ -307,7 +487,6 @@ export default function MarkingJobs() {
     { header: "Template", accessor: "template", sortable: true },
     { header: "Type", accessor: "templateType", sortable: true },
     { header: "Created", accessor: "created", sortable: true },
-    { header: "Deadline", accessor: "deadline", sortable: true },
     {
       header: "Status",
       accessor: (job: MarkingJob) => getStatusBadge(job.status),
@@ -418,7 +597,6 @@ export default function MarkingJobs() {
   return (
     <ProtectedRoute>
       <MainLayout>
-        <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">
               Marking Jobs
@@ -479,13 +657,15 @@ export default function MarkingJobs() {
             />
           </div>
 
-          <FileUploadModal
+          <FormUploadModal
+            type="marking_scheme"
             isOpen={isUploadModalOpen}
             onClose={() => setIsUploadModalOpen(false)}
             onUpload={handleNewJob}
             title="Create New Marking Job"
-            acceptedFileTypes=".pdf,.jpg,.jpeg,.png"
-            maxFileSize={10 * 1024 * 1024}
+            selectFormConfig={selectFormConfig}
+            inputFormConfig={inputFormConfig}
+            fileFormConfig={fileFormConfig}
           />
 
           <VerificationModal
@@ -726,7 +906,6 @@ export default function MarkingJobs() {
               </Button>
             </div>
           </Modal>
-        </div>
       </MainLayout>
     </ProtectedRoute>
   );
