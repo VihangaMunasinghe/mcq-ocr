@@ -12,6 +12,7 @@ from app.models.template_config_job import TemplateConfigJobPriority
 from typing import Optional
 from app.database import get_async_db
 from app.queue import submit_template_config_job
+from app.models.file import FileOrFolder
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
@@ -48,16 +49,23 @@ async def create_template(
         template_config_path = f"templates/{user_id}/{template_record.id}_{random_id}_config.json"
         output_image_path = f"templates/{user_id}/{template_record.id}_{random_id}_template.jpg"
         result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{random_id}_result.jpg" if template.save_intermediate_results else None
+
+        template_file = await db.get(FileOrFolder, template.template_file_id)
+        if not template_file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Template file with id {template.template_file_id} not found"
+            )
         
         # Step 3: Add details to job table
         config_job = TemplateConfigJob(
             name=f"Config for {template.name}",
             description=f"Template configuration for {template.name}",
             template_id=template_record.id,
-            template_path=template.template_path,
+            template_path=template_file.path,
             template_config_path=template_config_path,
             output_image_path=output_image_path,
-            result_image_path=result_image_path,
+            debug_image_path=result_image_path,
             save_intermediate_results=template.save_intermediate_results,
             priority=TemplateConfigJobPriority.NORMAL,
             num_of_columns=template.num_of_columns,
@@ -217,7 +225,7 @@ async def update_template(
         template.name = template_update.name
         template.description = template_update.description
         template.config_type = template_update.config_type
-        template.template_file_path = template_update.template_path
+        template.template_file_id = template_update.template_file_id
         
         await db.commit()
         await db.refresh(template)

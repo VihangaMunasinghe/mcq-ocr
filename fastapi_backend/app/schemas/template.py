@@ -8,7 +8,7 @@ class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     config_type: TemplateConfigType
-    template_path: str
+    template_file_id: int
     save_intermediate_results: bool = False
     
     # Additional fields for clustering-based configuration
@@ -22,8 +22,8 @@ class TemplateResponse(BaseModel):
     status: TemplateConfigStatus
     description: Optional[str] = None
     config_type: TemplateConfigType
-    configuration_file_id: int
-    template_file_id: int
+    configuration_file_id: Optional[int] = None
+    template_file_id: Optional[int] = None
     num_questions: int
     options_per_question: int
     created_at: datetime

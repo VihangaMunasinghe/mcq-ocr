@@ -115,7 +115,7 @@ class MCQMarkingWorker:
             return {
                 'template_config_path': template_config_job.template_config_path,
                 'output_image_path': template_config_job.output_image_path,
-                'result_image_path': template_config_job.result_image_path,
+                'debug_image_path': template_config_job.debug_image_path,
                 'bubble_config': template_config_job.template_config
             }
         else:

@@ -6,8 +6,9 @@ Handles producers and consumers for template configuration and marking jobs.
 import json
 import asyncio
 import logging
+import os
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import aio_pika
 from aio_pika import Connection, Channel, Queue, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
@@ -21,6 +22,7 @@ from app.models.marking_job import MarkingJob
 from app.models.template_config_job import TemplateConfigJob
 from app.models.marking_job import MarkingJobStatus
 from app.models.template import TemplateConfigStatus
+from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -318,14 +320,65 @@ class TemplateConfigResultConsumer:
                             
                             # Store results and update template
                             if 'template_config_path' in result_data['result']:
-
-                                job.template.configuration_file_id = result_data['result']['template_config_file_id']
+                                template_config_path = result_data['result']['template_config_path']
+                                
+                                # Create File record for the template configuration file
+                                config_file_name = os.path.basename(template_config_path)
+                                config_file_size = None
+                                try:
+                                    if os.path.exists(template_config_path):
+                                        config_file_size = os.path.getsize(template_config_path)
+                                except OSError:
+                                    logger.warning(f"Could not get file size for {template_config_path}")
+                                
+                                config_file_record = FileOrFolder(
+                                    name=config_file_name,
+                                    original_name=config_file_name,
+                                    path=template_config_path,
+                                    size=config_file_size,
+                                    extension=os.path.splitext(config_file_name)[1].lower() if '.' in config_file_name else None,
+                                    file_type=FileOrFolderType.TEMPLATE_CONFIG,
+                                    status=FileOrFolderStatus.UPLOADED,
+                                    deletion_date=datetime.now() + timedelta(days=7),
+                                    created_by=job.created_by,
+                                )
+                                
+                                db.add(config_file_record)
+                                await db.flush()  # Get the ID without committing
+                                
+                                job.template.configuration_file_id = config_file_record.id
                             
                             if 'output_image_path' in result_data['result']:
-                                job.template.template_file_id = result_data['result']['output_image_file_id']
+                                output_image_path = result_data['result']['output_image_path']
+                                
+                                # Create File record for the template output image file
+                                template_file_name = os.path.basename(output_image_path)
+                                template_file_size = None
+                                try:
+                                    if os.path.exists(output_image_path):
+                                        template_file_size = os.path.getsize(output_image_path)
+                                except OSError:
+                                    logger.warning(f"Could not get file size for {output_image_path}")
+                                
+                                template_file_record = FileOrFolder(
+                                    name=template_file_name,
+                                    original_name=template_file_name,
+                                    path=output_image_path,
+                                    size=template_file_size,
+                                    extension=os.path.splitext(template_file_name)[1].lower() if '.' in template_file_name else None,
+                                    file_type=FileOrFolderType.TEMPLATE,
+                                    status=FileOrFolderStatus.UPLOADED,
+                                    deletion_date=datetime.now() + timedelta(days=7),
+                                    created_by=job.created_by,
+                                )
+                                
+                                db.add(template_file_record)
+                                await db.flush()  # Get the ID without committing
+                                
+                                job.template.template_file_id = template_file_record.id
                             
-                            if 'result_image_path' in result_data['result']:
-                                job.debug_image_path = result_data['result']['result_image_path']
+                            if 'debug_image_path' in result_data['result']:
+                                job.debug_image_path = result_data['result']['debug_image_path']
                             
                             # Update template with configuration results
                             if 'bubble_config' in result_data['result']:

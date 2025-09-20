@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks, Form
 from fastapi.responses import StreamingResponse
 from typing import List
@@ -11,7 +11,7 @@ from app.schemas.file import FileResponse, FileResponse
 from app.storage.shared_storage import SharedStorage
 import logging
 
-from app.models.file import FileOrFolder, FileOrFolderStatus
+from app.models.file import FileOrFolder, FileOrFolderStatus, FileOrFolderType
 from app.database import get_async_db
 
 router = APIRouter(prefix="/api/files", tags=["files"])
@@ -53,6 +53,17 @@ async def upload_file(file: UploadFile = File(...),
         except Exception as e:
             logger.error(f"Failed to unzip file: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to unzip file")
+    
+    if file_type == 'template':
+        file_type = FileOrFolderType.TEMPLATE
+    elif file_type == 'template_config':
+        file_type = FileOrFolderType.TEMPLATE_CONFIG
+    elif file_type == 'answer_sheets_folder':
+        file_type = FileOrFolderType.ANSWER_SHEETS_FOLDER
+    elif file_type == 'marking_scheme':
+        file_type = FileOrFolderType.MARKING_SCHEME
+    else:
+        file_type = FileOrFolderType.OTHER
 
     if shared_storage.file_exists(final_path):
         file_and_folder = FileOrFolder(
@@ -63,10 +74,10 @@ async def upload_file(file: UploadFile = File(...),
             size=file.size if file.size else 0,
             file_type=file_type,
             status=FileOrFolderStatus.UPLOADED,
-            deletion_date=datetime.now() + datetime.timedelta(days=7),
+            deletion_date=datetime.now() + timedelta(days=7),
             created_by=user_id,
         )
-        await db.add(file_and_folder)
+        db.add(file_and_folder)
         await db.commit()
         await db.refresh(file_and_folder)
     
@@ -205,7 +216,7 @@ async def finalize_upload(
                 size=file_size,
                 file_type=file_type,
                 status=FileOrFolderStatus.UPLOADED,
-                deletion_date=datetime.datetime.now() + datetime.timedelta(days=7),
+                deletion_date=datetime.now() + timedelta(days=7),
                 created_by=user_id,
             )
             db.add(file_and_folder)
@@ -369,7 +380,7 @@ async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
         
         # Soft delete - mark as deleted instead of physically removing
         file.status = FileOrFolderStatus.DELETED
-        file.deletion_date = datetime.datetime.now()
+        file.deletion_date = datetime.now()
         
         await db.commit()
         await db.refresh(file)

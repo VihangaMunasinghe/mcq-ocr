@@ -3,7 +3,7 @@ from datetime import datetime
     
 
 class FileDownloadResponse(BaseModel):
-    file_id: str
+    file_id: int
     filename: str
     file_size: int = None
     file_type: str
@@ -12,7 +12,7 @@ class FileDownloadResponse(BaseModel):
     updated_at: datetime
 
 class FileResponse(BaseModel):
-    file_id: str
+    file_id: int
     filename: str
     file_size: int = None
     file_type: str

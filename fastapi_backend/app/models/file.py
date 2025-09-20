@@ -53,7 +53,9 @@ class FileOrFolder(BaseModel):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    created_by_user = relationship("User", back_populates="files_or_folders")
+    created_by_user = relationship("User", back_populates="files")
+    template_configurations = relationship("Template", foreign_keys="[Template.configuration_file_id]", back_populates="configuration_file")
+    template_files = relationship("Template", foreign_keys="[Template.template_file_id]", back_populates="template_file")
     
     def __repr__(self):
         return f"<FileOrFolder(id={self.id}, name='{self.name}', type='{self.file_type}', status='{self.status}')>"

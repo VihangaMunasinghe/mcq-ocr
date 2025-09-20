@@ -89,7 +89,7 @@ class TemplateConfigJob(BaseModel):
                 'template_path': self.template_path,
                 'template_config_path': self.template_config_path,
                 'output_image_path': self.output_image_path,
-                'result_image_path': self.result_image_path,
+                'result_image_path': self.debug_image_path,
                 'num_of_columns': self.num_of_columns,
                 'num_of_rows_per_column': self.num_of_rows_per_column,
                 'num_of_options_per_question': self.num_of_options_per_question,

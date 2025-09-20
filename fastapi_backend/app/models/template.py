@@ -46,8 +46,8 @@ class Template(BaseModel):
     
     # Relationships
     created_by_user = relationship("User", back_populates="templates")
-    configuration_file = relationship("FileOrFolder", back_populates="templates")
-    template_file = relationship("FileOrFolder", back_populates="templates")
+    configuration_file = relationship("FileOrFolder", foreign_keys=[configuration_file_id], back_populates="template_configurations")
+    template_file = relationship("FileOrFolder", foreign_keys=[template_file_id], back_populates="template_files")
     marking_jobs = relationship("MarkingJob", back_populates="template", cascade="all, delete-orphan")
     template_config_jobs = relationship("TemplateConfigJob", back_populates="template", cascade="all, delete-orphan")
     
