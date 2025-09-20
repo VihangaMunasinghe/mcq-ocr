@@ -22,8 +22,8 @@ class TemplateResponse(BaseModel):
     status: TemplateConfigStatus
     description: Optional[str] = None
     config_type: TemplateConfigType
-    configuration_path: str
-    template_file_path: str
+    configuration_file_id: int
+    template_file_id: int
     num_questions: int
     options_per_question: int
     created_at: datetime

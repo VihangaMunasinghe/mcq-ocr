@@ -36,16 +36,18 @@ class Template(BaseModel):
     options_per_question = Column(Integer, nullable=False, default=5)
     
     # Template configuration as JSON
-    configuration_path = Column(String(500), nullable=True)
+    configuration_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
     
     # File references
-    template_file_path = Column(String(500), nullable=True)
+    template_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
     
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
     created_by_user = relationship("User", back_populates="templates")
+    configuration_file = relationship("FileOrFolder", back_populates="templates")
+    template_file = relationship("FileOrFolder", back_populates="templates")
     marking_jobs = relationship("MarkingJob", back_populates="template", cascade="all, delete-orphan")
     template_config_jobs = relationship("TemplateConfigJob", back_populates="template", cascade="all, delete-orphan")
     

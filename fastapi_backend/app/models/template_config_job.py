@@ -40,7 +40,7 @@ class TemplateConfigJob(BaseModel):
     template_path = Column(String(500), nullable=False)  # Input template image
     template_config_path = Column(String(500), nullable=False)  # Output config JSON
     output_image_path = Column(String(500), nullable=False)  # Warped/processed image
-    result_image_path = Column(String(500), nullable=True)  # Debug/result image with annotations
+    debug_image_path = Column(String(500), nullable=True)  # Debug/result image with annotations
 
     # Clustering-based configuration parameters
     num_of_columns = Column(Integer, nullable=True)
@@ -100,19 +100,7 @@ class TemplateConfigJob(BaseModel):
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error in to_job_data for job {self.id}: {e}")
-            return {
-                'id': self.id,
-                'name': self.name or 'Unknown',
-                'config_type': 'grid_based',
-                'template_path': self.template_path or '',
-                'template_config_path': self.template_config_path or '',
-                'output_image_path': self.output_image_path or '',
-                'result_image_path': self.result_image_path or '',
-                'num_of_columns': self.num_of_columns,
-                'num_of_rows_per_column': self.num_of_rows_per_column,
-                'num_of_options_per_question': self.num_of_options_per_question,
-                'save_intermediate_results': self.save_intermediate_results or False
-            }
+            raise e
 
     def update_image_dimensions(self, 
                               original_width: int, 

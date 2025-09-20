@@ -318,13 +318,14 @@ class TemplateConfigResultConsumer:
                             
                             # Store results and update template
                             if 'template_config_path' in result_data['result']:
-                                job.template.configuration_path = result_data['result']['template_config_path']
+
+                                job.template.configuration_file_id = result_data['result']['template_config_file_id']
                             
                             if 'output_image_path' in result_data['result']:
-                                job.template.template_file_path = result_data['result']['output_image_path']
+                                job.template.template_file_id = result_data['result']['output_image_file_id']
                             
                             if 'result_image_path' in result_data['result']:
-                                job.result_image_path = result_data['result']['result_image_path']
+                                job.debug_image_path = result_data['result']['result_image_path']
                             
                             # Update template with configuration results
                             if 'bubble_config' in result_data['result']:

@@ -34,8 +34,8 @@ async def create_template(
             status=TemplateConfigStatus.QUEUED,
             num_questions=0,  # Will be updated after configuration
             options_per_question=0,  # Default, will be updated after configuration
-            template_file_path='pending',
-            configuration_path='pending',  # Will be set after processing
+            template_file_id=None,
+            configuration_file_id=None,  # Will be set after processing
             created_by=user_id
         )
         
@@ -92,8 +92,8 @@ async def create_template(
             status=template_record.status,
             description=template_record.description,
             config_type=template_record.config_type,
-            configuration_path=template_record.configuration_path,
-            template_file_path=template_record.template_file_path,
+            configuration_file_id=template_record.configuration_file_id,
+            template_file_id=template_record.template_file_id,
             num_questions=template_record.num_questions,
             options_per_question=template_record.options_per_question,
             created_at=template_record.created_at,
@@ -138,8 +138,8 @@ async def list_templates(
                 description=template.description,
                 status=template.status,
                 config_type=template.config_type,
-                configuration_path=template.configuration_path or "",
-                template_file_path=template.template_file_path or "",
+                configuration_file_id=template.configuration_file_id,
+                template_file_id=template.template_file_id,
                 num_questions=template.num_questions,
                 options_per_question=template.options_per_question,
                 created_at=template.created_at,
@@ -178,8 +178,8 @@ async def get_template(
             description=template.description,
             status=template.status,
             config_type=template.config_type,
-            configuration_path=template.configuration_path or "",
-            template_file_path=template.template_file_path or "",
+            configuration_file_id=template.configuration_file_id,
+            template_file_id=template.template_file_id,
             num_questions=template.num_questions,
             options_per_question=template.options_per_question,
             created_at=template.created_at,
@@ -228,8 +228,8 @@ async def update_template(
             description=template.description,
             status=template.status,
             config_type=template.config_type,
-            configuration_path=template.configuration_path or "",
-            template_file_path=template.template_file_path or "",
+            configuration_file_id=template.configuration_file_id,
+            template_file_id=template.template_file_id,
             num_questions=template.num_questions,
             options_per_question=template.options_per_question,
             created_at=template.created_at,
