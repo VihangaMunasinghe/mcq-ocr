@@ -9,7 +9,7 @@ from enum import Enum as PyEnum
 from .base import BaseModel
 
 
-class FileAndFolderType(PyEnum):
+class FileOrFolderType(PyEnum):
     """Enum for file types."""
     TEMPLATE = "template"
     TEMPLATE_CONFIG = "template_config"
@@ -21,7 +21,7 @@ class FileAndFolderType(PyEnum):
     OTHER = "other"
 
 
-class FileAndFolderStatus(PyEnum):
+class FileOrFolderStatus(PyEnum):
     """Enum for file processing status."""
     PENDING = "pending"
     UPLOADING = "uploading"
@@ -30,10 +30,10 @@ class FileAndFolderStatus(PyEnum):
     DELETED = "deleted"
 
 
-class FileAndFolder(BaseModel):
+class FileOrFolder(BaseModel):
     """File model for uploaded files and documents."""
     
-    __tablename__ = "files_and_folders"
+    __tablename__ = "files_or_folders"
     
     # File metadata
     name = Column(String(255), nullable=False)
@@ -43,8 +43,8 @@ class FileAndFolder(BaseModel):
     extension = Column(String(100), nullable=True)
     
     # File categorization
-    file_type = Column(Enum(FileAndFolderType), nullable=False, default=FileAndFolderType.OTHER)
-    status = Column(Enum(FileAndFolderStatus), nullable=False, default=FileAndFolderStatus.PENDING)
+    file_type = Column(Enum(FileOrFolderType), nullable=False, default=FileOrFolderType.OTHER)
+    status = Column(Enum(FileOrFolderStatus), nullable=False, default=FileOrFolderStatus.PENDING)
     
     # File organization
     deletion_date = Column(DateTime, nullable=False, default=datetime.now() + timedelta(days=7))
@@ -53,10 +53,10 @@ class FileAndFolder(BaseModel):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    created_by_user = relationship("User", back_populates="files_and_folders")
+    created_by_user = relationship("User", back_populates="files_or_folders")
     
     def __repr__(self):
-        return f"<FileAndFolder(id={self.id}, name='{self.name}', type='{self.file_type}', status='{self.status}')>"
+        return f"<FileOrFolder(id={self.id}, name='{self.name}', type='{self.file_type}', status='{self.status}')>"
     
     @property
     def file_size_mb(self) -> float:

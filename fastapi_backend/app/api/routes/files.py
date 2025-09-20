@@ -1,20 +1,27 @@
 import datetime
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, BackgroundTasks, Form
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks, Form
 from fastapi.responses import StreamingResponse
 from typing import List
 import uuid
 from pathlib import Path
-from app.schemas.file import FileResponse, FileUploadResponse
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.schemas.file import FileResponse, FileResponse
 from app.storage.shared_storage import SharedStorage
 import logging
+
+from app.models.file import FileOrFolder, FileOrFolderStatus
+from app.database import get_async_db
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
 logger = logging.getLogger(__name__)
 
-@router.post("/upload", response_model=FileUploadResponse)
+@router.post("/upload", response_model=FileResponse)
 async def upload_file(file: UploadFile = File(...),
-    file_type: str = Form(...)):
+    file_type: str = Form(...),
+    db: AsyncSession = Depends(get_async_db)):
     """
     Upload a file to the system
     """
@@ -25,9 +32,11 @@ async def upload_file(file: UploadFile = File(...),
         raise HTTPException(status_code=400, detail="No file provided")
     
 
-    file_id = str(uuid.uuid4())[:8]
+    random_id = str(uuid.uuid4())[:8]
     upload_dir = f'uploads/{file_type}s/{user_id}'
-    final_path = f"{upload_dir}/{file_id}_{file.filename}"
+    file_name = f"{file.filename.split('.')[0]}_{random_id}"
+    extension = file.filename.split('.')[-1] if file.filename.split('.')[-1] or file.filename.split('.')[-1] != 'zip' else None
+    final_path = f"{upload_dir}/{file_name}"
 
     # Read file content as bytes
     file_content = await file.read()
@@ -44,14 +53,36 @@ async def upload_file(file: UploadFile = File(...),
         except Exception as e:
             logger.error(f"Failed to unzip file: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to unzip file")
+
+    if shared_storage.file_exists(final_path):
+        file_and_folder = FileOrFolder(
+            name=file_name,
+            original_name=file.filename,
+            extension=extension,
+            path=final_path,
+            size=file.size if file.size else 0,
+            file_type=file_type,
+            status=FileOrFolderStatus.UPLOADED,
+            deletion_date=datetime.now() + datetime.timedelta(days=7),
+            created_by=user_id,
+        )
+        await db.add(file_and_folder)
+        await db.commit()
+        await db.refresh(file_and_folder)
     
-    return FileUploadResponse(
-        message="File uploaded successfully",
-        filename=file.filename,
-        file_id=file_id,
-        path=final_path,
-        file_size=file.size
-    )
+        return FileResponse(
+            filename=file_name,
+            file_id=file_and_folder.id,
+            file_size=file_and_folder.size,
+            file_type=file_and_folder.file_type,
+            status=file_and_folder.status,
+            deletion_date=file_and_folder.deletion_date,
+            created_by=file_and_folder.created_by,
+            created_at=file_and_folder.created_at,
+            updated_at=file_and_folder.updated_at
+        )
+    else:
+        raise HTTPException(status_code=500, detail="Failed to upload file")
 
 # Chunked upload endpoints for very large files
 @router.post("/upload/large/chunk")
@@ -110,10 +141,11 @@ async def upload_chunk(
             chunk_path.unlink()
         raise HTTPException(status_code=500, detail=f"Chunk upload failed: {str(e)}")
 
-@router.post("/upload/large/finalize", response_model=FileUploadResponse)
+@router.post("/upload/large/finalize", response_model=FileResponse)
 async def finalize_upload(
     upload_id: str = Form(...),
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Finalize chunked upload by combining all chunks
@@ -144,10 +176,12 @@ async def finalize_upload(
                 detail=f"Missing chunks: {sorted(missing_chunks)}"
             )
         
-        # Generate final file ID and path
-        file_id = str(uuid.uuid4())[:8]
+        # Generate final file name and path
+        random_id = str(uuid.uuid4())[:8]
         upload_dir = f'uploads/{file_type}s/{user_id}'
-        final_path = f"{upload_dir}/{file_id}_{original_name}"
+        file_name = f"{original_name.split('.')[0]}_{random_id}"
+        extension = original_name.split('.')[-1] if '.' in original_name else None
+        final_path = f"{upload_dir}/{file_name}"
         
         # Combine all chunks
         try:
@@ -156,21 +190,44 @@ async def finalize_upload(
             raise HTTPException(status_code=500, detail=f"Failed to combine chunks: {str(e)}")
         
         # Get final file size
-        file_size = final_path.stat().st_size
+        file_size = (shared_storage.base_path / final_path).stat().st_size if shared_storage.file_exists(final_path) else 0
         
         # Clean up temporary files
         await shared_storage.delete_directory(temp_dir)
         
-        # Process file in background
-        # background_tasks.add_task(process_large_file, final_path, file_id)
-        
-        return FileUploadResponse(
-            message="Chunked upload completed successfully",
-            filename=original_name,
-            file_id=file_id,
-            file_size=file_size,
-            path=final_path
-        )
+        # Create database record
+        if shared_storage.file_exists(final_path):
+            file_and_folder = FileOrFolder(
+                name=file_name,
+                original_name=original_name,
+                extension=extension,
+                path=final_path,
+                size=file_size,
+                file_type=file_type,
+                status=FileOrFolderStatus.UPLOADED,
+                deletion_date=datetime.datetime.now() + datetime.timedelta(days=7),
+                created_by=user_id,
+            )
+            db.add(file_and_folder)
+            await db.commit()
+            await db.refresh(file_and_folder)
+            
+            # Process file in background
+            # background_tasks.add_task(process_large_file, final_path, file_and_folder.id)
+            
+            return FileResponse(
+                filename=file_name,
+                file_id=file_and_folder.id,
+                file_size=file_and_folder.size,
+                file_type=file_and_folder.file_type,
+                status=file_and_folder.status,
+                deletion_date=file_and_folder.deletion_date,
+                created_by=file_and_folder.created_by,
+                created_at=file_and_folder.created_at,
+                updated_at=file_and_folder.updated_at
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Failed to finalize file upload")
         
     except HTTPException:
         raise
@@ -199,25 +256,201 @@ async def cancel_upload(upload_id: str):
     return {"message": "Upload cancelled and cleaned up successfully"}
 
 @router.get("/", response_model=List[FileResponse])
-async def list_files(folder: str = Query(None)):
+async def list_files(
+    folder: str = Query(None),
+    file_type: str = Query(None),
+    db: AsyncSession = Depends(get_async_db)
+):
     """
-    List all uploaded files
+    List all uploaded files with optional filtering by folder or file type
     """
-    # TODO: Implement file listing logic
-    return []
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Build query
+        query = select(FileOrFolder).where(
+            FileOrFolder.created_by == user_id
+        ).order_by(FileOrFolder.created_at.desc())
+        
+        # Add optional filters
+        if file_type:
+            query = query.where(FileOrFolder.file_type == file_type)
+        
+        if folder:
+            query = query.where(FileOrFolder.path.like(f"%{folder}%"))
+        
+        # Execute query
+        result = await db.execute(query)
+        files = result.scalars().all()
+        
+        # Convert to response format
+        file_responses = []
+        for file in files:
+            file_responses.append(FileResponse(
+                filename=file.name,
+                file_id=file.id,
+                file_size=file.size,
+                file_type=file.file_type,
+                status=file.status,
+                deletion_date=file.deletion_date,
+                created_by=file.created_by,
+                created_at=file.created_at,
+                updated_at=file.updated_at
+            ))
+        
+        return file_responses
+        
+    except Exception as e:
+        logger.error(f"Failed to list files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 @router.get("/{file_id}", response_model=FileResponse)
-async def get_file(file_id: str):
+async def get_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
     """
     Get file details by ID
     """
-    # TODO: Implement file retrieval logic
-    raise HTTPException(status_code=404, detail="File not found")
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Query for the file
+        result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status != FileOrFolderStatus.DELETED
+            )
+        )
+        file = result.scalar_one_or_none()
+        
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        return FileResponse(
+            filename=file.name,
+            file_id=file.id,
+            file_size=file.size,
+            file_type=file.file_type,
+            status=file.status,
+            deletion_date=file.deletion_date,
+            created_by=file.created_by,
+            created_at=file.created_at,
+            updated_at=file.updated_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get file {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get file: {str(e)}")
 
 @router.delete("/{file_id}")
-async def delete_file(file_id: str):
+async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
     """
-    Delete a file by ID
+    Delete a file by ID (soft delete - marks as deleted)
     """
-    # TODO: Implement file deletion logic
-    return {"message": "File deleted successfully"}
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Query for the file
+        result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status != FileOrFolderStatus.DELETED
+            )
+        )
+        file = result.scalar_one_or_none()
+        
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Soft delete - mark as deleted instead of physically removing
+        file.status = FileOrFolderStatus.DELETED
+        file.deletion_date = datetime.datetime.now()
+        
+        await db.commit()
+        await db.refresh(file)
+        
+        # Optionally delete from storage as well
+        shared_storage = SharedStorage()
+        try:
+            if shared_storage.file_exists(file.path):
+                await shared_storage.delete_file(file.path)
+                logger.info(f"Physical file deleted from storage: {file.path}")
+        except Exception as storage_error:
+            logger.warning(f"Failed to delete physical file from storage: {storage_error}")
+            # Continue with database deletion even if storage deletion fails
+        
+        return {"message": f"File {file_id} deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete file {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+
+@router.get("/{file_id}/download")
+async def download_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
+    """
+    Download a file by ID
+    """
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Query for the file
+        result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        file = result.scalar_one_or_none()
+        
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Check if file exists in storage
+        shared_storage = SharedStorage()
+        if not shared_storage.file_exists(file.path):
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        
+        # Get file content as bytes
+        file_content = await shared_storage.get_file(file.path)
+        
+        # Create streaming response
+        def iterfile():
+            yield file_content
+        
+        # Determine content type based on extension
+        content_type = "application/octet-stream"
+        if file.extension:
+            if file.extension.lower() in ['jpg', 'jpeg']:
+                content_type = "image/jpeg"
+            elif file.extension.lower() == 'png':
+                content_type = "image/png"
+            elif file.extension.lower() == 'pdf':
+                content_type = "application/pdf"
+            elif file.extension.lower() == 'zip':
+                content_type = "application/zip"
+            elif file.extension.lower() in ['xlsx', 'xls']:
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        
+        return StreamingResponse(
+            iterfile(),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={file.original_name or file.name}",
+                "Content-Length": str(file.size) if file.size else "0"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to download file {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
