@@ -4,6 +4,7 @@ from datetime import datetime
 import pika
 from app.models.template_config_job import TemplateConfigJob
 from app.models.marking_job import MarkingJob
+from app.models.marking_config_job import MarkingConfigJob
 
 
 # Configure logging
@@ -11,12 +12,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MCQMarkingWorker:
-    def __init__(self, rabbitmq_url: str, template_config_queue: str, marking_job_queue: str, marking_job_results_queue: str, template_config_results_queue: str):
+    def __init__(self, rabbitmq_url: str, template_config_queue: str, marking_job_queue: str, marking_config_queue: str, marking_job_results_queue: str, template_config_results_queue: str, marking_config_results_queue: str):
         self.rabbitmq_url = rabbitmq_url
         self.template_config_queue = template_config_queue
         self.marking_job_queue = marking_job_queue
+        self.marking_config_queue = marking_config_queue
         self.marking_job_results_queue = marking_job_results_queue
         self.template_config_results_queue = template_config_results_queue
+        self.marking_config_results_queue = marking_config_results_queue
         self.connection = None
         self.channel = None
         
@@ -29,6 +32,7 @@ class MCQMarkingWorker:
             # Declare queues
             self.channel.queue_declare(queue=self.template_config_queue, durable=True)
             self.channel.queue_declare(queue=self.marking_job_queue, durable=True)
+            self.channel.queue_declare(queue=self.marking_config_queue, durable=True)
             
             logger.info("Connected to RabbitMQ")
         except Exception as e:
@@ -117,6 +121,19 @@ class MCQMarkingWorker:
         else:
             return False
 
+    def _process_marking_config(self, job_data):
+        """Process marking configuration job and return result"""
+        marking_config_job = MarkingConfigJob(job_data)
+        success = marking_config_job.configure()
+        
+        if success:
+            return {
+                'marking_config_path': marking_config_job.marking_config_path,
+                'marking_scheme_path': marking_config_job.marking_scheme_path
+            }
+        else:
+            return False
+
     def process_template_config_job(self, ch, method, properties, body):
         """Process template configuration job from RabbitMQ"""
         self.process_job_with_error_handling(
@@ -124,6 +141,15 @@ class MCQMarkingWorker:
             'template config',
             self.template_config_results_queue,
             self._process_template_config
+        )
+
+    def process_marking_config_job(self, ch, method, properties, body):
+        """Process marking configuration job from RabbitMQ"""
+        self.process_job_with_error_handling(
+            ch, method, properties, body,
+            'marking config',
+            self.marking_config_results_queue,
+            self._process_marking_config
         )
     
     def _process_marking_job(self, job_data):
@@ -155,6 +181,12 @@ class MCQMarkingWorker:
             self.channel.basic_consume(
                 queue=self.template_config_queue,
                 on_message_callback=self.process_template_config_job
+            )
+            
+            # Consumer for marking config jobs
+            self.channel.basic_consume(
+                queue=self.marking_config_queue,
+                on_message_callback=self.process_marking_config_job
             )
             
             # Consumer for marking jobs

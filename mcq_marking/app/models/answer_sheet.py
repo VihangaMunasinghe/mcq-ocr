@@ -30,6 +30,7 @@ class AnswerSheet:
         self.flag_reason = ""
         self.points = None
         self.result_img = None
+        self.selected_choices = None
 
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers_with_coordinates is None or force_recalculate:
@@ -67,8 +68,17 @@ class AnswerSheet:
             self.not_marked,
             self.columnwise_total,
             self.points,
+            self.selected_choices,
         ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
         logger.info(f"Calculated score")
+        # Flagging
+        if len(self.more_than_one_marked) > 0:
+            self.flag = True
+            self.flag_reason = "More than one choice is marked"
+        elif len(self.not_marked) > 0:
+            self.flag = True
+            self.flag_reason = "There are no choices marked questions"
+            
         if intermediate_results:
             result_img = self.answer_sheet_img.copy()
             result_img = np.array(result_img)            
@@ -87,6 +97,7 @@ class AnswerSheet:
             "score": len(self.correct),
             "flag": self.flag,
             "flag_reason": self.flag_reason,
+            "selected_choices": self.selected_choices,
             "result_img": self.result_img,
         }
 

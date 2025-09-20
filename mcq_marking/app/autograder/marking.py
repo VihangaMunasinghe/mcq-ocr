@@ -114,6 +114,7 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
         "more_than_one_marked": [],
         "not_marked": [],
     }
+    selected_choices = {}
     for i in range(0, choice_distribution.shape[0]):    # for every question
         correct_choice = False
         marked_points = []
@@ -122,6 +123,7 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
                 correct_choice = True
             if answer_script[idd][0] == 1:  # count the number of marked choices
                 marked_points.append(answer_script[idd])
+                selected_choices[i+1].append(k) if (i+1) in selected_choices.keys() else selected_choices[i+1] = [k]
             idd += 1
         if correct_choice and len(marked_points) == 1:
             correct.append(i+1)
@@ -142,4 +144,4 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
             for point in marked_points:
                 points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point[1]})
             incorrect.append(i+1)
-    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points
+    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points, selected_choices

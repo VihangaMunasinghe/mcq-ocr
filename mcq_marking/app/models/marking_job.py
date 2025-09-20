@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime
 import pika
@@ -79,7 +80,7 @@ class MarkingJob:
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
-            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason'])
+            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason', 'Selected Choices'])
     
     def mark_answers(self):
         self.setup()
@@ -88,8 +89,8 @@ class MarkingJob:
             logger.info(f"Processing answer sheet: {answer_sheet_path}")
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
-            score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
-            self.add_to_spreadsheet(score)
+            results = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
+            self.add_to_spreadsheet(results)
             if self.save_intermediate_results:
                 save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
                 logger.info(f"Saved intermediate results")
@@ -114,17 +115,19 @@ class MarkingJob:
         }
         return result
 
-    def add_to_spreadsheet(self, score: dict):
+    def add_to_spreadsheet(self, results: dict):
         self.spreadsheet_sheet.append([
-            score['index_number'], 
-            ','.join(map(str, score['correct'])), 
-            ','.join(map(str, score['incorrect'])), 
-            ','.join(map(str, score['more_than_one_marked'])), 
-            ','.join(map(str, score['not_marked'])), 
-            ','.join(map(str, score['columnwise_total'])), 
-            score['score'], 
-            score['flag'], 
-            score['flag_reason']])
+            results['index_number'], 
+            ','.join(map(str, results['correct'])), 
+            ','.join(map(str, results['incorrect'])), 
+            ','.join(map(str, results['more_than_one_marked'])), 
+            ','.join(map(str, results['not_marked'])), 
+            ','.join(map(str, results['columnwise_total'])), 
+            results['score'], 
+            results['flag'], 
+            results['flag_reason']],
+            json.dumps(results['selected_choices'])
+            )
 
 
 
