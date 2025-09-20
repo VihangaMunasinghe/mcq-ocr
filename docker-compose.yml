@@ -46,7 +46,7 @@ services:
     image: postgres:15-alpine
     container_name: mcq-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: mcq_database
       POSTGRES_USER: mcq_user
