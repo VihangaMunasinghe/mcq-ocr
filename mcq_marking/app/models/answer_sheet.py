@@ -30,7 +30,7 @@ class AnswerSheet:
         self.flag_reason = ""
         self.points = None
         self.result_img = None
-        self.selected_choices = None
+        self.labeled_points = None
 
     def get_answers_and_corresponding_points(self, force_recalculate=False):
         if self.answers_with_coordinates is None or force_recalculate:
@@ -68,7 +68,7 @@ class AnswerSheet:
             self.not_marked,
             self.columnwise_total,
             self.points,
-            self.selected_choices,
+            self.labeled_points,
         ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
         logger.info(f"Calculated score")
         # Flagging
@@ -97,7 +97,7 @@ class AnswerSheet:
             "score": len(self.correct),
             "flag": self.flag,
             "flag_reason": self.flag_reason,
-            "selected_choices": self.selected_choices,
+            "labeled_points": self.labeled_points,
             "result_img": self.result_img,
         }
 

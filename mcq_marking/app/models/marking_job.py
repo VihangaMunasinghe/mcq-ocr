@@ -80,7 +80,7 @@ class MarkingJob:
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
-            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason', 'Selected Choices'])
+            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason', 'Labeled Points'])
     
     def mark_answers(self):
         self.setup()
@@ -126,7 +126,7 @@ class MarkingJob:
             results['score'], 
             results['flag'], 
             results['flag_reason']],
-            json.dumps(results['selected_choices'])
+            json.dumps(results['labeled_points'])
             )
 
 
