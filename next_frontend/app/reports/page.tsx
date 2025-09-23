@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ProtectedRoute } from "../../components/ProtectedRoute";
-import MainLayout from "../../components/Layout/MainLayout";
 import { Card } from "../../components/UI/Card";
 import { Button } from "../../components/UI/Button";
 import { Select } from "../../components/UI/Select";
@@ -189,7 +187,5 @@ export default function Reports() {
         </Card>
       </div>
         </div>
-      </MainLayout>
-    </ProtectedRoute>
   );
 }

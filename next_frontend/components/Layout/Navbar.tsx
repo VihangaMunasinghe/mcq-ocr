@@ -3,8 +3,14 @@
 import React, { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faSignOutAlt, faUser, faCog } from '@fortawesome/free-solid-svg-icons';
+import Image from "next/image";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faChevronDown,
+  faSignOutAlt,
+  faUser,
+  faCog,
+} from "@fortawesome/free-solid-svg-icons";
 import { useAuth } from "../../hooks/useAuth";
 
 export function Navbar() {
@@ -32,11 +38,11 @@ export function Navbar() {
   // Get page title from route
   const getPageTitle = () => {
     if (pathname === "/") return "Dashboard";
-    if (pathname === "/templates") return "My Templates";
-    if (pathname === "/marking-jobs") return "Marking Jobs";
-    if (pathname === "/users") return "Users";
-    if (pathname === "/settings") return "Settings";
-    if (pathname === "/reports") return "Reports";
+    if (pathname.startsWith("/templates")) return "My Templates";
+    if (pathname.startsWith("/marking-jobs")) return "Marking Jobs";
+    if (pathname.startsWith("/users")) return "Users";
+    if (pathname.startsWith("/settings")) return "Settings";
+    if (pathname.startsWith("/reports")) return "Reports";
     return "Dashboard";
   };
 
@@ -59,10 +65,12 @@ export function Navbar() {
               >
                 <span className="sr-only">Open user menu</span>
                 {user?.avatar ? (
-                  <img
+                  <Image
                     className="h-8 w-8 rounded-full"
                     src={user.avatar}
                     alt="User avatar"
+                    width={32}
+                    height={32}
                   />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -73,7 +81,10 @@ export function Navbar() {
                   <span className="text-sm font-medium text-gray-700 mr-1">
                     {user?.name || "User"}
                   </span>
-                  <FontAwesomeIcon icon={faChevronDown} className="h-4 w-4 text-gray-400" />
+                  <FontAwesomeIcon
+                    icon={faChevronDown}
+                    className="h-4 w-4 text-gray-400"
+                  />
                 </span>
               </button>
               {dropdownOpen && (
@@ -88,16 +99,19 @@ export function Navbar() {
                   </div>
                   <Link
                     href="/settings"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                   >
                     <FontAwesomeIcon icon={faCog} className="h-4 w-4 mr-2" />
                     Settings
                   </Link>
                   <button
                     onClick={signOut}
-                    className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                   >
-                    <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4 mr-2" />
+                    <FontAwesomeIcon
+                      icon={faSignOutAlt}
+                      className="h-4 w-4 mr-2"
+                    />
                     Sign out
                   </button>
                 </div>

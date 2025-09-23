@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ProtectedRoute } from "../../../components/ProtectedRoute";
-import MainLayout from "../../../components/Layout/MainLayout";
+import { useRouter } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
 import { useToast } from "../../../hooks/useToast";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -47,6 +46,7 @@ const steps: Step[] = [
 ];
 
 export default function CreateMarkingJob() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -237,7 +237,7 @@ export default function CreateMarkingJob() {
       showToast("Marking job created successfully", "success");
 
       // Redirect to marking jobs page
-      window.location.href = "/marking-jobs";
+      router.push("/marking-jobs");
     } catch (err) {
       console.error("Error creating marking job:", err);
       showToast(
@@ -289,50 +289,55 @@ export default function CreateMarkingJob() {
   };
 
   return (
-    <ProtectedRoute>
-      <MainLayout>
-        <div className="h-full flex flex-col">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center mb-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={
-                  <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
-                }
-                onClick={() => (window.location.href = "/marking-jobs")}
-              >
-                Back to Jobs
-              </Button>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Create New Marking Job
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Follow the steps below to create and start a new marking job.
-            </p>
+    <>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <div className="flex items-center mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />}
+              onClick={() => router.push("/marking-jobs")}
+            >
+              Back to Jobs
+            </Button>
           </div>
-
-          {/* Progress Steps */}
-          <ProgressSteps steps={steps} currentStep={currentStep} />
-
-          {/* Step Content */}
-          <div className="bg-white shadow rounded-lg flex-1 flex flex-col">
-            <div className="px-6 py-8 flex-1">{renderStepContent()}</div>
-
-            {/* Navigation */}
-            <NavigationButtons
-              currentStep={currentStep}
-              totalSteps={steps.length}
-              isSubmitting={isSubmitting}
-              onPrevStep={prevStep}
-              onNextStep={nextStep}
-              onSubmit={handleSubmit}
-            />
-          </div>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Create New Marking Job
+          </h2>
         </div>
-      </MainLayout>
-    </ProtectedRoute>
+      </div>
+
+      {/* Description Card */}
+      <div className="bg-white p-4 rounded-md shadow-sm mb-6">
+        <p className="text-sm text-gray-600">
+          Follow the steps below to create and start a new marking job. Upload
+          your marking scheme and answer sheets to begin automatic grading.
+        </p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="mb-6">
+        <ProgressSteps steps={steps} currentStep={currentStep} />
+      </div>
+
+      {/* Step Content */}
+      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+        <div className="p-6">{renderStepContent()}</div>
+
+        {/* Navigation */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+          <NavigationButtons
+            currentStep={currentStep}
+            totalSteps={steps.length}
+            isSubmitting={isSubmitting}
+            onPrevStep={prevStep}
+            onNextStep={nextStep}
+            onSubmit={handleSubmit}
+          />
+        </div>
+      </div>
+    </>
   );
 }

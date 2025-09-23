@@ -178,7 +178,7 @@ export function Sidebar() {
         <div className="mt-8 flex-1 flex flex-col overflow-y-auto">
           <nav className="flex-1 px-2 space-y-1">
             {sidebarItems.map((item) => {
-              const isActive = pathname === item.path;
+              const isActive = item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
               return (
                 <Link
                   key={item.name}
