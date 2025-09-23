@@ -32,28 +32,48 @@ export function Toast({ message, type, duration = 5000, onClose }: ToastProps) {
   const getIcon = () => {
     switch (type) {
       case "success":
-        return <FontAwesomeIcon icon={faCheckCircle} className="h-5 w-5 text-green-400" />;
+        return (
+          <FontAwesomeIcon
+            icon={faCheckCircle}
+            className="h-5 w-5 text-green-400"
+          />
+        );
       case "error":
-        return <FontAwesomeIcon icon={faTimesCircle} className="h-5 w-5 text-red-400" />;
+        return (
+          <FontAwesomeIcon
+            icon={faTimesCircle}
+            className="h-5 w-5 text-red-400"
+          />
+        );
       case "warning":
-        return <FontAwesomeIcon icon={faExclamationTriangle} className="h-5 w-5 text-amber-400" />;
+        return (
+          <FontAwesomeIcon
+            icon={faExclamationTriangle}
+            className="h-5 w-5 text-amber-400"
+          />
+        );
       case "info":
-        return <FontAwesomeIcon icon={faInfoCircle} className="h-5 w-5 text-blue-400" />;
+        return (
+          <FontAwesomeIcon
+            icon={faInfoCircle}
+            className="h-5 w-5 text-blue-400"
+          />
+        );
     }
   };
 
   const getStyles = () => {
     const baseStyles =
-      "max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 overflow-hidden";
+      "w-full bg-white shadow-xl rounded-lg pointer-events-auto border-l-4 overflow-hidden transform transition-all duration-200 hover:scale-105";
     switch (type) {
       case "success":
-        return `${baseStyles} ring-green-500/30`;
+        return `${baseStyles} border-l-green-500 shadow-green-100`;
       case "error":
-        return `${baseStyles} ring-red-500/30`;
+        return `${baseStyles} border-l-red-500 shadow-red-100`;
       case "warning":
-        return `${baseStyles} ring-amber-500/30`;
+        return `${baseStyles} border-l-amber-500 shadow-amber-100`;
       case "info":
-        return `${baseStyles} ring-blue-500/30`;
+        return `${baseStyles} border-l-blue-500 shadow-blue-100`;
     }
   };
 
