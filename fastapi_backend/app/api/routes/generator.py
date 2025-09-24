@@ -1,6 +1,5 @@
 import datetime
-from fastapi import APIRouter, HTTPException, Form
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Form, Response
 import uuid
 from app.schemas.file import FileUploadResponse
 from app.storage.shared_storage import SharedStorage
@@ -49,9 +48,9 @@ async def generate_pdf(
         safe_title = "".join(c for c in titel if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_title = safe_title.replace(' ', '_')[:50]  # Limit title length and replace spaces
         
-        filename = f"{safe_title}_{timestamp}.pdf"
+        filename = f"{file_id}_{safe_title}_{timestamp}.pdf"
         upload_dir = f'generated/pdfs/{user_id}'
-        final_path = f"{upload_dir}/{file_id}_{filename}"
+        final_path = f"{upload_dir}/{filename}"
         
         # Save PDF to shared storage
         shared_storage = SharedStorage()
@@ -81,3 +80,29 @@ async def generate_pdf(
     except Exception as e:
         logger.error(f"Failed to generate PDF: {str(e)}")
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+    
+
+@router.get("/file")
+async def get_file(file_name: str):
+    """
+    Endpoint to retrieve a generated PDF file
+    """
+    user_id = 1  # TODO: Get user ID from token
+    try:
+        shared_storage = SharedStorage()
+        file_path = f'generated/pdfs/{user_id}/{file_name}'
+        file_content = await shared_storage.get_file(file_path)
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        return Response(content=file_content, media_type="application/pdf",
+                        headers={
+        "Content-Disposition": f'attachment; filename="{file_name}"'
+    })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve file: {str(e)}")

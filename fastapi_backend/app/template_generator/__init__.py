@@ -1,25 +1,10 @@
+from .TemplateDrawer import TemplateDrawer
 def generate_template_pdf(titel:str, questions:int, options:int, max_qpc:int) -> bytes:
     '''Generate a PDF of the MCQ template'''
-    # Dummy implementation for illustration
-    result = b"%PDF-1.4\n" \
-b"1 0 obj\n" \
-b"<< /Type /Catalog /Pages 2 0 R >>\n" \
-b"endobj\n" \
-b"2 0 obj\n" \
-b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n" \
-b"endobj\n" \
-b"3 0 obj\n" \
-b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\n" \
-b"endobj\n" \
-b"xref\n" \
-b"0 4\n" \
-b"0000000000 65535 f \n" \
-b"0000000010 00000 n \n" \
-b"0000000053 00000 n \n" \
-b"0000000102 00000 n \n" \
-b"trailer\n" \
-b"<< /Root 1 0 R /Size 4 >>\n" \
-b"startxref\n" \
-b"151\n" \
-b"%%EOF\n"
+    drawer = TemplateDrawer(background_path='app/template_generator/default/template_bg_default.png')
+    drawer.draw_background()
+    drawer.writeTitle(titel, x=70, y=50, font_size=9)
+    drawer.mark_bubbles(questions, options, max_qpc, start_x=50, start_y=90, bubble_size=15, gap_x_max=20, gap_y_max=30,
+                        expected_width=460, expected_height=680, padding=10)
+    result = drawer.get_file()
     return result
