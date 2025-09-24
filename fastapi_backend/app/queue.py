@@ -21,7 +21,7 @@ from .database import get_async_db, AsyncSessionLocal
 from app.models.marking_job import MarkingJob
 from app.models.template_config_job import TemplateConfigJob
 from app.models.marking_job import MarkingJobStatus
-from app.models.template import TemplateConfigStatus
+from app.models.template import Template, TemplateConfigStatus
 from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
 
 logger = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ class MarkingSchemeConfigProducer:
             result = await db.execute(
                 select(MarkingJob)
                 .options(
-                    selectinload(MarkingJob.template),
+                    selectinload(MarkingJob.template).options(selectinload(Template.template_file), selectinload(Template.configuration_file)),
                     selectinload(MarkingJob.marking_scheme)
                 )
                 .where(MarkingJob.id == job_id)

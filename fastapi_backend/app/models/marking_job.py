@@ -11,6 +11,8 @@ from .base import BaseModel
 class MarkingJobStatus(PyEnum):
     """Enum for marking job status."""
     PENDING = "pending"
+    MARKING_SCHEME_CONFIGURED = "marking_scheme_configured"
+    ANSWER_SHEETS_ATTACHED = "answer_sheets_attached"
     QUEUED = "queued"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -123,11 +125,12 @@ class MarkingJob(BaseModel):
             'id': self.id,
             'name': self.name,
             'template_id': self.template_id,
-            'template_path': self.template.template_file_path,
-            'template_config_path': self.template.configuration_path,
+            'template_path': self.template.template_file.path,
+            'template_config_path': self.template.configuration_file.path,
             'config_type': self.template.config_type.value,
-            'marking_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_scheme_path': self.marking_scheme.path if self.marking_scheme else None,
             'marking_config_path': self.marking_config_file_path,
+            'save_intermediate_results': self.save_intermediate_results
         }
     
     def to_marking_job_data(self) -> dict:
@@ -136,10 +139,11 @@ class MarkingJob(BaseModel):
             'id': self.id,
             'name': self.name,
             'template_id': self.template_id,
-            'template_path': self.template.template_file_path,
-            'template_config_path': self.template.configuration_path,
+            'template_path': self.template.template_file.path,
+            'template_config_path': self.template.configuration_file.path,
             'config_type': self.template.config_type.value,
-            'marking_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_scheme_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_config_path': self.marking_config_file_path,
             'answers_folder_path': self.answer_sheets_folder.path if self.answer_sheets_folder else None,
             'result_sheet_file_path': self.result_sheet_file_path,
             'intermediate_results_path': self.intermediate_results_path,

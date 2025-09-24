@@ -183,8 +183,8 @@ async def configure_marking(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.PENDING:
-            raise HTTPException(status_code=400, detail="Job must be in pending status to configure")
+        if marking.status != MarkingJobStatus.PENDING and marking.status != MarkingJobStatus.FAILED and marking.status != MarkingJobStatus.QUEUED:
+            raise HTTPException(status_code=400, detail="Job must be in pending or failed status to configure")
         
         # Update marking scheme ID
         marking.marking_scheme_id = scheme_data.marking_scheme_id
@@ -255,11 +255,12 @@ async def attach_answer_sheets(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.PENDING:
-            raise HTTPException(status_code=400, detail="Job must be in pending status to attach answer sheets")
+        if marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED:
+            raise HTTPException(status_code=400, detail="Job must be in marking scheme configured status to attach answer sheets")
         
         # Update answer sheets folder ID
         marking.answer_sheets_folder_id = sheets_data.answer_sheets_folder_id
+        marking.status = MarkingJobStatus.ANSWER_SHEETS_ATTACHED
         await db.commit()
         await db.refresh(marking)
         
@@ -315,8 +316,8 @@ async def start_marking(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.PENDING:
-            raise HTTPException(status_code=400, detail="Job must be in pending status to start")
+        if marking.status != MarkingJobStatus.ANSWER_SHEETS_ATTACHED:
+            raise HTTPException(status_code=400, detail="Job must be in answer sheets attached status to start")
         
         # Validate preconditions
         if not marking.marking_scheme_id:
