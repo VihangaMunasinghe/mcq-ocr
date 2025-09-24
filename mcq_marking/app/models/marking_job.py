@@ -26,7 +26,7 @@ class MarkingJob:
             template_path: str
             marking_path: str
             answers_folder_path: str
-            output_path: str
+            result_sheet_file_path: str
             config_type: str
             template_config_path: str
             intermediate_results_path: str
@@ -37,7 +37,7 @@ class MarkingJob:
         self.template_path = data['template_path']
         self.marking_path = data['marking_path']
         self.answers_folder_path = data['answers_folder_path']
-        self.output_path = data['output_path']
+        self.output_path = data['result_sheet_file_path']
         self.template_config_path = data['template_config_path']
         self.intermediate_results_path = data['intermediate_results_path']
         self.config_type = data['config_type']

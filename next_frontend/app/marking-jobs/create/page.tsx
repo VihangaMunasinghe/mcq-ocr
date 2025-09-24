@@ -64,6 +64,14 @@ export default function CreateMarkingJob() {
     save_intermediate_results: false,
   });
 
+  const [markingJobId, setMarkingJobId] = useState<number | null>(null);
+  const [markingSchemeFileId, setMarkingSchemeFileId] = useState<number | null>(
+    null
+  );
+  const [answerSheetsFileId, setAnswerSheetsFileId] = useState<number | null>(
+    null
+  );
+
   const [errors, setErrors] = useState<
     Partial<Record<keyof MarkingJobForm, string>>
   >({});
@@ -160,8 +168,47 @@ export default function CreateMarkingJob() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
+  const nextStep = async () => {
+    if (!validateStep(currentStep)) return;
+
+    // Step 1: Create marking job with metadata
+    if (currentStep === 1) {
+      setIsSubmitting(true);
+      try {
+        const marking_job_payload = {
+          name: formData.name,
+          description: formData.description,
+          template_id: parseInt(formData.template_id, 10),
+          save_intermediate_results: formData.save_intermediate_results,
+          priority: formData.priority,
+        };
+
+        const response = await fetch(`${BACKEND_URL}/markings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(marking_job_payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create marking job");
+        }
+
+        const data = await response.json();
+        setMarkingJobId(data.id);
+        console.log("Marking job created successfully:", data);
+        showToast("Marking job created successfully", "success");
+
+        setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+      } catch (err) {
+        console.error("Error creating marking job:", err);
+        showToast(
+          err instanceof Error ? err.message : "Failed to create marking job",
+          "error"
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
       setCurrentStep((prev) => Math.min(prev + 1, steps.length));
     }
   };
@@ -170,15 +217,17 @@ export default function CreateMarkingJob() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(3)) return;
+  const handleMarkingSchemeUploadAndConfigure = async () => {
+    if (!markingJobId || !formData.markingSchemeFile) {
+      showToast("Missing marking job ID or file", "error");
+      return;
+    }
 
     setIsSubmitting(true);
-
     try {
-      // Upload marking scheme file first
+      // Upload marking scheme file
       const marking_file_formData = new FormData();
-      marking_file_formData.append("file", formData.markingSchemeFile!);
+      marking_file_formData.append("file", formData.markingSchemeFile);
       marking_file_formData.append("file_type", "marking_scheme");
 
       const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
@@ -191,57 +240,107 @@ export default function CreateMarkingJob() {
       }
 
       const uploadData = await uploadResponse.json();
-      const marking_filePath = uploadData.path;
+      setMarkingSchemeFileId(uploadData.id);
 
+      // Configure marking job with the uploaded file
+      const configureResponse = await fetch(
+        `${BACKEND_URL}/markings/${markingJobId}/configure`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ marking_scheme_id: uploadData.id }),
+        }
+      );
+
+      if (!configureResponse.ok) {
+        throw new Error("Failed to configure marking scheme");
+      }
+
+      const configureData = await configureResponse.json();
+      console.log("Marking scheme configured successfully:", configureData);
+      showToast(
+        "Marking scheme uploaded and configured successfully",
+        "success"
+      );
+
+      setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+    } catch (err) {
+      console.error("Error uploading/configuring marking scheme:", err);
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload/configure marking scheme",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(3) || !markingJobId || !formData.answerSheetsFile) {
+      showToast("Missing required data", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
       // Upload answer sheets file
       const answer_sheets_formData = new FormData();
-      answer_sheets_formData.append("file", formData.answerSheetsFile!);
-      answer_sheets_formData.append("file_type", "answer_sheet");
+      answer_sheets_formData.append("file", formData.answerSheetsFile);
+      answer_sheets_formData.append("file_type", "answer_sheets_folder");
 
-      const zip_uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
+      const uploadResponse = await fetch(`${BACKEND_URL}/files/upload`, {
         method: "POST",
         body: answer_sheets_formData,
       });
 
-      if (!zip_uploadResponse.ok) {
+      if (!uploadResponse.ok) {
         throw new Error("Failed to upload answer sheets file");
       }
 
-      const zip_uploadData = await zip_uploadResponse.json();
-      const answer_sheets_folderPath = zip_uploadData.path;
+      const uploadData = await uploadResponse.json();
+      setAnswerSheetsFileId(uploadData.id);
 
-      // Create marking job
-      const marking_job_payload = {
-        name: formData.name,
-        description: formData.description,
-        template_id: parseInt(formData.template_id, 10),
-        marking_scheme_path: marking_filePath,
-        answer_sheets_folder_path: answer_sheets_folderPath,
-        save_intermediate_results: formData.save_intermediate_results,
-        priority: formData.priority,
-      };
+      // Attach answer sheets to marking job
+      const attachResponse = await fetch(
+        `${BACKEND_URL}/markings/${markingJobId}/answer-sheets`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answer_sheets_folder_id: uploadData.id }),
+        }
+      );
 
-      const processResponse = await fetch(`${BACKEND_URL}/markings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(marking_job_payload),
-      });
-
-      if (!processResponse.ok) {
-        throw new Error("Failed to create marking job");
+      if (!attachResponse.ok) {
+        throw new Error("Failed to attach answer sheets");
       }
 
-      const processData = await processResponse.json();
-      console.log("Marking job created successfully:", processData);
+      // Start the marking process
+      const startResponse = await fetch(
+        `${BACKEND_URL}/markings/${markingJobId}/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-      showToast("Marking job created successfully", "success");
+      if (!startResponse.ok) {
+        throw new Error("Failed to start marking process");
+      }
+
+      const startData = await startResponse.json();
+      console.log("Marking process started successfully:", startData);
+
+      showToast("Marking process started successfully", "success");
 
       // Redirect to marking jobs page
       router.push("/marking-jobs");
     } catch (err) {
-      console.error("Error creating marking job:", err);
+      console.error("Error starting marking process:", err);
       showToast(
-        err instanceof Error ? err.message : "Failed to create marking job",
+        err instanceof Error ? err.message : "Failed to start marking process",
         "error"
       );
     } finally {
@@ -271,6 +370,9 @@ export default function CreateMarkingJob() {
             onFileChange={(file) =>
               handleInputChange("markingSchemeFile", file)
             }
+            onConfigure={handleMarkingSchemeUploadAndConfigure}
+            isConfiguring={isSubmitting}
+            markingJobId={markingJobId}
           />
         );
 
@@ -335,6 +437,7 @@ export default function CreateMarkingJob() {
             onPrevStep={prevStep}
             onNextStep={nextStep}
             onSubmit={handleSubmit}
+            hideNext={currentStep === 2}
           />
         </div>
       </div>

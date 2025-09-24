@@ -4,13 +4,13 @@ from sqlalchemy import select
 import logging
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
-from app.schemas.marking import MarkingCreate, MarkingResponse
+from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachScheme, MarkingAttachAnswerSheets
 from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from typing import List
 
-from app.queue import submit_marking_job
+from app.queue import submit_marking_job, submit_marking_scheme_config_job
 
 router = APIRouter(prefix="/api/markings", tags=['markings'])
 
@@ -34,16 +34,17 @@ async def list_markings(
               status=marking.status,
               priority=marking.priority,
               template_id=marking.template_id,
-              marking_scheme_path=marking.marking_scheme_path,
-              answer_sheets_folder_path=marking.answer_sheets_folder_path,
-              intermediate_results_path=marking.intermediate_results_path,
-              output_path=marking.output_path,
+              marking_scheme_id=marking.marking_scheme_id,
+              marking_config_id=marking.marking_config_id,
+              answer_sheets_folder_id=marking.answer_sheets_folder_id,
               save_intermediate_results=marking.save_intermediate_results,
               total_answer_sheets=marking.total_answer_sheets,
               processed_answer_sheets=marking.processed_answer_sheets,
               failed_answer_sheets=marking.failed_answer_sheets,
               processing_started_at=marking.processing_started_at,
               processing_completed_at=marking.processing_completed_at,
+              error_message=marking.error_message,
+              error_details=marking.error_details,
               results_summary=marking.results_summary,
               created_at=marking.created_at,
               updated_at=marking.updated_at,
@@ -55,10 +56,57 @@ async def list_markings(
         logger.error(f"Failed to list markings: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list markings")
 
+@router.get("/{marking_job_id}", response_model=MarkingResponse)
+async def get_marking(
+    marking_job_id: int,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get a single marking job by ID"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        return MarkingResponse(
+            id=marking.id,
+            name=marking.name,
+            description=marking.description,
+            status=marking.status,
+            priority=marking.priority,
+            template_id=marking.template_id,
+            marking_scheme_id=marking.marking_scheme_id,
+            marking_config_id=marking.marking_config_id,
+            answer_sheets_folder_id=marking.answer_sheets_folder_id,
+            save_intermediate_results=marking.save_intermediate_results,
+            total_answer_sheets=marking.total_answer_sheets,
+            processed_answer_sheets=marking.processed_answer_sheets,
+            failed_answer_sheets=marking.failed_answer_sheets,
+            processing_started_at=marking.processing_started_at,
+            processing_completed_at=marking.processing_completed_at,
+            error_message=marking.error_message,
+            error_details=marking.error_details,
+            results_summary=marking.results_summary,
+            created_at=marking.created_at,
+            updated_at=marking.updated_at,
+            created_by=marking.created_by
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get marking job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get marking job")
 
 @router.post("/", response_model=MarkingResponse)
 async def create_marking(
-    marking: MarkingCreate,
+    marking: MarkingCreateMetadata,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new marking"""
@@ -67,10 +115,8 @@ async def create_marking(
         marking_record = MarkingJob(
           name=marking.name,
           description=marking.description,
-          status=MarkingJobStatus.QUEUED,
+          status=MarkingJobStatus.PENDING,
           template_id=marking.template_id,
-          marking_scheme_path=marking.marking_scheme_path,
-          answer_sheets_folder_path=marking.answer_sheets_folder_path,
           save_intermediate_results=marking.save_intermediate_results,
           priority=marking.priority,
           created_by=user_id
@@ -79,27 +125,13 @@ async def create_marking(
         await db.commit()
         await db.refresh(marking_record)
 
+        # Generate paths for future use but don't enqueue yet
         random_id = str(uuid.uuid4())[:8]
         marking_record.intermediate_results_path = f"intermediate/markings/{user_id}/{marking_record.id}_{random_id}_intermediate/"
-        marking_record.output_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
+        marking_record.result_sheet_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
 
         await db.commit()
         await db.refresh(marking_record)
-
-        try:
-            logger.info(f"Submitting marking job {marking_record.id} to queue")
-            await submit_marking_job(marking_record.id)
-            logger.info(f"Successfully submitted marking job {marking_record.id} to queue")
-        except Exception as e:
-            logger.error(f"Failed to submit marking job {marking_record.id} to queue: {e}")
-            # Update job status to failed
-            try:
-                marking_record.status = MarkingJobStatus.FAILED
-                await db.commit()
-                logger.info(f"Updated job {marking_record.id} status to failed")
-            except Exception as commit_error:
-                logger.error(f"Failed to update job status to failed: {commit_error}")
-        
         marking_response = MarkingResponse(
           id=marking_record.id,
           name=marking_record.name,
@@ -107,16 +139,17 @@ async def create_marking(
           status=marking_record.status,
           priority=marking_record.priority,
           template_id=marking_record.template_id,
-          marking_scheme_path=marking_record.marking_scheme_path,
-          answer_sheets_folder_path=marking_record.answer_sheets_folder_path,
-          intermediate_results_path=marking_record.intermediate_results_path,
-          output_path=marking_record.output_path,
+          marking_scheme_id=marking_record.marking_scheme_id,
+          marking_config_id=marking_record.marking_config_id,
+          answer_sheets_folder_id=marking_record.answer_sheets_folder_id,
           save_intermediate_results=marking_record.save_intermediate_results,
           total_answer_sheets=marking_record.total_answer_sheets,
           processed_answer_sheets=marking_record.processed_answer_sheets,
           failed_answer_sheets=marking_record.failed_answer_sheets,
           processing_started_at=marking_record.processing_started_at,
           processing_completed_at=marking_record.processing_completed_at,
+          error_message=marking_record.error_message,
+          error_details=marking_record.error_details,
           results_summary=marking_record.results_summary,
           created_at=marking_record.created_at,
           updated_at=marking_record.updated_at,
@@ -126,3 +159,217 @@ async def create_marking(
     except Exception as e:
         logger.error(f"Failed to create marking: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create marking")
+
+
+
+@router.post("/{marking_job_id}/configure-marking-scheme", response_model=MarkingResponse)
+async def configure_marking(
+    marking_job_id: int,
+    scheme_data: MarkingAttachScheme,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Attach marking scheme and enqueue config job"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if marking.status != MarkingJobStatus.PENDING:
+            raise HTTPException(status_code=400, detail="Job must be in pending status to configure")
+        
+        # Update marking scheme ID
+        marking.marking_scheme_id = scheme_data.marking_scheme_id
+        await db.commit()
+        await db.refresh(marking)
+        
+        # Submit marking scheme configuration job to the queue
+        try:
+            logger.info(f"Submitting marking scheme config job for marking job {marking_job_id}")
+            success = await submit_marking_scheme_config_job(marking_job_id)
+            if success:
+                logger.info(f"Successfully submitted marking scheme config job {marking_job_id} to queue")
+            else:
+                logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
+                raise HTTPException(status_code=500, detail="Failed to submit marking scheme configuration job to queue")
+        except Exception as e:
+            logger.error(f"Error submitting marking scheme config job {marking_job_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to submit marking scheme configuration job: {str(e)}")
+        
+        return MarkingResponse(
+            id=marking.id,
+            name=marking.name,
+            description=marking.description,
+            status=marking.status,
+            priority=marking.priority,
+            template_id=marking.template_id,
+            marking_scheme_id=marking.marking_scheme_id,
+            marking_config_id=marking.marking_config_id,
+            answer_sheets_folder_id=marking.answer_sheets_folder_id,
+            save_intermediate_results=marking.save_intermediate_results,
+            total_answer_sheets=marking.total_answer_sheets,
+            processed_answer_sheets=marking.processed_answer_sheets,
+            failed_answer_sheets=marking.failed_answer_sheets,
+            processing_started_at=marking.processing_started_at,
+            processing_completed_at=marking.processing_completed_at,
+            error_message=marking.error_message,
+            error_details=marking.error_details,
+            results_summary=marking.results_summary,
+            created_at=marking.created_at,
+            updated_at=marking.updated_at,
+            created_by=marking.created_by
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to configure marking job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to configure marking job")
+
+
+@router.post("/{marking_job_id}/attach-answer-sheets", response_model=MarkingResponse)
+async def attach_answer_sheets(
+    marking_job_id: int,
+    sheets_data: MarkingAttachAnswerSheets,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Attach answer sheets folder to marking job"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if marking.status != MarkingJobStatus.PENDING:
+            raise HTTPException(status_code=400, detail="Job must be in pending status to attach answer sheets")
+        
+        # Update answer sheets folder ID
+        marking.answer_sheets_folder_id = sheets_data.answer_sheets_folder_id
+        await db.commit()
+        await db.refresh(marking)
+        
+        logger.info(f"Answer sheets attached to job {marking_job_id}")
+        
+        return MarkingResponse(
+            id=marking.id,
+            name=marking.name,
+            description=marking.description,
+            status=marking.status,
+            priority=marking.priority,
+            template_id=marking.template_id,
+            marking_scheme_id=marking.marking_scheme_id,
+            marking_config_id=marking.marking_config_id,
+            answer_sheets_folder_id=marking.answer_sheets_folder_id,
+            save_intermediate_results=marking.save_intermediate_results,
+            total_answer_sheets=marking.total_answer_sheets,
+            processed_answer_sheets=marking.processed_answer_sheets,
+            failed_answer_sheets=marking.failed_answer_sheets,
+            processing_started_at=marking.processing_started_at,
+            processing_completed_at=marking.processing_completed_at,
+            error_message=marking.error_message,
+            error_details=marking.error_details,
+            results_summary=marking.results_summary,
+            created_at=marking.created_at,
+            updated_at=marking.updated_at,
+            created_by=marking.created_by
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to attach answer sheets to job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to attach answer sheets")
+
+
+@router.post("/{marking_job_id}/start-marking", response_model=MarkingResponse)
+async def start_marking(
+    marking_job_id: int,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Start the marking process"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if marking.status != MarkingJobStatus.PENDING:
+            raise HTTPException(status_code=400, detail="Job must be in pending status to start")
+        
+        # Validate preconditions
+        if not marking.marking_scheme_id:
+            raise HTTPException(status_code=400, detail="Marking scheme must be attached before starting")
+        
+        if not marking.answer_sheets_folder_id:
+            raise HTTPException(status_code=400, detail="Answer sheets must be attached before starting")
+        
+        # TODO: Check if template config job is completed (when applicable)
+        # This would check the status of any associated TemplateConfigJob
+        
+        # Update status and enqueue marking job
+        marking.status = MarkingJobStatus.QUEUED
+        await db.commit()
+        await db.refresh(marking)
+        
+        try:
+            logger.info(f"Starting marking job {marking_job_id}")
+            await submit_marking_job(marking_job_id)
+            logger.info(f"Successfully submitted marking job {marking_job_id} to queue")
+        except Exception as e:
+            logger.error(f"Failed to submit marking job {marking_job_id} to queue: {e}")
+            # Revert status to pending on queue failure
+            marking.status = MarkingJobStatus.FAILED
+            marking.error_message = f"Failed to submit job to queue: {str(e)}"
+            await db.commit()
+            raise HTTPException(status_code=500, detail="Failed to submit job to processing queue")
+        
+        return MarkingResponse(
+            id=marking.id,
+            name=marking.name,
+            description=marking.description,
+            status=marking.status,
+            priority=marking.priority,
+            template_id=marking.template_id,
+            marking_scheme_id=marking.marking_scheme_id,
+            marking_config_id=marking.marking_config_id,
+            answer_sheets_folder_id=marking.answer_sheets_folder_id,
+            save_intermediate_results=marking.save_intermediate_results,
+            total_answer_sheets=marking.total_answer_sheets,
+            processed_answer_sheets=marking.processed_answer_sheets,
+            failed_answer_sheets=marking.failed_answer_sheets,
+            processing_started_at=marking.processing_started_at,
+            processing_completed_at=marking.processing_completed_at,
+            error_message=marking.error_message,
+            error_details=marking.error_details,
+            results_summary=marking.results_summary,
+            created_at=marking.created_at,
+            updated_at=marking.updated_at,
+            created_by=marking.created_by
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to start marking job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to start marking job")

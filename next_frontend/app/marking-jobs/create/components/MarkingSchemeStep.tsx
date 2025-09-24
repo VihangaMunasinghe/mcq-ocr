@@ -1,18 +1,25 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faCog } from "@fortawesome/free-solid-svg-icons";
 import { FileUpload } from "../../../../components/UI/FileUpload";
+import { Button } from "../../../../components/UI/Button";
 
 interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
   error?: string;
   onFileChange: (file: File | null) => void;
+  onConfigure: () => void;
+  isConfiguring: boolean;
+  markingJobId: number | null;
 }
 
 export function MarkingSchemeStep({
   markingSchemeFile,
   error,
   onFileChange,
+  onConfigure,
+  isConfiguring,
+  markingJobId,
 }: MarkingSchemeStepProps) {
   return (
     <div className="space-y-8">
@@ -41,20 +48,50 @@ export function MarkingSchemeStep({
 
         {markingSchemeFile && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <FontAwesomeIcon
-                  icon={faCheck}
-                  className="h-5 w-5 text-blue-400"
-                />
+            <div className="flex justify-between items-start">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <FontAwesomeIcon
+                    icon={faCheck}
+                    className="h-5 w-5 text-blue-400"
+                  />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Marking Scheme Selected
+                  </h3>
+                  <p className="mt-2 text-sm text-blue-700">
+                    File "{markingSchemeFile.name}" is ready to be uploaded and
+                    configured.
+                  </p>
+                </div>
               </div>
+              <div className="flex-shrink-0 ml-4">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onConfigure}
+                  disabled={!markingJobId || isConfiguring}
+                  loading={isConfiguring}
+                  icon={<FontAwesomeIcon icon={faCog} className="h-4 w-4" />}
+                >
+                  {isConfiguring ? "Configuring..." : "Configure"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!markingJobId && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex">
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Marking Scheme Ready
+                <h3 className="text-sm font-medium text-amber-800">
+                  Complete Previous Step
                 </h3>
-                <p className="mt-2 text-sm text-blue-700">
-                  File "{markingSchemeFile.name}" has been uploaded and will be
-                  processed when you create the job.
+                <p className="mt-2 text-sm text-amber-700">
+                  You need to complete the metadata step first before uploading
+                  the marking scheme.
                 </p>
               </div>
             </div>

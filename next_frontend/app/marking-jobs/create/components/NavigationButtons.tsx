@@ -14,6 +14,7 @@ interface NavigationButtonsProps {
   onPrevStep: () => void;
   onNextStep: () => void;
   onSubmit: () => void;
+  hideNext?: boolean;
 }
 
 export function NavigationButtons({
@@ -23,6 +24,7 @@ export function NavigationButtons({
   onPrevStep,
   onNextStep,
   onSubmit,
+  hideNext = false,
 }: NavigationButtonsProps) {
   return (
     <div className="px-6 py-4 bg-gray-50 rounded-b-lg flex justify-between">
@@ -36,7 +38,7 @@ export function NavigationButtons({
       </Button>
 
       <div className="flex space-x-3">
-        {currentStep < totalSteps ? (
+        {currentStep < totalSteps && !hideNext ? (
           <Button
             variant="primary"
             onClick={onNextStep}
@@ -45,7 +47,7 @@ export function NavigationButtons({
           >
             Next
           </Button>
-        ) : (
+        ) : currentStep === totalSteps ? (
           <Button
             variant="primary"
             onClick={onSubmit}
@@ -53,9 +55,9 @@ export function NavigationButtons({
             isLoading={isSubmitting}
             icon={<FontAwesomeIcon icon={faPlay} className="h-4 w-4" />}
           >
-            {isSubmitting ? "Creating Job..." : "Start Marking"}
+            {isSubmitting ? "Starting Marking..." : "Start Marking"}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
