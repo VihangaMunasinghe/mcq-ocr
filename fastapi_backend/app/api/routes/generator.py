@@ -1,0 +1,83 @@
+import datetime
+from fastapi import APIRouter, HTTPException, Form
+from typing import Optional
+import uuid
+from app.schemas.file import FileUploadResponse
+from app.storage.shared_storage import SharedStorage
+from app.template_generator import generate_template_pdf
+import logging
+
+router = APIRouter(prefix="/api/pdf", tags=["pdf"])
+
+logger = logging.getLogger(__name__)
+
+@router.post("/generate", response_model=FileUploadResponse)
+async def generate_pdf(
+    titel: str = Form(...),
+    questions: int = Form(...),
+    options: int = Form(...),
+    max_qpc: int = Form(...)
+):
+    """
+    Generate a PDF template and save it to storage
+    """
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Validate input parameters
+        if questions <= 0:
+            raise HTTPException(status_code=400, detail="Questions must be greater than 0")
+        if options <= 0:
+            raise HTTPException(status_code=400, detail="Options must be greater than 0")
+        if max_qpc <= 0:
+            raise HTTPException(status_code=400, detail="Max questions per column must be greater than 0")
+        if not titel.strip():
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        
+        logger.info(f"Generating PDF with title: {titel}, questions: {questions}, options: {options}, max_qpc: {max_qpc}")
+        
+        # Generate PDF using the template generator
+        pdf_content = generate_template_pdf(titel, questions, options, max_qpc)
+        
+        if not pdf_content:
+            raise HTTPException(status_code=500, detail="Failed to generate PDF content")
+        
+        # Generate file ID and path
+        file_id = str(uuid.uuid4())
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_title = "".join(c for c in titel if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_title = safe_title.replace(' ', '_')[:50]  # Limit title length and replace spaces
+        
+        filename = f"{safe_title}_{timestamp}.pdf"
+        upload_dir = f'generated/pdfs/{user_id}'
+        final_path = f"{upload_dir}/{file_id}_{filename}"
+        
+        # Save PDF to shared storage
+        shared_storage = SharedStorage()
+        await shared_storage.save_file(pdf_content, final_path)
+        
+        logger.info(f"PDF generated and saved successfully: {final_path}")
+
+        # resopnce looks like:
+        # {
+        #   "message": "PDF generated and saved successfully",
+        #   "filename": "string_20250924_112308.pdf",
+        #   "file_id": "62dafef4-3c0b-4e01-8055-3101d383f446",
+        #   "path": "generated/pdfs/1/62dafef4-3c0b-4e01-8055-3101d383f446_string_20250924_112308.pdf",
+        #   "file_size": 329
+        # }
+
+        return FileUploadResponse(
+            message="PDF generated and saved successfully",
+            filename=filename,
+            file_id=file_id,
+            path=final_path,
+            file_size=len(pdf_content)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
