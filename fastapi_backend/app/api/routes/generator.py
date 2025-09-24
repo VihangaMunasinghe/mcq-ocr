@@ -6,7 +6,7 @@ from app.storage.shared_storage import SharedStorage
 from app.template_generator import generate_template_pdf
 import logging
 
-router = APIRouter(prefix="/api/pdf", tags=["pdf"])
+router = APIRouter(prefix="/api/custom_template", tags=["custom_template"])
 
 logger = logging.getLogger(__name__)
 
@@ -57,15 +57,6 @@ async def generate_pdf(
         await shared_storage.save_file(pdf_content, final_path)
         
         logger.info(f"PDF generated and saved successfully: {final_path}")
-
-        # resopnce looks like:
-        # {
-        #   "message": "PDF generated and saved successfully",
-        #   "filename": "string_20250924_112308.pdf",
-        #   "file_id": "62dafef4-3c0b-4e01-8055-3101d383f446",
-        #   "path": "generated/pdfs/1/62dafef4-3c0b-4e01-8055-3101d383f446_string_20250924_112308.pdf",
-        #   "file_size": 329
-        # }
 
         return FileUploadResponse(
             message="PDF generated and saved successfully",

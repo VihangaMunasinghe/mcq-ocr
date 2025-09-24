@@ -8,6 +8,8 @@ import { Button } from "@/components/UI/Button";
 
 type GenerationState = 'idle' | 'processing' | 'success' | 'error';
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+
 export default function GenerateTemplate() {
   const [title, setTitle] = useState("");
   const [numQuestions, setNumQuestions] = useState<number | "">("");
@@ -16,7 +18,7 @@ export default function GenerateTemplate() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
   const [errorMessage, setErrorMessage] = useState("");
-  const [downloadUrl, setDownloadUrl] = useState("");
+  const [filename, setFileName] = useState("");
 
   const handleGenerate = async () => {
     // Basic validation
@@ -40,7 +42,7 @@ export default function GenerateTemplate() {
 
     setGenerationState('processing');
     setErrorMessage("");
-    setDownloadUrl("");
+    setFileName("");
 
     try {
       // Replace this with your actual API call
@@ -50,11 +52,20 @@ export default function GenerateTemplate() {
         numOptions,
         maxQuestionsPerColumn
       });
-      await new Promise(res => setTimeout(res, 1000)); // Simulate network delay
-      const response = {ok: true, json: async () => ({ 
-        downloadUrl: 'https://example.com/template.pdf',
-        url: 'https://example.com/template.pdf',
-        message: 'Template generated successfully',})}; // Mocked response
+
+      const requestBody = new URLSearchParams();
+      requestBody.append('title', title);
+      requestBody.append('questions', numQuestions.toString());
+      requestBody.append('options', numOptions.toString());
+      requestBody.append('max_qpc', maxQuestionsPerColumn.toString());
+      const endpoint = `${BACKEND_URL}/custom_template/generate`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: requestBody.toString(),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -62,7 +73,7 @@ export default function GenerateTemplate() {
       }
 
       const data = await response.json();
-      setDownloadUrl(data.downloadUrl || data.url);
+      setFileName(data.filename);
       setGenerationState('success');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -71,16 +82,16 @@ export default function GenerateTemplate() {
   };
 
   const handleDownload = () => {
-    if (downloadUrl) {
-      // Open the download URL in a new tab/window
-      window.open(downloadUrl, '_blank');
-    }
+    if (!filename) return;
+    // call the download endpoint with query param filename
+    const downloadUrl = `${BACKEND_URL}/custom_template/file?file_name=${encodeURIComponent(filename)}`;
+    window.open(downloadUrl, '_blank');
   };
 
   const resetGeneration = () => {
     setGenerationState('idle');
     setErrorMessage("");
-    setDownloadUrl("");
+    setFileName("");
   };
 
   return (
@@ -171,7 +182,7 @@ export default function GenerateTemplate() {
               {generationState === 'processing' ? 'Generating...' : 'Generate Template'}
             </Button>
 
-            {downloadUrl && (
+            {filename && (
               <>
                 <Button onClick={handleDownload} className="w-fit bg-green-600 hover:bg-green-700">
                   Download PDF
@@ -205,7 +216,7 @@ export default function GenerateTemplate() {
           )}
 
           {/* Success Message */}
-          {downloadUrl && (
+          {filename && (
             <div className="bg-green-50 border border-green-200 rounded-md p-4 text-center">
               <p className="text-green-600 text-sm">Template generated successfully! Click the download button above.</p>
             </div>
