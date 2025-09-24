@@ -37,6 +37,7 @@ export function Navbar() {
     if (pathname === "/users") return "Users";
     if (pathname === "/settings") return "Settings";
     if (pathname === "/reports") return "Reports";
+    if (pathname === "/generate-template") return "Generate Template";
     return "Dashboard";
   };
 
