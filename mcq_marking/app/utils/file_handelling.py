@@ -67,6 +67,17 @@ def read_image(path, convert_to_grayscale=False):
         return image.convert('L')
     return image
 
+class NumpyEncoder(json.JSONEncoder):
+    """Custom JSON encoder for numpy data types"""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 def save_json(data, path):
     """
     Save JSON data to NFS storage
@@ -76,7 +87,7 @@ def save_json(data, path):
         path: Relative path within the file_type directory
     """
     nfs = NFSStorage()
-    json_bytes = json.dumps(data, indent=2).encode('utf-8')
+    json_bytes = json.dumps(data, indent=2, cls=NumpyEncoder).encode('utf-8')
     nfs.save_file(json_bytes, path)
 
 def read_json(path):
