@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/generate", response_model=FileUploadResponse)
 async def generate_pdf(
-    titel: str = Form(...),
+    title: str = Form(...),
     questions: int = Form(...),
     options: int = Form(...),
     max_qpc: int = Form(...)
@@ -31,13 +31,13 @@ async def generate_pdf(
             raise HTTPException(status_code=400, detail="Options must be greater than 0")
         if max_qpc <= 0:
             raise HTTPException(status_code=400, detail="Max questions per column must be greater than 0")
-        if not titel.strip():
+        if not title.strip():
             raise HTTPException(status_code=400, detail="Title cannot be empty")
         
-        logger.info(f"Generating PDF with title: {titel}, questions: {questions}, options: {options}, max_qpc: {max_qpc}")
+        logger.info(f"Generating PDF with title: {title}, questions: {questions}, options: {options}, max_qpc: {max_qpc}")
         
         # Generate PDF using the template generator
-        pdf_content = generate_template_pdf(titel, questions, options, max_qpc)
+        pdf_content = generate_template_pdf(title, questions, options, max_qpc)
         
         if not pdf_content:
             raise HTTPException(status_code=500, detail="Failed to generate PDF content")
@@ -45,7 +45,7 @@ async def generate_pdf(
         # Generate file ID and path
         file_id = str(uuid.uuid4())
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_title = "".join(c for c in titel if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_title = safe_title.replace(' ', '_')[:50]  # Limit title length and replace spaces
         
         filename = f"{file_id}_{safe_title}_{timestamp}.pdf"
