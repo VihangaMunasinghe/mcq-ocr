@@ -67,6 +67,8 @@ class MarkingSchemeConfigJob:
                 'job_name': self.name,
                 'template_config_type': self.config_type,
                 'answers_with_coordinates': answers_with_coordinates,
+                'num_questions': template_config['metadata']['num_questions'],
+                'options_per_question': template_config['metadata']['options_per_question'],
                 'processed_at': datetime.now().isoformat()
             }
 

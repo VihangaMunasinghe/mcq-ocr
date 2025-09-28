@@ -138,8 +138,8 @@ export function AnswerSheetsStep({
                   Ready to Start Marking
                 </h3>
                 <p className="mt-2 text-sm text-green-700">
-                  File "{answerSheetsFile.name}" has been uploaded. All files
-                  are ready - click "Start Marking" to begin the automatic
+                  File &quot;{answerSheetsFile.name}&quot; has been uploaded. All files
+                  are ready - click &quot;Start Marking&quot; to begin the automatic
                   grading process.
                 </p>
               </div>

@@ -107,7 +107,6 @@ function CreateMarkingJobContent() {
             onFileChange={(file) =>
               handleInputChange("markingSchemeFile", file)
             }
-            onNext={nextStep}
           />
         );
 
@@ -173,7 +172,7 @@ function CreateMarkingJobContent() {
             onPrevStep={prevStep}
             onNextStep={nextStep}
             onSubmit={() => {}}
-            hideNext={currentStep === 2}
+            hideNext={false}
           />
         </div>
       </div>

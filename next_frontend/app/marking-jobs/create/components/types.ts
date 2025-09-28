@@ -2,15 +2,16 @@ import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 
 export type JobPriority = "normal" | "urgent";
 
-export type MarkingJobStatus =
-  | "pending"
-  | "marking_scheme_configured"
-  | "answer_sheets_attached"
-  | "queued"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "cancelled";
+export enum MarkingJobStatus {
+  PENDING = "pending",
+  MARKING_SCHEME_CONFIGURED = "marking_scheme_configured",
+  ANSWER_SHEETS_ATTACHED = "answer_sheets_attached",
+  QUEUED = "queued",
+  PROCESSING = "processing",
+  COMPLETED = "completed",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+}
 
 export interface MarkingJobForm {
   name: string;
@@ -54,4 +55,9 @@ export interface Step {
   title: string;
   description: string;
   icon: IconDefinition;
+}
+export interface Bubble {
+  marked: boolean;
+  x: number;
+  y: number;
 }

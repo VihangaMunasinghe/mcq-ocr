@@ -6,23 +6,32 @@ import { FileUpload } from "../../../../components/UI/FileUpload";
 import { Card } from "../../../../components/UI/Card";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
+import { Bubble, MarkingJobStatus } from "./types";
+import AnswersCorrectionModal from "@/components/UI/AnswersCorrectionModal";
 
 interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
   error?: string;
   onFileChange: (file: File | null) => void;
-  onNext: () => void;
 }
 
 export function MarkingSchemeStep({
   markingSchemeFile,
   error,
   onFileChange,
-  onNext,
 }: MarkingSchemeStepProps) {
   const [markingJob, setMarkingJob] = useCreateMarking();
   const { showToast } = useToast();
   const [isConfiguring, setIsConfiguring] = useState(false);
+  const [isAnswersCorrectionModalOpen, setIsAnswersCorrectionModalOpen] =
+    useState(false);
+  const [answersCorrectionModalData, setAnswersCorrectionModalData] = useState<{
+    imageUrl: string;
+    bubbleData: Bubble[][];
+  }>({
+    imageUrl: "",
+    bubbleData: [],
+  });
 
   const BACKEND_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -161,6 +170,136 @@ export function MarkingSchemeStep({
       }, 60000); // 60 second timeout
     });
   };
+
+  const _getMarkingSchemeBubbleData = async () => {
+    const markingSchemeConfig = await fetch(
+      `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingJob.marking_config_id}`
+    );
+    const markingSchemeConfigDataJson = await markingSchemeConfig.json();
+    console.log("Marking scheme config data:", markingSchemeConfigDataJson);
+    if (!markingSchemeConfigDataJson["answers_with_coordinates"]) {
+      showToast("Missing marking scheme bubble data", "error");
+    }
+    const answersWithCoordinates =
+      markingSchemeConfigDataJson["answers_with_coordinates"];
+    const bubbleData: Bubble[][] = [];
+    const numQuestions = markingSchemeConfigDataJson["num_questions"];
+    const numOptionsPerQuestion =
+      markingSchemeConfigDataJson["options_per_question"];
+    for (let questionIndex = 0; questionIndex < numQuestions; questionIndex++) {
+      bubbleData.push([]);
+      for (
+        let optionIndex = 0;
+        optionIndex < numOptionsPerQuestion;
+        optionIndex++
+      ) {
+        const bubble =
+          answersWithCoordinates[
+            questionIndex * numOptionsPerQuestion + optionIndex
+          ];
+        bubbleData[questionIndex].push({
+          marked: bubble[0],
+          x: bubble[1][0],
+          y: bubble[1][1],
+        });
+      }
+    }
+    return bubbleData;
+  };
+
+  const _convertBubbleDataToMarkingSchemeConfig = (bubbleData: Bubble[][]) => {
+    const answersWithCoordinates: [boolean, [number, number]][] = [];
+
+    // Flatten the 2D bubble data back to the original format
+    for (
+      let questionIndex = 0;
+      questionIndex < bubbleData.length;
+      questionIndex++
+    ) {
+      for (
+        let optionIndex = 0;
+        optionIndex < bubbleData[questionIndex].length;
+        optionIndex++
+      ) {
+        const bubble = bubbleData[questionIndex][optionIndex];
+        answersWithCoordinates.push([bubble.marked, [bubble.x, bubble.y]]);
+      }
+    }
+
+    // Calculate metadata
+    const numQuestions = bubbleData.length;
+    const numOptionsPerQuestion =
+      bubbleData.length > 0 ? bubbleData[0].length : 0;
+
+    return {
+      answers_with_coordinates: answersWithCoordinates,
+      num_questions: numQuestions,
+      options_per_question: numOptionsPerQuestion,
+    };
+  };
+
+  const handleMarkingSchemeVerify = async () => {
+    if (!markingJob.marking_config_id || !markingJob.marking_scheme_id) {
+      showToast("Missing marking config ID or marking scheme ID", "error");
+      return;
+    }
+    const markingSchemeImageUrl = markingJob.marking_scheme_id
+      ? `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingJob.marking_scheme_id}`
+      : null;
+    if (!markingSchemeImageUrl) {
+      showToast("Missing marking scheme image URL", "error");
+      return;
+    }
+    const bubbleData = await _getMarkingSchemeBubbleData();
+    if (!Array.isArray(bubbleData)) {
+      showToast("Failed to load marking scheme bubble data", "error");
+      return;
+    }
+    setAnswersCorrectionModalData({
+      imageUrl: markingSchemeImageUrl,
+      bubbleData,
+    });
+
+    setIsAnswersCorrectionModalOpen(true);
+  };
+
+  const handleAnswersCorrectionModalConfirm = async (
+    updatedBubbleData: Bubble[][]
+  ) => {
+    try {
+      // Convert bubble data back to marking scheme config format
+      const markingSchemeConfig =
+        _convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
+
+      // Update local state
+      setMarkingJob((prev) => ({
+        ...prev,
+        marking_scheme_config: updatedBubbleData,
+      }));
+
+      // Send to backend
+      const response = await fetch(
+        `${BACKEND_URL}/api/markings/${markingJob.id}/update-marking-scheme-config`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ marking_scheme_config: markingSchemeConfig }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update marking scheme config");
+      }
+
+      showToast("Marking scheme configuration updated successfully", "success");
+    } catch (error) {
+      console.error("Error updating marking scheme config:", error);
+      showToast("Failed to update marking scheme configuration", "error");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -335,7 +474,7 @@ export function MarkingSchemeStep({
 
             {/* Configure Button - Below Preview */}
             {markingSchemeFile && markingJob.id && (
-              <div className="flex justify-center">
+              <div className="flex justify-between px-10">
                 <button
                   onClick={handleMarkingSchemeUploadAndConfigure}
                   disabled={isConfiguring}
@@ -344,11 +483,29 @@ export function MarkingSchemeStep({
                   <FontAwesomeIcon icon={faCog} className="mr-2 h-4 w-4" />
                   {isConfiguring ? "Configuring..." : "Configure"}
                 </button>
+                <button
+                  onClick={handleMarkingSchemeVerify}
+                  disabled={
+                    markingJob.status !==
+                    MarkingJobStatus.MARKING_SCHEME_CONFIGURED
+                  }
+                  className="inline-flex items-center px-8 py-3 border border-green-600 text-sm font-medium rounded-md shadow-sm text-green-600 bg-transparent hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FontAwesomeIcon icon={faCheck} className="mr-2 h-4 w-4" />
+                  {isConfiguring ? "Verifying..." : "Verify"}
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
+      <AnswersCorrectionModal
+        isOpen={isAnswersCorrectionModalOpen}
+        onClose={() => setIsAnswersCorrectionModalOpen(false)}
+        imageUrl={answersCorrectionModalData.imageUrl}
+        bubbleData={answersCorrectionModalData.bubbleData}
+        onConfirm={() => {}}
+      />
     </div>
   );
 }
