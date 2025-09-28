@@ -8,15 +8,15 @@ interface Template {
   id: number;
   name: string;
   status: TemplateStatus;
-  description: string;
+  description?: string | null;
   config_type: ConfigType;
-  configuration_path: string;
-  template_file_path: string;
+  configuration_file_id?: number | null;
+  template_file_id?: number | null;
   num_questions: number;
   options_per_question: number;
-  created_at: string;   // ISO timestamp
-  updated_at: string;   // ISO timestamp
-  created_by: number;   // user id
+  created_at: string; // ISO date string
+  updated_at: string; // ISO date string
+  created_by: number;
 }
 
 export type { Template, TemplateStatus, ConfigType };

@@ -183,20 +183,40 @@ export default function CreateMarkingJob() {
           priority: formData.priority,
         };
 
-        const response = await fetch(`${BACKEND_URL}/markings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(marking_job_payload),
-        });
+        if (markingJobId) {
+          const response = await fetch(
+            `${BACKEND_URL}/markings/${markingJobId}`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(marking_job_payload),
+            }
+          );
 
-        if (!response.ok) {
-          throw new Error("Failed to create marking job");
+          if (!response.ok) {
+            throw new Error("Failed to update marking job");
+          }
+
+          const data = await response.json();
+          setMarkingJobId(data.id);
+          console.log("Marking job updated successfully:", data);
+          showToast("Marking job updated successfully", "success");
+        } else {
+          const response = await fetch(`${BACKEND_URL}/markings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(marking_job_payload),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to create marking job");
+          }
+
+          const data = await response.json();
+          setMarkingJobId(data.id);
+          console.log("Marking job created successfully:", data);
+          showToast("Marking job created successfully", "success");
         }
-
-        const data = await response.json();
-        setMarkingJobId(data.id);
-        console.log("Marking job created successfully:", data);
-        showToast("Marking job created successfully", "success");
 
         setCurrentStep((prev) => Math.min(prev + 1, steps.length));
       } catch (err) {

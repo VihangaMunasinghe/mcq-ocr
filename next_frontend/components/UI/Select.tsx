@@ -1,6 +1,6 @@
-import React, { forwardRef } from "react";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import React, { forwardRef, useId } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
 interface SelectOption {
   value: string;
@@ -32,8 +32,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId =
-      id || `select-${Math.random().toString(36).substring(2, 9)}`;
+    const generatedId = useId();
+    const selectId = id || generatedId;
 
     const sizeClasses = {
       sm: "py-1 text-xs",

@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks, Form
 from fastapi.responses import StreamingResponse
-from typing import List
+from typing import List, Optional
 import uuid
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.schemas.file import FileResponse, FileResponse
+from app.schemas.file import DownloadType, FileResponse, FileResponse
 from app.storage.shared_storage import SharedStorage
 import logging
 
@@ -34,8 +34,8 @@ async def upload_file(file: UploadFile = File(...),
 
     random_id = str(uuid.uuid4())[:8]
     upload_dir = f'uploads/{file_type}s/{user_id}'
-    file_name = f"{file.filename.split('.')[0]}_{random_id}"
-    extension = file.filename.split('.')[-1] if file.filename.split('.')[-1] or file.filename.split('.')[-1] != 'zip' else None
+    file_name = f"{file.filename.split('.')[0]}_{random_id}.{file.filename.split('.')[-1]}"
+    extension = file.filename.split('.')[-1] if file.filename.split('.')[-1] and file.filename.split('.')[-1] != 'zip' else None
     final_path = f"{upload_dir}/{file_name}"
 
     # Read file content as bytes
@@ -56,9 +56,7 @@ async def upload_file(file: UploadFile = File(...),
     
     if file_type == 'template':
         file_type = FileOrFolderType.TEMPLATE
-    elif file_type == 'template_config':
-        file_type = FileOrFolderType.TEMPLATE_CONFIG
-    elif file_type == 'answer_sheets_folder':
+    elif file_type == 'answer_sheet':
         file_type = FileOrFolderType.ANSWER_SHEETS_FOLDER
     elif file_type == 'marking_scheme':
         file_type = FileOrFolderType.MARKING_SCHEME
@@ -316,6 +314,93 @@ async def list_files(
         logger.error(f"Failed to list files: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
+@router.get("/download")
+async def download_file(
+    method: DownloadType = Query(..., description="Download method: 'file_id' or 'path'"),
+    file_id: Optional[int] = Query(None, description="File ID if using 'file_id' method"),
+    path: Optional[str] = Query(None, description="File path if using 'path' method"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Download a file by ID
+    """
+    # TODO: Get user ID from token
+    user_id = 1
+    
+    try:
+        # Query for the file
+        if method == DownloadType.FILEID:
+            if not file_id:
+                raise HTTPException(status_code=400, detail="file_id is required when using 'file_id' method")
+            
+            result = await db.execute(
+                select(FileOrFolder).where(
+                    FileOrFolder.id == file_id,
+                    FileOrFolder.created_by == user_id,
+                    FileOrFolder.status == FileOrFolderStatus.UPLOADED
+                )
+            )
+            file = result.scalar_one_or_none()
+            
+            if not file:
+                raise HTTPException(status_code=404, detail="File not found")
+            file_path = file.path
+            filename = file.original_name or file.name
+            file_size = file.size
+            file_extension = file.extension
+        else:
+            if not path:
+                raise HTTPException(status_code=400, detail="path is required when using 'path' method")
+            file_path = path
+            filename = Path(path).name
+            file_size = None
+            file_extension = Path(path).suffix[1:] if Path(path).suffix else None
+            file = None  # No file object when using path method
+        
+        # Check if file exists in storage
+        shared_storage = SharedStorage()
+        if not shared_storage.file_exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        
+        # Get file content as bytes
+        file_content = await shared_storage.get_file(file_path)
+        
+        # Calculate actual content length
+        actual_content_length = len(file_content)
+        
+        # Create streaming response
+        def iterfile():
+            yield file_content
+        
+        # Determine content type based on extension
+        content_type = "application/octet-stream"
+        if file_extension:
+            if file_extension.lower() in ['jpg', 'jpeg']:
+                content_type = "image/jpeg"
+            elif file_extension.lower() == 'png':
+                content_type = "image/png"
+            elif file_extension.lower() == 'pdf':
+                content_type = "application/pdf"
+            elif file_extension.lower() == 'zip':
+                content_type = "application/zip"
+            elif file_extension.lower() in ['xlsx', 'xls']:
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        
+        return StreamingResponse(
+            iterfile(),
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(actual_content_length)
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to download file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to download file")
+
 @router.get("/{file_id}", response_model=FileResponse)
 async def get_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
     """
@@ -403,65 +488,4 @@ async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
         logger.error(f"Failed to delete file {file_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
 
-@router.get("/{file_id}/download")
-async def download_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
-    """
-    Download a file by ID
-    """
-    # TODO: Get user ID from token
-    user_id = 1
-    
-    try:
-        # Query for the file
-        result = await db.execute(
-            select(FileOrFolder).where(
-                FileOrFolder.id == file_id,
-                FileOrFolder.created_by == user_id,
-                FileOrFolder.status == FileOrFolderStatus.UPLOADED
-            )
-        )
-        file = result.scalar_one_or_none()
-        
-        if not file:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        # Check if file exists in storage
-        shared_storage = SharedStorage()
-        if not shared_storage.file_exists(file.path):
-            raise HTTPException(status_code=404, detail="File not found in storage")
-        
-        # Get file content as bytes
-        file_content = await shared_storage.get_file(file.path)
-        
-        # Create streaming response
-        def iterfile():
-            yield file_content
-        
-        # Determine content type based on extension
-        content_type = "application/octet-stream"
-        if file.extension:
-            if file.extension.lower() in ['jpg', 'jpeg']:
-                content_type = "image/jpeg"
-            elif file.extension.lower() == 'png':
-                content_type = "image/png"
-            elif file.extension.lower() == 'pdf':
-                content_type = "application/pdf"
-            elif file.extension.lower() == 'zip':
-                content_type = "application/zip"
-            elif file.extension.lower() in ['xlsx', 'xls']:
-                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        
-        return StreamingResponse(
-            iterfile(),
-            media_type=content_type,
-            headers={
-                "Content-Disposition": f"attachment; filename={file.original_name or file.name}",
-                "Content-Length": str(file.size) if file.size else "0"
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to download file {file_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
+
