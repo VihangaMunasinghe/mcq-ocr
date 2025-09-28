@@ -133,7 +133,7 @@ class RabbitMQSettings(BaseSettings):
     """RabbitMQ configuration settings."""
     
     rabbitmq_url: str = Field(
-        default="amqp://admin:secret@localhost:5672",
+        default="amqp://admin:secret@localhost:5673",
         env="RABBITMQ_URL"
     )
     
