@@ -109,7 +109,7 @@ export function MetadataStep({
         }
 
         const data = await response.json();
-        setMarkingJob((prev) => ({ ...prev, id: data.id }));
+        setMarkingJob((prev) => ({ ...prev, ...data }));
         console.log("Marking job updated successfully:", data);
         showToast("Marking job updated successfully", "success");
       } else {
@@ -375,7 +375,7 @@ export function MetadataStep({
                                 request_url={templateImageUrl}
                                 alt="Template Image"
                                 width={450}
-                                height={500}
+                                height={450}
                               />
                             </div>
                           ) : (

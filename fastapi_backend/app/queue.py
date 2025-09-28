@@ -9,7 +9,6 @@ import logging
 import os
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime, timezone, timedelta
-import uuid
 import aio_pika
 from aio_pika import Connection, Channel, Queue, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
@@ -24,6 +23,7 @@ from app.models.template_config_job import TemplateConfigJob
 from app.models.marking_job import MarkingJobStatus
 from app.models.template import Template, TemplateConfigStatus
 from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
+from app.api.deps import get_websocket_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -557,6 +557,8 @@ class MarkingSchemeConfigResultConsumer:
                             logger.error(f"MarkingJob {job_id} not found")
                             return
                         
+                        ws = get_websocket_manager()
+                        
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
                             job.status = MarkingJobStatus.MARKING_SCHEME_CONFIGURED  
@@ -594,6 +596,7 @@ class MarkingSchemeConfigResultConsumer:
                                 job.marking_config_file_path = marking_config_path
                             
                             logger.info(f"Marking scheme config job {job_id} completed successfully")
+                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "completed"})
                             
                         else:
                             job.status = MarkingJobStatus.FAILED
@@ -601,6 +604,7 @@ class MarkingSchemeConfigResultConsumer:
                             job.error_message = error_message
                             
                             logger.error(f"Marking scheme config job {job_id} failed: {error_message}")
+                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "error", "message": error_message})
                         
                         await db.commit()
                         

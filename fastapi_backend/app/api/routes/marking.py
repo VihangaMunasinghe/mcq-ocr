@@ -209,17 +209,39 @@ async def update_marking(
 
 
 @router.websocket("/{marking_job_id}/configure-marking-scheme")
-async def configure_marking(
+async def configure_marking_scheme_websocket(
     marking_job_id: int,
-    scheme_data: MarkingAttachScheme,
     websocket: WebSocket,
     db: AsyncSession = Depends(get_async_db),
     websocket_manager: WebSocketManager = Depends(get_websocket_manager)
 ):
-    """Attach marking scheme and enqueue config job"""
+    """Attach marking scheme and enqueue config job via WebSocket"""
     
     user_id = 1  # TODO: Get from authentication
+    
+    logger.info(f"WebSocket endpoint called for marking job {marking_job_id}")
+    
     try:
+        # Connect to WebSocket manager (this handles websocket.accept())
+        await websocket_manager.connect_marking_scheme_config(str(marking_job_id), websocket)
+        logger.info(f"WebSocket connection established for marking job {marking_job_id}")
+        
+        # Wait for the marking scheme data from the client
+        
+        data = await websocket.receive_json()
+        logger.info(f"Received marking scheme data: {data}")
+        
+        # Validate the received data
+        if "marking_scheme_id" not in data:
+            await websocket.send_json({
+                "status": "error",
+                "message": "Missing marking_scheme_id in request data"
+            })
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+            return
+        
+        marking_scheme_id = data["marking_scheme_id"]
+        
         # Get the marking job
         result = await db.execute(
             select(MarkingJob).where(
@@ -230,13 +252,23 @@ async def configure_marking(
         marking = result.scalar_one_or_none()
         
         if not marking:
-            raise HTTPException(status_code=404, detail="Marking job not found")
+            await websocket.send_json({
+                "status": "error",
+                "message": "Marking job not found"
+            })
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+            return
         
-        if marking.status != MarkingJobStatus.PENDING and marking.status != MarkingJobStatus.FAILED and marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED:
-            raise HTTPException(status_code=400, detail="Job must be in pending or failed status to configure")
+        if marking.status not in [MarkingJobStatus.PENDING, MarkingJobStatus.FAILED, MarkingJobStatus.MARKING_SCHEME_CONFIGURED]:
+            await websocket.send_json({
+                "status": "error",
+                "message": "Job must be in pending, failed, or marking scheme configured status to configure"
+            })
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+            return
         
         # Update marking scheme ID and generate marking config file path
-        marking.marking_scheme_id = scheme_data.marking_scheme_id
+        marking.marking_scheme_id = marking_scheme_id
         
         # Generate marking config file path
         random_id = str(uuid.uuid4())[:8]
@@ -254,47 +286,55 @@ async def configure_marking(
                 await db.commit()
                 await db.refresh(marking)
                 logger.info(f"Successfully submitted marking scheme config job {marking_job_id} to queue")
-                await websocket_manager.connect_marking_scheme_config(str(marking_job_id), websocket)
+                
+                # Send success response
+                await websocket.send_json({
+                    "status": "queued",
+                    "message": "Marking scheme configuration job queued successfully"
+                })
+                logger.info(f"WebSocket connection kept open for marking job {marking_job_id} to receive progress updates")
+                
+                # Keep connection alive - wait for disconnection
+                try:
+                    await websocket.receive_text()
+                except Exception:
+                    pass
             else:
                 logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
-                raise HTTPException(status_code=500, detail="Failed to submit marking scheme configuration job to queue")
+                await websocket.send_json({
+                    "status": "error",
+                    "message": "Failed to submit marking scheme configuration job to queue"
+                })
+                await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+                return
         except Exception as e:
             logger.error(f"Error submitting marking scheme config job {marking_job_id}: {e}")
             marking.status = MarkingJobStatus.FAILED
             marking.error_message = f"Failed to submit job to queue: {str(e)}"
             await db.commit()
             await db.refresh(marking)
+            await websocket.send_json({
+                "status": "error",
+                "message": f"Failed to submit marking scheme configuration job: {str(e)}"
+            })
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
-            raise HTTPException(status_code=500, detail=f"Failed to submit marking scheme configuration job: {str(e)}")
-        
-        return MarkingResponse(
-            id=marking.id,
-            name=marking.name,
-            description=marking.description,
-            status=marking.status,
-            priority=marking.priority,
-            template_id=marking.template_id,
-            marking_scheme_id=marking.marking_scheme_id,
-            marking_config_id=marking.marking_config_id,
-            answer_sheets_folder_id=marking.answer_sheets_folder_id,
-            save_intermediate_results=marking.save_intermediate_results,
-            total_answer_sheets=marking.total_answer_sheets,
-            processed_answer_sheets=marking.processed_answer_sheets,
-            failed_answer_sheets=marking.failed_answer_sheets,
-            processing_started_at=marking.processing_started_at,
-            processing_completed_at=marking.processing_completed_at,
-            error_message=marking.error_message,
-            error_details=marking.error_details,
-            results_summary=marking.results_summary,
-            created_at=marking.created_at,
-            updated_at=marking.updated_at,
-            created_by=marking.created_by
-        )
-    except HTTPException:
-        raise
+            return
+            
     except Exception as e:
         logger.error(f"Failed to configure marking job {marking_job_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to configure marking job")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception details: {str(e)}")
+        try:
+            await websocket.send_json({
+                "status": "error",
+                "message": f"Failed to configure marking job: {str(e)}"
+            })
+        except Exception as send_error:
+            logger.error(f"Failed to send error message: {send_error}")
+        try:
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+        except Exception as disconnect_error:
+            logger.error(f"Failed to disconnect WebSocket: {disconnect_error}")
 
 
 @router.post("/{marking_job_id}/attach-answer-sheets", response_model=MarkingResponse)

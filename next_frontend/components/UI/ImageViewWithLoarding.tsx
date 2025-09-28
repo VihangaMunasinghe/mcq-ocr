@@ -27,8 +27,8 @@ const ImageViewWithLoarding = ({
         const response = await fetch(request_url, {
           cache: "force-cache",
           headers: {
-            "Cache-Control": "max-age=120"
-          }
+            "Cache-Control": "max-age=120",
+          },
         });
         if (!response.ok) {
           setIsError(true);

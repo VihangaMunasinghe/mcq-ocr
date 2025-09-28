@@ -2,6 +2,16 @@ import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 
 export type JobPriority = "normal" | "urgent";
 
+export type MarkingJobStatus =
+  | "pending"
+  | "marking_scheme_configured"
+  | "answer_sheets_attached"
+  | "queued"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
 export interface MarkingJobForm {
   name: string;
   description: string;
@@ -15,12 +25,28 @@ export interface MarkingJobForm {
 export interface MarkingJob {
   id: number | null;
   name: string | null;
+  description: string | null;
+  status: MarkingJobStatus | null;
+  priority: string | null;
   template_id: number | null;
-  markingSchemeFileId: number | null;
-  markingSchemeFile: File | null;
-  answerSheetsFileId: number | null;
-  answerSheetsFile: File | null;
+  marking_scheme_id: number | null;
+  marking_config_id: number | null;
+  answer_sheets_folder_id: number | null;
   save_intermediate_results: boolean | null;
+  total_answer_sheets: number | null;
+  processed_answer_sheets: number | null;
+  failed_answer_sheets: number | null;
+  processing_started_at: string | null;
+  processing_completed_at: string | null;
+  error_message: string | null;
+  error_details: string | null;
+  results_summary: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by: number | null;
+  // Frontend-specific fields
+  markingSchemeFile: File | null;
+  answerSheetsFile: File | null;
 }
 
 export interface Step {

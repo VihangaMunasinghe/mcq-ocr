@@ -52,34 +52,12 @@ export function MarkingSchemeStep({
       const uploadData = await uploadResponse.json();
       setMarkingJob((prev) => ({
         ...prev,
-        markingSchemeFileId: uploadData.id,
+        marking_scheme_id: uploadData.id,
       }));
       console.log("Marking scheme file uploaded successfully:", uploadData);
       showToast("Marking scheme file uploaded successfully", "success");
 
-      const ws = new WebSocket(`ws://${BACKEND_URL}/api/markings/${markingJob.id}/configure-marking-scheme`);
-      // Configure marking job with the uploaded file
-      const configureResponse = await fetch(
-        `${BACKEND_URL}/api/markings/${markingJob.id}/configure-marking-scheme`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ marking_scheme_id: uploadData.id }),
-        }
-      );
-
-      if (!configureResponse.ok) {
-        throw new Error("Failed to configure marking scheme");
-      }
-
-      const configureData = await configureResponse.json();
-      console.log("Marking scheme configured successfully:", configureData);
-      showToast(
-        "Marking scheme uploaded and configured successfully",
-        "success"
-      );
-
-      onNext();
+      configureMarkingSchemeViaWebSocket(markingJob.id, uploadData.file_id);
     } catch (err) {
       console.error("Error uploading/configuring marking scheme:", err);
       showToast(
@@ -91,6 +69,97 @@ export function MarkingSchemeStep({
     } finally {
       setIsConfiguring(false);
     }
+  };
+
+  const configureMarkingSchemeViaWebSocket = (
+    markingJobId: number,
+    markingSchemeId: number
+  ): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // Extract host from BACKEND_URL
+      const host = BACKEND_URL.replace("http://", "").replace("https://", "");
+      const wsUrl = `ws://${host}/api/markings/${markingJobId}/configure-marking-scheme`;
+
+      console.log("Connecting to WebSocket:", wsUrl);
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log("WebSocket connected for marking scheme configuration");
+        // Send the marking scheme configuration data
+        const message = { marking_scheme_id: markingSchemeId };
+        ws.send(JSON.stringify(message));
+        console.log("Sent marking scheme configuration data:", message);
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+
+          if (data.status === "connected") {
+            console.log("WebSocket connection established");
+            return;
+          }
+
+          if (data.status === "queued") {
+            console.log("Marking scheme configuration job queued");
+            showToast("Marking scheme configuration job queued", "success");
+            return;
+          } else if (data.status === "error") {
+            const errorMessage = data.message || "Configuration failed";
+            ws.close();
+            showToast(errorMessage, "error");
+            reject();
+          } else if (data.status === "completed") {
+            console.log("Marking scheme configuration job completed");
+            showToast("Marking scheme configuration job completed", "success");
+            setIsConfiguring(false);
+            ws.close();
+            resolve();
+            const markingJobData = await fetch(
+              `${BACKEND_URL}/api/markings/${markingJobId}`
+            );
+            const markingJob = await markingJobData.json();
+            setMarkingJob(markingJob);
+          }
+          setIsConfiguring(false);
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
+          ws.close();
+          reject(err);
+          setIsConfiguring(false);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        ws.close();
+        reject(new Error("WebSocket connection failed"));
+      };
+
+      ws.onclose = (event) => {
+        console.log("WebSocket closed:", event.code, event.reason);
+        if (event.code !== 1000 && event.code !== 1001) {
+          // Not a normal closure or going away
+          reject(
+            new Error(
+              `WebSocket closed unexpectedly: ${
+                event.reason || "Unknown reason"
+              }`
+            )
+          );
+        }
+      };
+
+      // Set a timeout to prevent hanging
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          console.log("WebSocket timeout reached, closing connection");
+          ws.close();
+          reject(new Error("WebSocket configuration timeout"));
+        }
+      }, 60000); // 60 second timeout
+    });
   };
   return (
     <div className="space-y-8">
