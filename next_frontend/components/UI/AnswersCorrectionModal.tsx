@@ -36,10 +36,19 @@ const AnswersCorrectionModal = ({
     setLocalBubbleData(newData);
   };
 
-  const handleSave = useCallback(() => {
-    onConfirm?.(localBubbleData);
+  const handleSave = () => {
+    let isUpdated = false;
+    for (let questionIndex = 0; questionIndex < localBubbleData.length; questionIndex++) {
+      for (let optionIndex = 0; optionIndex < localBubbleData[questionIndex].length; optionIndex++) {
+        if (localBubbleData[questionIndex][optionIndex].marked !== bubbleData[questionIndex][optionIndex].marked) {
+          isUpdated = true;
+          break;
+        }
+      }
+    }
+    onConfirm?.(isUpdated, localBubbleData);  
     onClose();
-  }, [localBubbleData, onConfirm, onClose]);
+  };
 
   const handleCancel = useCallback(() => {
     setLocalBubbleData(bubbleData); // Reset to original data

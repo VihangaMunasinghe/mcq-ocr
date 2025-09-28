@@ -1,5 +1,6 @@
+from ast import Dict
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel
 
 from app.models.marking_job import MarkingJobPriority, MarkingJobStatus
@@ -47,3 +48,6 @@ class MarkingAttachScheme(BaseModel):
 
 class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
+
+class UpdateMarkingSchemeConfigRequest(BaseModel):
+    marking_scheme_config: Dict[str, Any]
