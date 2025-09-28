@@ -32,6 +32,9 @@ class SharedStorage:
         async with aiofiles.open(full_path, 'wb') as f:
             await f.write(file_content)
 
+    def file_exists(self, file_path: str):
+        return (self.base_path / file_path).exists()
+
     async def get_file(self, file_path: str):
         async with aiofiles.open(self.base_path / file_path, 'rb') as f:
             return await f.read()

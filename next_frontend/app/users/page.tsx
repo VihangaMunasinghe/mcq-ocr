@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ProtectedRoute } from "../../components/ProtectedRoute";
-import MainLayout from "../../components/Layout/MainLayout";
 import { Table } from "../../components/UI/Table";
 import { Button } from "../../components/UI/Button";
 import { Modal } from "../../components/UI/Modal";
@@ -394,480 +392,475 @@ export default function Users() {
     },
   ];
   return (
-    <ProtectedRoute>
-      <MainLayout>
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">Users</h2>
-            <Button
-              variant="primary"
-              icon={<FontAwesomeIcon icon={faPlus} className="h-4 w-4" />}
-              onClick={() => setIsAddModalOpen(true)}
-            >
-              Add User
-            </Button>
-          </div>
-          <div className="bg-white p-4 rounded-md shadow-sm mb-4">
-            <p className="text-sm text-gray-600">
-              Manage users and their permissions. Administrators can add, edit,
-              delete users and control their access to system features.
-            </p>
-          </div>
-          <div className="flex items-center space-x-2 text-gray-700">
-            <FontAwesomeIcon icon={faUser} className="h-5 w-5 text-gray-400" />
-            <span className="font-medium">Total Users: {users.length}</span>
-            <span className="mx-2">|</span>
-            <span className="text-green-600 font-medium">
-              Active: {users.filter((u) => u.status === "active").length}
-            </span>
-            <span className="mx-2">|</span>
-            <span className="text-gray-500 font-medium">
-              Inactive: {users.filter((u) => u.status === "inactive").length}
-            </span>
-          </div>
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <Table
-              columns={columns}
-              data={users}
-              keyField="id"
-              pagination={true}
-              itemsPerPage={5}
-              searchable={true}
-              searchPlaceholder="Search users by name or email..."
-              emptyMessage="No users found"
-            />
-          </div>
-          {/* Add User Modal */}
-          <Modal
-            isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
-            title="Add New User"
-            size="lg"
-            footer={addUserFooter}
+    <>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">Users</h2>
+          <Button
+            variant="primary"
+            icon={<FontAwesomeIcon icon={faPlus} className="h-4 w-4" />}
+            onClick={() => setIsAddModalOpen(true)}
           >
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <Input
-                label="Full Name"
-                value={newUser.name}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    name: e.target.value,
-                  })
-                }
-                placeholder="Enter full name"
-                leftIcon={
-                  <FontAwesomeIcon
-                    icon={faUser}
-                    className="h-5 w-5 text-gray-400"
-                  />
-                }
-                required
-              />
-              <Input
-                label="Email Address"
-                type="email"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    email: e.target.value,
-                  })
-                }
-                placeholder="Enter email address"
-                leftIcon={
-                  <FontAwesomeIcon
-                    icon={faEnvelope}
-                    className="h-5 w-5 text-gray-400"
-                  />
-                }
-                required
-              />
-              <Select
-                label="Role"
-                value={newUser.role}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    role: e.target.value as "admin" | "teacher" | "assistant",
-                  })
-                }
-                options={[
-                  {
-                    value: "admin",
-                    label: "Administrator",
-                  },
-                  {
-                    value: "teacher",
-                    label: "Teacher",
-                  },
-                  {
-                    value: "assistant",
-                    label: "Teaching Assistant",
-                  },
-                ]}
-              />
-              <Select
-                label="Department"
-                value={newUser.department}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    department: e.target.value,
-                  })
-                }
-                options={[
-                  {
-                    value: "math",
-                    label: "Mathematics",
-                  },
-                  {
-                    value: "science",
-                    label: "Science",
-                  },
-                  {
-                    value: "english",
-                    label: "English",
-                  },
-                  {
-                    value: "history",
-                    label: "History",
-                  },
-                  {
-                    value: "art",
-                    label: "Art",
-                  },
-                  {
-                    value: "music",
-                    label: "Music",
-                  },
-                  {
-                    value: "it",
-                    label: "IT",
-                  },
-                ]}
-              />
-              <Select
-                label="Status"
-                value={newUser.status}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    status: e.target.value as "active" | "inactive",
-                  })
-                }
-                options={[
-                  {
-                    value: "active",
-                    label: "Active",
-                  },
-                  {
-                    value: "inactive",
-                    label: "Inactive",
-                  },
-                ]}
-              />
-              <Input
-                label="Phone Number (Optional)"
-                type="tel"
-                value={newUser.phone}
-                onChange={(e) =>
-                  setNewUser({
-                    ...newUser,
-                    phone: e.target.value,
-                  })
-                }
-                placeholder="Enter phone number"
-                leftIcon={
-                  <FontAwesomeIcon
-                    icon={faPhone}
-                    className="h-5 w-5 text-gray-400"
-                  />
-                }
-              />
-            </div>
-            <div className="mt-6">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">
-                Send Welcome Email
-              </h4>
-              <div className="flex items-center">
-                <input
-                  id="send-welcome-email"
-                  name="send-welcome-email"
-                  type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  defaultChecked
-                />
-                <label
-                  htmlFor="send-welcome-email"
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  Send welcome email with login instructions
-                </label>
-              </div>
-            </div>
-          </Modal>
-          {/* Edit User Modal */}
-          <Modal
-            isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
-            title="Edit User"
-            size="lg"
-            footer={editUserFooter}
-          >
-            {editingUser && (
-              <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
-                    <FontAwesomeIcon
-                      icon={faUserCircle}
-                      className="h-8 w-8 text-gray-500"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {editingUser.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">{editingUser.email}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <Input
-                    label="Full Name"
-                    value={editingUser.name}
-                    onChange={(e) =>
-                      setEditingUser({
-                        ...editingUser,
-                        name: e.target.value,
-                      })
-                    }
-                    placeholder="Enter full name"
-                    required
-                  />
-                  <Input
-                    label="Email Address"
-                    type="email"
-                    value={editingUser.email}
-                    onChange={(e) =>
-                      setEditingUser({
-                        ...editingUser,
-                        email: e.target.value,
-                      })
-                    }
-                    placeholder="Enter email address"
-                    leftIcon={
-                      <FontAwesomeIcon
-                        icon={faEnvelope}
-                        className="h-5 w-5 text-gray-400"
-                      />
-                    }
-                    required
-                  />
-                  <Select
-                    label="Role"
-                    value={editingUser.role}
-                    onChange={(e) =>
-                      setEditingUser({
-                        ...editingUser,
-                        role: e.target.value as
-                          | "admin"
-                          | "teacher"
-                          | "assistant",
-                      })
-                    }
-                    options={[
-                      {
-                        value: "admin",
-                        label: "Administrator",
-                      },
-                      {
-                        value: "teacher",
-                        label: "Teacher",
-                      },
-                      {
-                        value: "assistant",
-                        label: "Teaching Assistant",
-                      },
-                    ]}
-                  />
-                  <Select
-                    label="Department"
-                    value={editingUser.department}
-                    onChange={(e) =>
-                      setEditingUser({
-                        ...editingUser,
-                        department: e.target.value,
-                      })
-                    }
-                    options={[
-                      {
-                        value: "math",
-                        label: "Mathematics",
-                      },
-                      {
-                        value: "science",
-                        label: "Science",
-                      },
-                      {
-                        value: "english",
-                        label: "English",
-                      },
-                      {
-                        value: "history",
-                        label: "History",
-                      },
-                      {
-                        value: "art",
-                        label: "Art",
-                      },
-                      {
-                        value: "music",
-                        label: "Music",
-                      },
-                      {
-                        value: "it",
-                        label: "IT",
-                      },
-                    ]}
-                  />
-                  <Select
-                    label="Status"
-                    value={editingUser.status}
-                    onChange={(e) =>
-                      setEditingUser({
-                        ...editingUser,
-                        status: e.target.value as "active" | "inactive",
-                      })
-                    }
-                    options={[
-                      {
-                        value: "active",
-                        label: "Active",
-                      },
-                      {
-                        value: "inactive",
-                        label: "Inactive",
-                      },
-                    ]}
-                  />
-                </div>
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">
-                    Password Management
-                  </h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleResetPassword(editingUser.id)}
-                    icon={<FontAwesomeIcon icon={faKey} className="h-4 w-4" />}
-                  >
-                    Send Password Reset Link
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Modal>
-          {/* Permissions Modal */}
-          <Modal
-            isOpen={isPermissionsModalOpen}
-            onClose={() => setIsPermissionsModalOpen(false)}
-            title={`Manage Permissions: ${editingUser?.name}`}
-            size="lg"
-            footer={permissionsFooter}
-          >
-            {editingUser && (
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="flex items-center">
-                    <FontAwesomeIcon
-                      icon={faShield}
-                      className="h-5 w-5 text-blue-500 mr-2"
-                    />
-                    <span className="text-sm text-gray-700">
-                      {getRoleBadge(editingUser.role)}
-                      <span className="ml-2">
-                        {editingUser.role === "admin"
-                          ? "Administrators have full access to all system features."
-                          : editingUser.role === "teacher"
-                          ? "Teachers can manage their own templates and marking jobs."
-                          : "Assistants have limited access to help with marking jobs."}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">
-                    Permissions
-                  </h4>
-                  {permissionsList.map((permission) => {
-                    const hasPermission = editingUser.permissions?.includes(
-                      permission.id
-                    );
-                    return (
-                      <div key={permission.id} className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id={`permission-${permission.id}`}
-                            name={`permission-${permission.id}`}
-                            type="checkbox"
-                            className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                            defaultChecked={hasPermission}
-                            disabled={
-                              editingUser.role === "admin" &&
-                              permission.id === "manage_users"
-                            }
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label
-                            htmlFor={`permission-${permission.id}`}
-                            className="font-medium text-gray-700"
-                          >
-                            {permission.name}
-                          </label>
-                          <p className="text-gray-500">
-                            {permission.description}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <FontAwesomeIcon
-                        icon={faExclamationTriangle}
-                        className="h-5 w-5 text-amber-400"
-                      />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-amber-800">
-                        Permission Changes
-                      </h3>
-                      <p className="mt-2 text-sm text-amber-700">
-                        Changing permissions will immediately affect what this
-                        user can access in the system. Administrator users
-                        always have access to all features.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Modal>
-          {/* Delete Confirmation Modal */}
-          <VerificationModal
-            isOpen={isDeleteModalOpen}
-            onClose={() => setIsDeleteModalOpen(false)}
-            onConfirm={handleDeleteUser}
-            title="Delete User"
-            message="Are you sure you want to delete this user? This action cannot be undone."
-            confirmText="Delete"
-            type="warning"
+            Add User
+          </Button>
+        </div>
+        <div className="bg-white p-4 rounded-md shadow-sm mb-4">
+          <p className="text-sm text-gray-600">
+            Manage users and their permissions. Administrators can add, edit,
+            delete users and control their access to system features.
+          </p>
+        </div>
+        <div className="flex items-center space-x-2 text-gray-700">
+          <FontAwesomeIcon icon={faUser} className="h-5 w-5 text-gray-400" />
+          <span className="font-medium">Total Users: {users.length}</span>
+          <span className="mx-2">|</span>
+          <span className="text-green-600 font-medium">
+            Active: {users.filter((u) => u.status === "active").length}
+          </span>
+          <span className="mx-2">|</span>
+          <span className="text-gray-500 font-medium">
+            Inactive: {users.filter((u) => u.status === "inactive").length}
+          </span>
+        </div>
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Table
+            columns={columns}
+            data={users}
+            keyField="id"
+            pagination={true}
+            itemsPerPage={5}
+            searchable={true}
+            searchPlaceholder="Search users by name or email..."
+            emptyMessage="No users found"
           />
         </div>
-      </MainLayout>
-    </ProtectedRoute>
+        {/* Add User Modal */}
+        <Modal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New User"
+          size="lg"
+          footer={addUserFooter}
+        >
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <Input
+              label="Full Name"
+              value={newUser.name}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  name: e.target.value,
+                })
+              }
+              placeholder="Enter full name"
+              leftIcon={
+                <FontAwesomeIcon
+                  icon={faUser}
+                  className="h-5 w-5 text-gray-400"
+                />
+              }
+              required
+            />
+            <Input
+              label="Email Address"
+              type="email"
+              value={newUser.email}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  email: e.target.value,
+                })
+              }
+              placeholder="Enter email address"
+              leftIcon={
+                <FontAwesomeIcon
+                  icon={faEnvelope}
+                  className="h-5 w-5 text-gray-400"
+                />
+              }
+              required
+            />
+            <Select
+              label="Role"
+              value={newUser.role}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  role: e.target.value as "admin" | "teacher" | "assistant",
+                })
+              }
+              options={[
+                {
+                  value: "admin",
+                  label: "Administrator",
+                },
+                {
+                  value: "teacher",
+                  label: "Teacher",
+                },
+                {
+                  value: "assistant",
+                  label: "Teaching Assistant",
+                },
+              ]}
+            />
+            <Select
+              label="Department"
+              value={newUser.department}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  department: e.target.value,
+                })
+              }
+              options={[
+                {
+                  value: "math",
+                  label: "Mathematics",
+                },
+                {
+                  value: "science",
+                  label: "Science",
+                },
+                {
+                  value: "english",
+                  label: "English",
+                },
+                {
+                  value: "history",
+                  label: "History",
+                },
+                {
+                  value: "art",
+                  label: "Art",
+                },
+                {
+                  value: "music",
+                  label: "Music",
+                },
+                {
+                  value: "it",
+                  label: "IT",
+                },
+              ]}
+            />
+            <Select
+              label="Status"
+              value={newUser.status}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  status: e.target.value as "active" | "inactive",
+                })
+              }
+              options={[
+                {
+                  value: "active",
+                  label: "Active",
+                },
+                {
+                  value: "inactive",
+                  label: "Inactive",
+                },
+              ]}
+            />
+            <Input
+              label="Phone Number (Optional)"
+              type="tel"
+              value={newUser.phone}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  phone: e.target.value,
+                })
+              }
+              placeholder="Enter phone number"
+              leftIcon={
+                <FontAwesomeIcon
+                  icon={faPhone}
+                  className="h-5 w-5 text-gray-400"
+                />
+              }
+            />
+          </div>
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-gray-900 mb-2">
+              Send Welcome Email
+            </h4>
+            <div className="flex items-center">
+              <input
+                id="send-welcome-email"
+                name="send-welcome-email"
+                type="checkbox"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                defaultChecked
+              />
+              <label
+                htmlFor="send-welcome-email"
+                className="ml-2 block text-sm text-gray-700"
+              >
+                Send welcome email with login instructions
+              </label>
+            </div>
+          </div>
+        </Modal>
+        {/* Edit User Modal */}
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Edit User"
+          size="lg"
+          footer={editUserFooter}
+        >
+          {editingUser && (
+            <div className="space-y-6">
+              <div className="flex items-center space-x-4">
+                <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                  <FontAwesomeIcon
+                    icon={faUserCircle}
+                    className="h-8 w-8 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900">
+                    {editingUser.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">{editingUser.email}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <Input
+                  label="Full Name"
+                  value={editingUser.name}
+                  onChange={(e) =>
+                    setEditingUser({
+                      ...editingUser,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="Enter full name"
+                  required
+                />
+                <Input
+                  label="Email Address"
+                  type="email"
+                  value={editingUser.email}
+                  onChange={(e) =>
+                    setEditingUser({
+                      ...editingUser,
+                      email: e.target.value,
+                    })
+                  }
+                  placeholder="Enter email address"
+                  leftIcon={
+                    <FontAwesomeIcon
+                      icon={faEnvelope}
+                      className="h-5 w-5 text-gray-400"
+                    />
+                  }
+                  required
+                />
+                <Select
+                  label="Role"
+                  value={editingUser.role}
+                  onChange={(e) =>
+                    setEditingUser({
+                      ...editingUser,
+                      role: e.target.value as "admin" | "teacher" | "assistant",
+                    })
+                  }
+                  options={[
+                    {
+                      value: "admin",
+                      label: "Administrator",
+                    },
+                    {
+                      value: "teacher",
+                      label: "Teacher",
+                    },
+                    {
+                      value: "assistant",
+                      label: "Teaching Assistant",
+                    },
+                  ]}
+                />
+                <Select
+                  label="Department"
+                  value={editingUser.department}
+                  onChange={(e) =>
+                    setEditingUser({
+                      ...editingUser,
+                      department: e.target.value,
+                    })
+                  }
+                  options={[
+                    {
+                      value: "math",
+                      label: "Mathematics",
+                    },
+                    {
+                      value: "science",
+                      label: "Science",
+                    },
+                    {
+                      value: "english",
+                      label: "English",
+                    },
+                    {
+                      value: "history",
+                      label: "History",
+                    },
+                    {
+                      value: "art",
+                      label: "Art",
+                    },
+                    {
+                      value: "music",
+                      label: "Music",
+                    },
+                    {
+                      value: "it",
+                      label: "IT",
+                    },
+                  ]}
+                />
+                <Select
+                  label="Status"
+                  value={editingUser.status}
+                  onChange={(e) =>
+                    setEditingUser({
+                      ...editingUser,
+                      status: e.target.value as "active" | "inactive",
+                    })
+                  }
+                  options={[
+                    {
+                      value: "active",
+                      label: "Active",
+                    },
+                    {
+                      value: "inactive",
+                      label: "Inactive",
+                    },
+                  ]}
+                />
+              </div>
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  Password Management
+                </h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleResetPassword(editingUser.id)}
+                  icon={<FontAwesomeIcon icon={faKey} className="h-4 w-4" />}
+                >
+                  Send Password Reset Link
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+        {/* Permissions Modal */}
+        <Modal
+          isOpen={isPermissionsModalOpen}
+          onClose={() => setIsPermissionsModalOpen(false)}
+          title={`Manage Permissions: ${editingUser?.name}`}
+          size="lg"
+          footer={permissionsFooter}
+        >
+          {editingUser && (
+            <div className="space-y-6">
+              <div className="bg-gray-50 p-4 rounded-md">
+                <div className="flex items-center">
+                  <FontAwesomeIcon
+                    icon={faShield}
+                    className="h-5 w-5 text-blue-500 mr-2"
+                  />
+                  <span className="text-sm text-gray-700">
+                    {getRoleBadge(editingUser.role)}
+                    <span className="ml-2">
+                      {editingUser.role === "admin"
+                        ? "Administrators have full access to all system features."
+                        : editingUser.role === "teacher"
+                        ? "Teachers can manage their own templates and marking jobs."
+                        : "Assistants have limited access to help with marking jobs."}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-gray-900">
+                  Permissions
+                </h4>
+                {permissionsList.map((permission) => {
+                  const hasPermission = editingUser.permissions?.includes(
+                    permission.id
+                  );
+                  return (
+                    <div key={permission.id} className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id={`permission-${permission.id}`}
+                          name={`permission-${permission.id}`}
+                          type="checkbox"
+                          className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                          defaultChecked={hasPermission}
+                          disabled={
+                            editingUser.role === "admin" &&
+                            permission.id === "manage_users"
+                          }
+                        />
+                      </div>
+                      <div className="ml-3 text-sm">
+                        <label
+                          htmlFor={`permission-${permission.id}`}
+                          className="font-medium text-gray-700"
+                        >
+                          {permission.name}
+                        </label>
+                        <p className="text-gray-500">
+                          {permission.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <FontAwesomeIcon
+                      icon={faExclamationTriangle}
+                      className="h-5 w-5 text-amber-400"
+                    />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-amber-800">
+                      Permission Changes
+                    </h3>
+                    <p className="mt-2 text-sm text-amber-700">
+                      Changing permissions will immediately affect what this
+                      user can access in the system. Administrator users always
+                      have access to all features.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal>
+        {/* Delete Confirmation Modal */}
+        <VerificationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleDeleteUser}
+          title="Delete User"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          confirmText="Delete"
+          type="warning"
+        />
+      </div>
+    </>
   );
 }

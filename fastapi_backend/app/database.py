@@ -2,7 +2,6 @@
 Database configuration and connection module for MCQ OCR System.
 """
 
-import os
 from typing import AsyncGenerator
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -128,7 +127,7 @@ async def create_tables():
     Create all database tables asynchronously.
     """
     # Import models to ensure they are registered with Base
-    from .models import User, Template, File, MarkingJob, TemplateConfigJob
+    from .models import User, Template, FileOrFolder, MarkingJob, TemplateConfigJob
     
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -139,7 +138,7 @@ def create_tables_sync():
     Create all database tables synchronously.
     """
     # Import models to ensure they are registered with Base
-    from .models import User, Template, File, MarkingJob, TemplateConfigJob
+    from .models import User, Template, FileOrFolder, MarkingJob, TemplateConfigJob
     
     Base.metadata.create_all(bind=sync_engine)
 

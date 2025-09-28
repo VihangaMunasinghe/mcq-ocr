@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime
 import pika
@@ -24,8 +25,9 @@ class MarkingJob:
             name: str
             template_path: str
             marking_path: str
+            marking_scheme_config_path: str
             answers_folder_path: str
-            output_path: str
+            result_sheet_file_path: str
             config_type: str
             template_config_path: str
             intermediate_results_path: str
@@ -35,8 +37,9 @@ class MarkingJob:
         self.name = data['name']
         self.template_path = data['template_path']
         self.marking_path = data['marking_path']
+        self.marking_scheme_config_path = data['marking_scheme_config_path']
         self.answers_folder_path = data['answers_folder_path']
-        self.output_path = data['output_path']
+        self.output_path = data['result_sheet_file_path']
         self.template_config_path = data['template_config_path']
         self.intermediate_results_path = data['intermediate_results_path']
         self.config_type = data['config_type']
@@ -70,16 +73,17 @@ class MarkingJob:
             template_img = read_enhanced_image(self.template_path, 1.5, resize=False)
             marking_img = read_enhanced_image(self.marking_path, 1)
             template_config = read_json(self.template_config_path)
+            marking_scheme_config = read_json(self.marking_scheme_config_path)
             config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
             self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config, config_type)
-            self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template)
+            self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template, marking_scheme_config)
             logger.info(f"Obtaining papers from {self.answers_folder_path}")
             self.answer_sheets = read_answer_sheet_paths(self.answers_folder_path)
             logger.info(f"Found {len(self.answer_sheets)} answer sheets to process.")
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
-            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason'])
+            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points'])
     
     def mark_answers(self):
         self.setup()
@@ -88,8 +92,9 @@ class MarkingJob:
             logger.info(f"Processing answer sheet: {answer_sheet_path}")
             answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
             answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
-            score = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
-            self.add_to_spreadsheet(score)
+            results = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
+            results['answer_sheet_path'] = answer_sheet_path
+            self.add_to_spreadsheet(results)
             if self.save_intermediate_results:
                 save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
                 logger.info(f"Saved intermediate results")
@@ -114,17 +119,21 @@ class MarkingJob:
         }
         return result
 
-    def add_to_spreadsheet(self, score: dict):
+    def add_to_spreadsheet(self, results: dict):
         self.spreadsheet_sheet.append([
-            score['index_number'], 
-            ','.join(map(str, score['correct'])), 
-            ','.join(map(str, score['incorrect'])), 
-            ','.join(map(str, score['more_than_one_marked'])), 
-            ','.join(map(str, score['not_marked'])), 
-            ','.join(map(str, score['columnwise_total'])), 
-            score['score'], 
-            score['flag'], 
-            score['flag_reason']])
+            results['index_number'], 
+            ','.join(map(str, results['correct'])), 
+            ','.join(map(str, results['incorrect'])), 
+            ','.join(map(str, results['more_than_one_marked'])), 
+            ','.join(map(str, results['not_marked'])), 
+            ','.join(map(str, results['columnwise_total'])), 
+            results['score'], 
+            results['flag'], 
+            results['flag_reason'],
+            results['answer_sheet_path']
+            ],
+            json.dumps(results['labeled_points'])
+            )
 
 
 

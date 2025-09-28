@@ -10,6 +10,9 @@ from .base import BaseModel
 
 class MarkingJobStatus(PyEnum):
     """Enum for marking job status."""
+    PENDING = "pending"
+    MARKING_SCHEME_CONFIGURED = "marking_scheme_configured"
+    ANSWER_SHEETS_ATTACHED = "answer_sheets_attached"
     QUEUED = "queued"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -38,17 +41,22 @@ class MarkingJob(BaseModel):
     description = Column(Text, nullable=True)
 
     # Job status and priority
-    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.QUEUED)
+    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.PENDING)
     priority = Column(Enum(MarkingJobPriority), nullable=False, default=MarkingJobPriority.NORMAL)
 
     # File references and paths
     template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
-    marking_scheme_path = Column(String(500), nullable=False)
-    answer_sheets_folder_path = Column(String(500), nullable=False)
+    marking_scheme_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
+    marking_config_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
+    answer_sheets_folder_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
+    result_sheet_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
+    intermediate_results_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
 
     # Output paths
-    output_path = Column(String(500), nullable=False, default='pending')
+    marking_config_file_path = Column(String(500), nullable=True)
+    result_sheet_file_path = Column(String(500), nullable=False, default='pending')
     intermediate_results_path = Column(String(500), nullable=True)
+
 
     # Processing settings
     save_intermediate_results = Column(Boolean, default=False, nullable=False)
@@ -75,7 +83,9 @@ class MarkingJob(BaseModel):
     # Relationships
     created_by_user = relationship("User", back_populates="marking_jobs")
     template = relationship("Template", back_populates="marking_jobs")
-    
+    marking_scheme = relationship("FileOrFolder", foreign_keys=[marking_scheme_id])
+    marking_config = relationship("FileOrFolder", foreign_keys=[marking_config_id])
+    answer_sheets_folder = relationship("FileOrFolder", foreign_keys=[answer_sheets_folder_id])
     def __repr__(self):
         return f"<MarkingJob(id={self.id}, name='{self.name}', status='{self.status}')>"
     
@@ -108,19 +118,34 @@ class MarkingJob(BaseModel):
     def can_retry(self) -> bool:
         """Check if the job can be retried."""
         return self.status == MarkingJobStatus.FAILED
+
+    def to_marking_scheme_config_job_data(self) -> dict:
+        """Convert to marking scheme configuration job data format for RabbitMQ processing."""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'template_id': self.template_id,
+            'template_path': self.template.template_file.path,
+            'template_config_path': self.template.configuration_file.path,
+            'config_type': self.template.config_type.value,
+            'marking_scheme_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_config_path': self.marking_config_file_path,
+            'save_intermediate_results': self.save_intermediate_results
+        }
     
-    def to_job_data(self) -> dict:
+    def to_marking_job_data(self) -> dict:
         """Convert to job data format for RabbitMQ processing."""
         return {
             'id': self.id,
             'name': self.name,
             'template_id': self.template_id,
-            'template_path': self.template.template_file_path,
-            'template_config_path': self.template.configuration_path,
+            'template_path': self.template.template_file.path,
+            'template_config_path': self.template.configuration_file.path,
             'config_type': self.template.config_type.value,
-            'marking_path': self.marking_scheme_path,
-            'answers_folder_path': self.answer_sheets_folder_path,
-            'output_path': self.output_path,
+            'marking_scheme_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_config_path': self.marking_config_file_path,
+            'answers_folder_path': self.answer_sheets_folder.path if self.answer_sheets_folder else None,
+            'result_sheet_file_path': self.result_sheet_file_path,
             'intermediate_results_path': self.intermediate_results_path,
             'save_intermediate_results': self.save_intermediate_results
         }

@@ -115,7 +115,12 @@ export default function SignIn() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               error={validationErrors.email}
-              leftIcon={<FontAwesomeIcon icon={faEnvelope} className="h-5 w-5 text-gray-400" />}
+              leftIcon={
+                <FontAwesomeIcon
+                  icon={faEnvelope}
+                  className="h-5 w-5 text-gray-400"
+                />
+              }
               required
             />
             <Input
@@ -126,7 +131,12 @@ export default function SignIn() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               error={validationErrors.password}
-              leftIcon={<FontAwesomeIcon icon={faLock} className="h-5 w-5 text-gray-400" />}
+              leftIcon={
+                <FontAwesomeIcon
+                  icon={faLock}
+                  className="h-5 w-5 text-gray-400"
+                />
+              }
               required
             />
             <div className="flex items-center justify-between">
