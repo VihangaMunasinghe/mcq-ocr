@@ -43,6 +43,7 @@ export function Navbar() {
     if (pathname.startsWith("/users")) return "Users";
     if (pathname.startsWith("/settings")) return "Settings";
     if (pathname.startsWith("/reports")) return "Reports";
+    if (pathname.startsWith("/generate-template")) return "Generate Template";
     return "Dashboard";
   };
 

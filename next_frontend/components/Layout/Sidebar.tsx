@@ -13,6 +13,7 @@ import {
   faChartBar,
   faBars,
   faTimes,
+  faPlusCircle
 } from "@fortawesome/free-solid-svg-icons";
 
 interface SidebarItem {
@@ -70,6 +71,11 @@ export function Sidebar() {
       name: "Reports",
       path: "/reports",
       icon: <FontAwesomeIcon icon={faChartBar} className="h-5 w-5" />,
+    },
+    {
+      name: "Generate Template",
+      path: "/generate-template",
+      icon: <FontAwesomeIcon icon={faPlusCircle} className="h-5 w-5" />,
     },
     {
       name: "Settings",
