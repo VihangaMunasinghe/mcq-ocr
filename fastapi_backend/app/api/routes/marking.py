@@ -161,6 +161,50 @@ async def create_marking(
         raise HTTPException(status_code=500, detail=f"Failed to create marking")
 
 
+@router.put("/{marking_job_id}", response_model=MarkingResponse)
+async def update_marking(
+    marking_job_id: int,
+    marking: MarkingCreateMetadata,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Update a marking"""
+    user_id = 1 # TODO: Get from authentication
+    try:
+        marking_record = await db.get(MarkingJob, marking_job_id)
+        if not marking_record:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        marking_record.name = marking.name
+        marking_record.description = marking.description
+        marking_record.template_id = marking.template_id
+        marking_record.save_intermediate_results = marking.save_intermediate_results
+        marking_record.priority = marking.priority
+        await db.commit()
+        await db.refresh(marking_record)
+        return MarkingResponse(
+            id=marking_record.id,
+            name=marking_record.name,
+            description=marking_record.description,
+            status=marking_record.status,
+            priority=marking_record.priority,
+            template_id=marking_record.template_id,
+            save_intermediate_results=marking_record.save_intermediate_results,
+            total_answer_sheets=marking_record.total_answer_sheets,
+            processed_answer_sheets=marking_record.processed_answer_sheets,
+            failed_answer_sheets=marking_record.failed_answer_sheets,
+            processing_started_at=marking_record.processing_started_at,
+            processing_completed_at=marking_record.processing_completed_at,
+            error_message=marking_record.error_message,
+            error_details=marking_record.error_details,
+            results_summary=marking_record.results_summary,
+            created_at=marking_record.created_at,
+            updated_at=marking_record.updated_at,
+            created_by=marking_record.created_by
+        )
+    except Exception as e:
+        logger.error(f"Failed to update marking: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update marking")
+
 
 @router.post("/{marking_job_id}/configure-marking-scheme", response_model=MarkingResponse)
 async def configure_marking(

@@ -1,7 +1,13 @@
+from enum import Enum
+from token import OP
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
-    
+from fastapi import Query
+
+class DownloadType(str, Enum):
+    PATH = "path"
+    FILEID = "file_id"
 
 class FileDownloadResponse(BaseModel):
     file_id: int
