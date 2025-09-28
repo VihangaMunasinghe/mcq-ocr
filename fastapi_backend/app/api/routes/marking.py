@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket
 from sqlalchemy import select
 import logging
 
@@ -9,6 +9,8 @@ from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from typing import List
+from app.api.deps import get_websocket_manager
+from app.websocket import WebSocketManager
 
 from app.queue import submit_marking_job, submit_marking_scheme_config_job
 
@@ -206,13 +208,16 @@ async def update_marking(
         raise HTTPException(status_code=500, detail=f"Failed to update marking")
 
 
-@router.post("/{marking_job_id}/configure-marking-scheme", response_model=MarkingResponse)
+@router.websocket("/{marking_job_id}/configure-marking-scheme")
 async def configure_marking(
     marking_job_id: int,
     scheme_data: MarkingAttachScheme,
-    db: AsyncSession = Depends(get_async_db)
+    websocket: WebSocket,
+    db: AsyncSession = Depends(get_async_db),
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager)
 ):
     """Attach marking scheme and enqueue config job"""
+    
     user_id = 1  # TODO: Get from authentication
     try:
         # Get the marking job
@@ -249,6 +254,7 @@ async def configure_marking(
                 await db.commit()
                 await db.refresh(marking)
                 logger.info(f"Successfully submitted marking scheme config job {marking_job_id} to queue")
+                await websocket_manager.connect_marking_scheme_config(str(marking_job_id), websocket)
             else:
                 logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
                 raise HTTPException(status_code=500, detail="Failed to submit marking scheme configuration job to queue")
@@ -258,6 +264,7 @@ async def configure_marking(
             marking.error_message = f"Failed to submit job to queue: {str(e)}"
             await db.commit()
             await db.refresh(marking)
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
             raise HTTPException(status_code=500, detail=f"Failed to submit marking scheme configuration job: {str(e)}")
         
         return MarkingResponse(
