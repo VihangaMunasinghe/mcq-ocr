@@ -9,6 +9,7 @@ import logging
 import os
 from typing import Dict, Any, Optional, Callable
 from datetime import datetime, timezone, timedelta
+import uuid
 import aio_pika
 from aio_pika import Connection, Channel, Queue, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
@@ -244,7 +245,8 @@ class MarkingSchemeConfigProducer:
             result = await db.execute(
                 select(MarkingJob)
                 .options(
-                    selectinload(MarkingJob.template).options(selectinload(Template.template_file), selectinload(Template.configuration_file)),
+                    selectinload(MarkingJob.template).selectinload(Template.template_file),
+                    selectinload(MarkingJob.template).selectinload(Template.configuration_file),
                     selectinload(MarkingJob.marking_scheme)
                 )
                 .where(MarkingJob.id == job_id)
@@ -256,10 +258,6 @@ class MarkingSchemeConfigProducer:
             if not job.marking_scheme:
                 raise ValueError(f"MarkingJob {job_id} has no marking scheme attached")
             
-            # Update job status
-            job.status = MarkingJobStatus.QUEUED
-            job.processing_started_at = datetime.now(timezone.utc).isoformat()
-            await db.commit()
             
             # Create message payload
             try:
@@ -300,13 +298,9 @@ class MarkingSchemeConfigProducer:
             
         except Exception as e:
             logger.error(f"Failed to submit marking scheme config job {job_id}: {e}")
-            # Update job status to failed
+            # Update job status to failed (caller will handle commit)
             if 'job' in locals():
-                try:
-                    job.status = MarkingJobStatus.FAILED
-                    await db.commit()
-                except Exception as commit_error:
-                    logger.error(f"Failed to update job status to failed: {commit_error}")
+                job.status = MarkingJobStatus.FAILED
             raise
 
 class MarkingJobProducer:
@@ -318,9 +312,14 @@ class MarkingJobProducer:
     async def submit_marking_job(self, job_id: int, db: AsyncSession):
         """Submit a marking job to the queue."""
         try:
-            # Get job from database
+            # Get job from database with all required relationships eagerly loaded
             result = await db.execute(
-                select(MarkingJob).options(selectinload(MarkingJob.template)).where(MarkingJob.id == job_id)
+                select(MarkingJob).options(
+                    selectinload(MarkingJob.template).selectinload(Template.template_file),
+                    selectinload(MarkingJob.template).selectinload(Template.configuration_file),
+                    selectinload(MarkingJob.marking_scheme),
+                    selectinload(MarkingJob.answer_sheets_folder)
+                ).where(MarkingJob.id == job_id)
             )
             result = result.scalar_one_or_none()
             if not result:
@@ -328,10 +327,8 @@ class MarkingJobProducer:
             
             job = result
             
-            # Update job status
-            job.status = MarkingJobStatus.QUEUED
+            # Set processing started time (status will be updated by the caller)
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
-            await db.commit()
             
             # Create message payload
             message = job.to_marking_job_data()
@@ -357,10 +354,9 @@ class MarkingJobProducer:
             
         except Exception as e:
             logger.error(f"Failed to submit marking job {job_id}: {e}")
-            # Update job status to failed
+            # Update job status to failed (caller will handle commit)
             if 'job' in locals():
                 job.status = MarkingJobStatus.FAILED
-                await db.commit()
             raise
 
 
@@ -563,12 +559,12 @@ class MarkingSchemeConfigResultConsumer:
                         
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
-                            job.status = MarkingJobStatus.PENDING  # Ready for answer sheets
+                            job.status = MarkingJobStatus.MARKING_SCHEME_CONFIGURED  
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
                             # Store marking configuration file path
-                            if 'marking_config_path' in result_data['result']:
-                                marking_config_path = result_data['result']['marking_config_path']
+                            if 'marking_scheme_config_path' in result_data['result']:
+                                marking_config_path = result_data['result']['marking_scheme_config_path']
                                 
                                 # Create File record for the marking configuration file
                                 config_file_name = os.path.basename(marking_config_path)
@@ -791,17 +787,26 @@ async def shutdown_queue_system():
 
 
 # Helpers for background tasks (manage own session; avoid using request-scoped session)
-async def submit_template_config_job(job_id: int) -> bool:
+async def submit_template_config_job(job_id: int, db: AsyncSession = None) -> bool:
     """Submit a template configuration job to the queue."""   
-    async with AsyncSessionLocal() as session:
-        return await template_config_producer.submit_template_config_job(job_id, session)
+    if db is not None:
+        return await template_config_producer.submit_template_config_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await template_config_producer.submit_template_config_job(job_id, session)
 
-async def submit_marking_scheme_config_job(job_id: int) -> bool:
+async def submit_marking_scheme_config_job(job_id: int, db: AsyncSession = None) -> bool:
     """Submit a marking scheme configuration job to the queue."""
-    async with AsyncSessionLocal() as session:
-        return await marking_scheme_config_producer.submit_marking_scheme_config_job(job_id, session)
+    if db is not None:
+        return await marking_scheme_config_producer.submit_marking_scheme_config_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await marking_scheme_config_producer.submit_marking_scheme_config_job(job_id, session)
 
-async def submit_marking_job(job_id: int) -> bool:
+async def submit_marking_job(job_id: int, db: AsyncSession = None) -> bool:
     """Submit a marking job to the queue."""
-    async with AsyncSessionLocal() as session:
-        return await marking_job_producer.submit_marking_job(job_id, session)
+    if db is not None:
+        return await marking_job_producer.submit_marking_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await marking_job_producer.submit_marking_job(job_id, session)

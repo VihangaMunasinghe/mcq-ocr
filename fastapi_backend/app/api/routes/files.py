@@ -34,8 +34,8 @@ async def upload_file(file: UploadFile = File(...),
 
     random_id = str(uuid.uuid4())[:8]
     upload_dir = f'uploads/{file_type}s/{user_id}'
-    file_name = f"{file.filename.split('.')[0]}_{random_id}"
-    extension = file.filename.split('.')[-1] if file.filename.split('.')[-1] or file.filename.split('.')[-1] != 'zip' else None
+    file_name = f"{file.filename.split('.')[0]}_{random_id}.{file.filename.split('.')[-1]}"
+    extension = file.filename.split('.')[-1] if file.filename.split('.')[-1] and file.filename.split('.')[-1] != 'zip' else None
     final_path = f"{upload_dir}/{file_name}"
 
     # Read file content as bytes

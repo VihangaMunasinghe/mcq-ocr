@@ -37,8 +37,8 @@ class MarkingScheme:
             return self.answers_with_coordinates
 
         # Otherwise, recalculate using get_answers
-        self.answers_with_coordinates = get_answers(self.marking_scheme_img, self.template)
-        logger.info(f"Answers with coordinates calculated: {self.answers_with_coordinates}")
+        bubble_coordinates = self.template.get_bubble_coordinates()
+        self.answers_with_coordinates = get_answers(self.template.template_img, self.marking_scheme_img, bubble_coordinates)
         return self.answers_with_coordinates
 
     def __str__(self):

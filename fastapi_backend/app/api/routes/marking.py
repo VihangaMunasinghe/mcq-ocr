@@ -128,7 +128,7 @@ async def create_marking(
         # Generate paths for future use but don't enqueue yet
         random_id = str(uuid.uuid4())[:8]
         marking_record.intermediate_results_path = f"intermediate/markings/{user_id}/{marking_record.id}_{random_id}_intermediate/"
-        marking_record.result_sheet_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
+        marking_record.result_sheet_file_path = f"results/markings/{user_id}/{marking_record.id}_{random_id}_output.xlsx"
 
         await db.commit()
         await db.refresh(marking_record)
@@ -183,25 +183,37 @@ async def configure_marking(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.PENDING and marking.status != MarkingJobStatus.FAILED and marking.status != MarkingJobStatus.QUEUED:
+        if marking.status != MarkingJobStatus.PENDING and marking.status != MarkingJobStatus.FAILED and marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED:
             raise HTTPException(status_code=400, detail="Job must be in pending or failed status to configure")
         
-        # Update marking scheme ID
+        # Update marking scheme ID and generate marking config file path
         marking.marking_scheme_id = scheme_data.marking_scheme_id
+        
+        # Generate marking config file path
+        random_id = str(uuid.uuid4())[:8]
+        marking.marking_config_file_path = f"intermediate/markings/{user_id}/{marking.id}_{random_id}_marking_config.json"
+        
         await db.commit()
         await db.refresh(marking)
         
         # Submit marking scheme configuration job to the queue
         try:
             logger.info(f"Submitting marking scheme config job for marking job {marking_job_id}")
-            success = await submit_marking_scheme_config_job(marking_job_id)
+            success = await submit_marking_scheme_config_job(marking_job_id, db)
             if success:
+                marking.status = MarkingJobStatus.QUEUED
+                await db.commit()
+                await db.refresh(marking)
                 logger.info(f"Successfully submitted marking scheme config job {marking_job_id} to queue")
             else:
                 logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
                 raise HTTPException(status_code=500, detail="Failed to submit marking scheme configuration job to queue")
         except Exception as e:
             logger.error(f"Error submitting marking scheme config job {marking_job_id}: {e}")
+            marking.status = MarkingJobStatus.FAILED
+            marking.error_message = f"Failed to submit job to queue: {str(e)}"
+            await db.commit()
+            await db.refresh(marking)
             raise HTTPException(status_code=500, detail=f"Failed to submit marking scheme configuration job: {str(e)}")
         
         return MarkingResponse(
@@ -255,7 +267,7 @@ async def attach_answer_sheets(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED:
+        if marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED and marking.status != MarkingJobStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="Job must be in marking scheme configured status to attach answer sheets")
         
         # Update answer sheets folder ID
@@ -316,7 +328,7 @@ async def start_marking(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.ANSWER_SHEETS_ATTACHED:
+        if marking.status != MarkingJobStatus.ANSWER_SHEETS_ATTACHED and marking.status != MarkingJobStatus.COMPLETED:
             raise HTTPException(status_code=400, detail="Job must be in answer sheets attached status to start")
         
         # Validate preconditions
@@ -329,14 +341,19 @@ async def start_marking(
         # TODO: Check if template config job is completed (when applicable)
         # This would check the status of any associated TemplateConfigJob
         
-        # Update status and enqueue marking job
-        marking.status = MarkingJobStatus.QUEUED
-        await db.commit()
-        await db.refresh(marking)
+        # Generate result sheet file path if not already set
+        if not marking.result_sheet_file_path or marking.result_sheet_file_path == 'pending':
+            random_id = str(uuid.uuid4())[:8]
+            marking.result_sheet_file_path = f"results/{user_id}/{marking.id}_{random_id}_output.xlsx"
+            await db.commit()
+            await db.refresh(marking)
         
         try:
             logger.info(f"Starting marking job {marking_job_id}")
-            await submit_marking_job(marking_job_id)
+            await submit_marking_job(marking_job_id, db)
+            marking.status = MarkingJobStatus.QUEUED
+            await db.commit()
+            await db.refresh(marking)
             logger.info(f"Successfully submitted marking job {marking_job_id} to queue")
         except Exception as e:
             logger.error(f"Failed to submit marking job {marking_job_id} to queue: {e}")

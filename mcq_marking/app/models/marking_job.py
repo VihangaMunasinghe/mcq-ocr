@@ -24,7 +24,7 @@ class MarkingJob:
             id: int
             name: str
             template_path: str
-            marking_path: str
+            marking_scheme_path: str
             marking_scheme_config_path: str
             answers_folder_path: str
             result_sheet_file_path: str
@@ -36,7 +36,7 @@ class MarkingJob:
         self.job_id = data['id']
         self.name = data['name']
         self.template_path = data['template_path']
-        self.marking_path = data['marking_path']
+        self.marking_path = data['marking_scheme_path']
         self.marking_scheme_config_path = data['marking_scheme_config_path']
         self.answers_folder_path = data['answers_folder_path']
         self.output_path = data['result_sheet_file_path']
@@ -130,10 +130,9 @@ class MarkingJob:
             results['score'], 
             results['flag'], 
             results['flag_reason'],
-            results['answer_sheet_path']
-            ],
+            results['answer_sheet_path'],
             json.dumps(results['labeled_points'])
-            )
+            ])
 
 
 

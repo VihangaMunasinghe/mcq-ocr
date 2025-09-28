@@ -121,6 +121,19 @@ class MarkingJob(BaseModel):
 
     def to_marking_scheme_config_job_data(self) -> dict:
         """Convert to marking scheme configuration job data format for RabbitMQ processing."""
+        # Validate required paths
+        if not self.template or not self.template.template_file or not self.template.template_file.path:
+            raise ValueError("Template file path is required")
+        
+        if not self.template.configuration_file or not self.template.configuration_file.path:
+            raise ValueError("Template configuration file path is required")
+        
+        if not self.marking_scheme or not self.marking_scheme.path:
+            raise ValueError("Marking scheme file path is required")
+        
+        if not self.marking_config_file_path:
+            raise ValueError("Marking config file path is required")
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -128,7 +141,7 @@ class MarkingJob(BaseModel):
             'template_path': self.template.template_file.path,
             'template_config_path': self.template.configuration_file.path,
             'config_type': self.template.config_type.value,
-            'marking_scheme_path': self.marking_scheme.path if self.marking_scheme else None,
+            'marking_scheme_path': self.marking_scheme.path,
             'marking_scheme_config_path': self.marking_config_file_path,
             'save_intermediate_results': self.save_intermediate_results
         }
