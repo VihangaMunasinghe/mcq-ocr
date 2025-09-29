@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel
 
 from app.models.marking_job import MarkingJobPriority, MarkingJobStatus
@@ -27,6 +27,16 @@ class MarkingResponse(BaseModel):
     updated_at: datetime
     created_by: int
 
+class MarkingResponseBasic(BaseModel):
+    id: int
+    name: str
+    status: MarkingJobStatus
+    priority: MarkingJobPriority
+    template_name: str
+    created_at: datetime
+    updated_at: datetime
+    created_by: int
+
 class MarkingCreateMetadata(BaseModel):
     name: str
     description: str
@@ -47,3 +57,6 @@ class MarkingAttachScheme(BaseModel):
 
 class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
+
+class UpdateMarkingSchemeConfigRequest(BaseModel):
+    marking_scheme_config: dict[str, Any]

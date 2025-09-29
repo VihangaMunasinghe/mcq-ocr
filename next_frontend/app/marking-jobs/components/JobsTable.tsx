@@ -1,49 +1,53 @@
 import React from "react";
 import { Table, TableColumn } from "../../../components/UI/Table";
-import { MarkingJob } from "./types";
+import { MarkingJobBasic } from "./types";
 import { StatusBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
 import { JobActions } from "./JobActions";
 
 interface JobsTableProps {
-  jobs: MarkingJob[];
-  onStartJob: (jobId: number) => void;
-  onPauseJob: (jobId: number) => void;
-  onReviewJob: (job: MarkingJob) => void;
-  onViewResults: (job: MarkingJob) => void;
+  jobs: MarkingJobBasic[];
+  onStopJob: (jobId: number) => void;
+  onEditJob: (job: MarkingJobBasic) => void;
+  onViewResults: (job: MarkingJobBasic) => void;
   onDeleteJob: (jobId: number) => void;
 }
 
 export function JobsTable({
   jobs,
-  onStartJob,
-  onPauseJob,
-  onReviewJob,
+  onStopJob,
+  onEditJob,
   onViewResults,
   onDeleteJob,
 }: JobsTableProps) {
-  const columns: TableColumn<MarkingJob>[] = [
+  const columns: TableColumn<MarkingJobBasic>[] = [
     { header: "Name", accessor: "name", sortable: true },
-    { header: "Template", accessor: "template", sortable: true },
-    { header: "Type", accessor: "templateType", sortable: true },
-    { header: "Created", accessor: "created", sortable: true },
+    { header: "Template", accessor: "template_name", sortable: true },
+    { header: "Priority", accessor: "priority", sortable: true },
+    {
+      header: "Created",
+      accessor: (job: MarkingJobBasic) => {
+        const date = new Date(job.created_at);
+        return date.toLocaleString();
+      },
+      sortable: true,
+    },
     {
       header: "Status",
-      accessor: (job: MarkingJob) => <StatusBadge status={job.status} />,
+      accessor: (job: MarkingJobBasic) => <StatusBadge status={job.status} />,
       sortable: true,
     },
     {
       header: "Progress",
-      accessor: (job: MarkingJob) => <ProgressBar job={job} />,
+      accessor: (job: MarkingJobBasic) => <ProgressBar job={job} />,
     },
     {
       header: "Actions",
-      accessor: (job: MarkingJob) => (
+      accessor: (job: MarkingJobBasic) => (
         <JobActions
           job={job}
-          onStart={onStartJob}
-          onPause={onPauseJob}
-          onReview={onReviewJob}
+          onStop={onStopJob}
+          onEdit={onEditJob}
           onViewResults={onViewResults}
           onDelete={onDeleteJob}
         />

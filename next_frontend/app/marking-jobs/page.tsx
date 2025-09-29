@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
@@ -9,108 +9,24 @@ import {
   DescriptionCard,
   FiltersSection,
   JobsTable,
-  ReviewModal,
   ResultsModal,
-  MarkingJob,
-  ReviewQuestion,
 } from "./components";
+import { MarkingJobBasic } from "./components/types";
 
 export default function MarkingJobs() {
   const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [reviewQuestions, setReviewQuestions] = useState<ReviewQuestion[]>([]);
-  const [selectedJobData, setSelectedJobData] = useState<MarkingJob | null>(
+  const [selectedJobData, setSelectedJobData] = useState<MarkingJobBasic | null>(
     null
   );
-  const { showToast } = useToast();
 
-  const markingJobs: MarkingJob[] = [
-    {
-      id: 1,
-      name: "Math Quiz - Grade 10",
-      template: "Math Quiz MCQ Template",
-      templateType: "MCQ",
-      created: "2023-04-01",
-      status: "completed",
-      submissions: 32,
-      marked: 32,
-    },
-    {
-      id: 2,
-      name: "English Grammar - Grade 11",
-      template: "English Grammar MCQ",
-      templateType: "MCQ",
-      created: "2023-04-05",
-      status: "review-required",
-      submissions: 28,
-      marked: 24,
-      flaggedQuestions: [3, 7, 12, 18],
-    },
-    {
-      id: 3,
-      name: "Science Test - Grade 9",
-      template: "Science Test Template",
-      templateType: "Test",
-      created: "2023-04-02",
-      status: "completed",
-      submissions: 45,
-      marked: 45,
-    },
-    {
-      id: 4,
-      name: "History Assignment - Grade 12",
-      template: "History Assignment Rubric",
-      templateType: "Rubric",
-      created: "2023-04-08",
-      status: "in-progress",
-      submissions: 19,
-      marked: 8,
-    },
-    {
-      id: 5,
-      name: "Geography Quiz - Grade 10",
-      template: "Geography Quiz Template",
-      templateType: "Quiz",
-      created: "2023-04-10",
-      status: "pending",
-      submissions: 0,
-      marked: 0,
-    },
-    {
-      id: 6,
-      name: "Physics Lab Report - Grade 11",
-      template: "Science Lab Report",
-      templateType: "Report",
-      created: "2023-03-28",
-      status: "completed",
-      submissions: 24,
-      marked: 24,
-    },
-    {
-      id: 7,
-      name: "Computer Science MCQ - Grade 12",
-      template: "Programming Test MCQ",
-      templateType: "MCQ",
-      created: "2023-04-07",
-      status: "processing",
-      submissions: 22,
-      marked: 0,
-    },
-    {
-      id: 8,
-      name: "Art Project - Grade 9",
-      template: "Art Project Rubric",
-      templateType: "Rubric",
-      created: "2023-03-25",
-      status: "cancelled",
-      submissions: 18,
-      marked: 5,
-    },
-  ];
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const [loading, setLoading] = useState(true);
+  const [markingJobs, setMarkingJobs] = useState<MarkingJobBasic[]>([]);
+  const { showToast } = useToast();
 
   const filteredJobs =
     statusFilter === "all"
@@ -129,46 +45,18 @@ export default function MarkingJobs() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleStartJob = (jobId: number) => {
-    console.log(`Starting job with ID: ${jobId}`);
-    showToast("Job started successfully", "success");
-  };
-
-  const handlePauseJob = (jobId: number) => {
+  const handleStopJob = (jobId: number) => {
     console.log(`Pausing job with ID: ${jobId}`);
     showToast("Job paused successfully", "info");
   };
 
-  const handleReviewJob = (job: MarkingJob) => {
-    setSelectedJobData(job);
-    const mockReviewQuestions: ReviewQuestion[] = [
-      {
-        id: 3,
-        question: "What is the main function of mitochondria?",
-        options: [
-          "Cell division",
-          "Protein synthesis",
-          "Energy production",
-          "Waste removal",
-        ],
-        markedAnswer: "Cell division",
-        suggestedAnswer: "Energy production",
-        issue: "Answer sheet unclear, possible marking error",
-      },
-    ];
-    setReviewQuestions(mockReviewQuestions);
-    setIsReviewModalOpen(true);
+  const handleEditJob = (job: MarkingJobBasic) => {
+    router.push(`/marking-jobs/create?markingJobId=${job.id}`);
   };
 
-  const handleReviewComplete = () => {
-    console.log("Review completed for job:", selectedJobData?.id);
-    showToast("Review completed successfully", "success");
-    setIsReviewModalOpen(false);
-  };
-
-  const handleViewResults = (job: MarkingJob) => {
+  const handleViewResults = (job: MarkingJobBasic) => {
     setSelectedJobData(job);
-    setIsResultModalOpen(true);
+    router.push(`/marking-jobs/results?markingJobId=${job.id}`);
   };
 
   const handleDownloadResults = (format: "csv" | "pdf") => {
@@ -182,6 +70,17 @@ export default function MarkingJobs() {
     );
   };
 
+  useEffect(() => {
+    const fetchMarkingJobs = async () => {
+      setLoading(true);
+      const response = await fetch(`${BACKEND_URL}/api/markings`);
+      const markingJobs: MarkingJobBasic[] = await response.json();
+      setMarkingJobs(markingJobs);
+      setLoading(false);
+    };
+    fetchMarkingJobs();
+  }, []);
+
   return (
     <>
       <PageHeader onCreateNew={() => router.push("marking-jobs/create")} />
@@ -194,14 +93,13 @@ export default function MarkingJobs() {
         onStatusFilterChange={setStatusFilter}
       />
 
-      <JobsTable
+      {loading ? <div>Loading...</div> : <JobsTable
         jobs={filteredJobs}
-        onStartJob={handleStartJob}
-        onPauseJob={handlePauseJob}
-        onReviewJob={handleReviewJob}
+        onStopJob={handleStopJob}
+        onEditJob={handleEditJob}
         onViewResults={handleViewResults}
         onDeleteJob={confirmDelete}
-      />
+      />}
 
       <VerificationModal
         isOpen={isDeleteModalOpen}
@@ -211,14 +109,6 @@ export default function MarkingJobs() {
         message="Are you sure you want to delete this marking job? This action cannot be undone."
         confirmText="Delete"
         type="warning"
-      />
-
-      <ReviewModal
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
-        job={selectedJobData}
-        reviewQuestions={reviewQuestions}
-        onReviewComplete={handleReviewComplete}
       />
 
       <ResultsModal

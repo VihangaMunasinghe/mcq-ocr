@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faPlay } from "@fortawesome/free-solid-svg-icons";
 import { FileUpload } from "../../../../components/UI/FileUpload";
+import { useCreateMarking } from "../../../../hooks/useCreateMarking";
+import { useToast } from "../../../../hooks/useToast";
+import { useRouter } from "next/navigation";
 
 interface AnswerSheetsStepProps {
   answerSheetsFile: File | null;
@@ -14,6 +17,88 @@ export function AnswerSheetsStep({
   error,
   onFileChange,
 }: AnswerSheetsStepProps) {
+  const [markingJob, setMarkingJob] = useCreateMarking();
+  const { showToast } = useToast();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+  const validateStep = (): boolean => {
+    return answerSheetsFile !== null;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep() || !markingJob.id || !answerSheetsFile) {
+      showToast("Missing required data", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Upload answer sheets file
+      const answer_sheets_formData = new FormData();
+      answer_sheets_formData.append("file", answerSheetsFile);
+      answer_sheets_formData.append("file_type", "answer_sheet");
+
+      const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
+        method: "POST",
+        body: answer_sheets_formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload answer sheets file");
+      }
+
+      const uploadData = await uploadResponse.json();
+      setMarkingJob((prev) => ({ ...prev, answer_sheets_folder_id: uploadData.file_id }));
+
+      // Attach answer sheets to marking job
+      const attachResponse = await fetch(
+        `${BACKEND_URL}/api/markings/${markingJob.id}/attach-answer-sheets`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answer_sheets_folder_id: uploadData.file_id }),
+        }
+      );
+
+      if (!attachResponse.ok) {
+        throw new Error("Failed to attach answer sheets");
+      }
+
+      // Start the marking process
+      const startResponse = await fetch(
+        `${BACKEND_URL}/api/markings/${markingJob.id}/start-marking`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (!startResponse.ok) {
+        throw new Error("Failed to start marking process");
+      }
+
+      const startData = await startResponse.json();
+      console.log("Marking process started successfully:", startData);
+
+      showToast("Marking process started successfully", "success");
+
+      // Redirect to marking jobs page
+      router.push("/marking-jobs");
+    } catch (err) {
+      console.error("Error starting marking process:", err);
+      showToast(
+        err instanceof Error ? err.message : "Failed to start marking process",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   return (
     <div className="space-y-8">
       <div>
@@ -53,12 +138,26 @@ export function AnswerSheetsStep({
                   Ready to Start Marking
                 </h3>
                 <p className="mt-2 text-sm text-green-700">
-                  File "{answerSheetsFile.name}" has been uploaded. All files
-                  are ready - click "Start Marking" to begin the automatic
+                  File &quot;{answerSheetsFile.name}&quot; has been uploaded. All files
+                  are ready - click &quot;Start Marking&quot; to begin the automatic
                   grading process.
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Start Marking Button */}
+        {answerSheetsFile && (
+          <div className="flex justify-end mt-8">
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !validateStep()}
+              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FontAwesomeIcon icon={faPlay} className="mr-2 h-4 w-4" />
+              {isSubmitting ? "Starting Marking..." : "Start Marking Process"}
+            </button>
           </div>
         )}
       </div>
