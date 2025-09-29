@@ -3,8 +3,10 @@ from fastapi import APIRouter, HTTPException, WebSocket
 from sqlalchemy import select
 import logging
 
+from sqlalchemy.orm import selectinload
+
 from app.models.marking_job import MarkingJob, MarkingJobStatus
-from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets
+from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic
 from app.schemas.marking import UpdateMarkingSchemeConfigRequest
 from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,35 +26,26 @@ logger = logging.getLogger(__name__)
 
 
 
-@router.get('/', response_model=List[MarkingResponse])
+@router.get('/', response_model=List[MarkingResponseBasic])
 async def list_markings(
     db: AsyncSession = Depends(get_async_db)
 ):
     """List all markings"""
     user_id = 1 # TODO: Get from authentication
     try:
-      markings = await db.execute(select(MarkingJob).where(MarkingJob.created_by == user_id).order_by(MarkingJob.created_at.desc()))
+      markings = await db.execute(select(MarkingJob).options(selectinload(MarkingJob.template)).where(MarkingJob.created_by == user_id).order_by(MarkingJob.created_at.desc()))
       markings = markings.scalars().all()
       return [
-          MarkingResponse(
+          MarkingResponseBasic(
               id=marking.id,
               name=marking.name,
               description=marking.description,
               status=marking.status,
               priority=marking.priority,
-              template_id=marking.template_id,
+              template_name=marking.template.name,
               marking_scheme_id=marking.marking_scheme_id,
               marking_config_id=marking.marking_config_id,
               answer_sheets_folder_id=marking.answer_sheets_folder_id,
-              save_intermediate_results=marking.save_intermediate_results,
-              total_answer_sheets=marking.total_answer_sheets,
-              processed_answer_sheets=marking.processed_answer_sheets,
-              failed_answer_sheets=marking.failed_answer_sheets,
-              processing_started_at=marking.processing_started_at,
-              processing_completed_at=marking.processing_completed_at,
-              error_message=marking.error_message,
-              error_details=marking.error_details,
-              results_summary=marking.results_summary,
               created_at=marking.created_at,
               updated_at=marking.updated_at,
               created_by=marking.created_by

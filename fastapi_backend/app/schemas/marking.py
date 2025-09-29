@@ -1,4 +1,3 @@
-from ast import Dict
 from datetime import datetime
 from typing import Any, Optional
 from pydantic import BaseModel
@@ -28,6 +27,16 @@ class MarkingResponse(BaseModel):
     updated_at: datetime
     created_by: int
 
+class MarkingResponseBasic(BaseModel):
+    id: int
+    name: str
+    status: MarkingJobStatus
+    priority: MarkingJobPriority
+    template_name: str
+    created_at: datetime
+    updated_at: datetime
+    created_by: int
+
 class MarkingCreateMetadata(BaseModel):
     name: str
     description: str
@@ -50,4 +59,4 @@ class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
 
 class UpdateMarkingSchemeConfigRequest(BaseModel):
-    marking_scheme_config: Dict[str, Any]
+    marking_scheme_config: dict[str, Any]

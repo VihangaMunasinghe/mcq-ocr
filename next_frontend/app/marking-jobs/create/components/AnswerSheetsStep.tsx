@@ -41,7 +41,7 @@ export function AnswerSheetsStep({
       // Upload answer sheets file
       const answer_sheets_formData = new FormData();
       answer_sheets_formData.append("file", answerSheetsFile);
-      answer_sheets_formData.append("file_type", "answer_sheets_folder");
+      answer_sheets_formData.append("file_type", "answer_sheet");
 
       const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
         method: "POST",
@@ -53,7 +53,7 @@ export function AnswerSheetsStep({
       }
 
       const uploadData = await uploadResponse.json();
-      setMarkingJob((prev) => ({ ...prev, answerSheetsFileId: uploadData.id }));
+      setMarkingJob((prev) => ({ ...prev, answer_sheets_folder_id: uploadData.file_id }));
 
       // Attach answer sheets to marking job
       const attachResponse = await fetch(
@@ -61,7 +61,7 @@ export function AnswerSheetsStep({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answer_sheets_folder_id: uploadData.id }),
+          body: JSON.stringify({ answer_sheets_folder_id: uploadData.file_id }),
         }
       );
 

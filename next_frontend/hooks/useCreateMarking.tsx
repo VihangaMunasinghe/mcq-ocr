@@ -31,9 +31,7 @@ const CreateMarkingProvider = ({ children }: { children: React.ReactNode }) => {
     created_at: null,
     updated_at: null,
     created_by: null,
-    markingSchemeFileId: null,
     markingSchemeFile: null,
-    answerSheetsFileId: null,
     answerSheetsFile: null,
   });
 

@@ -255,27 +255,30 @@ export function MarkingSchemeStep({
       showToast("Failed to load marking scheme bubble data", "error");
       return;
     }
-    setAnswersCorrectionModalData({
-      imageUrl: markingSchemeImageUrl,
-      bubbleData,
-    });
+    
 
-    setIsAnswersCorrectionModalOpen(true);
+    // Small delay to ensure the modal is opened
+    setTimeout(() => {
+      setAnswersCorrectionModalData({
+        imageUrl: markingSchemeImageUrl,
+        bubbleData,
+      });
+      setIsAnswersCorrectionModalOpen(true);
+    }, 100);
   };
 
   const handleAnswersCorrectionModalConfirm = async (
+    isUpdated: boolean,
     updatedBubbleData: Bubble[][]
   ) => {
     try {
+      if (!isUpdated) {
+        showToast("No changes made to marking scheme configuration", "success");
+        return;
+      }
       // Convert bubble data back to marking scheme config format
       const markingSchemeConfig =
         _convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
-
-      // Update local state
-      setMarkingJob((prev) => ({
-        ...prev,
-        marking_scheme_config: updatedBubbleData,
-      }));
 
       // Send to backend
       const response = await fetch(
@@ -504,7 +507,7 @@ export function MarkingSchemeStep({
         onClose={() => setIsAnswersCorrectionModalOpen(false)}
         imageUrl={answersCorrectionModalData.imageUrl}
         bubbleData={answersCorrectionModalData.bubbleData}
-        onConfirm={() => {}}
+        onConfirm={handleAnswersCorrectionModalConfirm}
       />
     </div>
   );

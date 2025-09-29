@@ -1,21 +1,17 @@
-export type JobStatus =
-  | "pending"
-  | "processing"
-  | "in-progress"
-  | "review-required"
-  | "completed"
-  | "cancelled";
+import { MarkingJobStatus } from "@/app/marking-jobs/create/components/types";
 
-export interface MarkingJob {
+export interface MarkingJobBasic {
   id: number;
   name: string;
-  template: string;
-  templateType: string;
-  created: string;
-  status: JobStatus;
-  submissions: number;
-  marked: number;
-  flaggedQuestions?: number[];
+  status: MarkingJobStatus;
+  priority: string;
+  template_name: string;
+  created_at: string;
+  updated_at: string;
+  created_by: number;
+
+  completed: number;
+  total: number;
 }
 
 export interface ReviewQuestion {

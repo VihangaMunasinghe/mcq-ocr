@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -8,6 +9,7 @@ import {
   faFileText,
   faUpload,
   faPlay,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   ProgressSteps,
@@ -18,7 +20,9 @@ import {
   Step,
   NavigationButtons,
 } from "./components";
-import CreateMarkingProvider from "@/hooks/useCreateMarking";
+import CreateMarkingProvider, {
+  useCreateMarking,
+} from "@/hooks/useCreateMarking";
 import { useRouter } from "next/navigation";
 
 const steps: Step[] = [
@@ -43,9 +47,16 @@ const steps: Step[] = [
 ];
 
 function CreateMarkingJobContent() {
+  const searchParams = useSearchParams();
+  const markingJobIdString = searchParams.get("markingJobId");
+  const markingJobId = markingJobIdString ? parseInt(markingJobIdString) : null;
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
-
+  const [markingJob, setMarkingJob] = useCreateMarking();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<MarkingJobForm>({
     name: "",
     description: "",
@@ -55,6 +66,22 @@ function CreateMarkingJobContent() {
     answerSheetsFile: null,
     save_intermediate_results: false,
   });
+
+  useEffect(() => {
+    async function fetchMarkingJob(markingJobId: number) {
+      setIsLoading(true);
+      const response = await fetch(
+        `${BACKEND_URL}/api/markings/${markingJobId}`
+      );
+      const data = await response.json();
+      setFormData(data);
+      setMarkingJob(data);
+      setIsLoading(false);
+    }
+    if (markingJobId) {
+      fetchMarkingJob(markingJobId as number);
+    }
+  }, [markingJobId]);
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof MarkingJobForm, string>>
@@ -159,23 +186,29 @@ function CreateMarkingJobContent() {
       </div>
 
       {/* Step Content */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="p-6">{renderStepContent()}</div>
-
-        {/* Navigation */}
-
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
-          <NavigationButtons
-            currentStep={currentStep}
-            totalSteps={steps.length}
-            isSubmitting={false}
-            onPrevStep={prevStep}
-            onNextStep={nextStep}
-            onSubmit={() => {}}
-            hideNext={false}
-          />
+      {isLoading ? (
+        <div className="flex justify-center items-center h-full">
+          <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin" />
         </div>
-      </div>
+      ) : (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+          <div className="p-6">{renderStepContent()}</div>
+
+          {/* Navigation */}
+
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+            <NavigationButtons
+              currentStep={currentStep}
+              totalSteps={steps.length}
+              isSubmitting={false}
+              onPrevStep={prevStep}
+              onNextStep={nextStep}
+              onSubmit={() => {}}
+              hideNext={false}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

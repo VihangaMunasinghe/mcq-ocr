@@ -2,73 +2,57 @@ import React from "react";
 import { Button } from "../../../components/UI/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faPlay,
-  faPause,
   faTrash,
-  faExclamationTriangle,
   faEye,
+  faStop,
+  faEdit,
 } from "@fortawesome/free-solid-svg-icons";
-import { MarkingJob } from "./types";
+import { MarkingJobBasic } from "./types";
+import { MarkingJobStatus } from "../create/components/types";
 
 interface JobActionsProps {
-  job: MarkingJob;
-  onStart: (jobId: number) => void;
-  onPause: (jobId: number) => void;
-  onReview: (job: MarkingJob) => void;
-  onViewResults: (job: MarkingJob) => void;
+  job: MarkingJobBasic;
+  onStop: (jobId: number) => void;
+  onEdit: (job: MarkingJobBasic) => void;
+  onViewResults: (job: MarkingJobBasic) => void;
   onDelete: (jobId: number) => void;
 }
 
 export function JobActions({
   job,
-  onStart,
-  onPause,
-  onReview,
+  onStop,
+  onEdit,
   onViewResults,
   onDelete,
 }: JobActionsProps) {
   return (
-    <div className="flex space-x-2">
-      {job.status === "pending" && (
+    <div className="flex space-x-2 justify-end">
+      {job.status === MarkingJobStatus.PROCESSING ? (
         <Button
           variant="outline"
           size="sm"
-          icon={<FontAwesomeIcon icon={faPlay} className="h-4 w-4" />}
-          onClick={() => onStart(job.id)}
+          icon={<FontAwesomeIcon icon={faStop} className="h-4 w-4" />}
+          onClick={() => onStop(job.id)}
         >
-          Start
+          Stop
         </Button>
-      )}
-      {job.status === "in-progress" && (
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<FontAwesomeIcon icon={faPause} className="h-4 w-4" />}
-          onClick={() => onPause(job.id)}
-        >
-          Pause
-        </Button>
-      )}
-      {job.status === "review-required" && (
-        <Button
-          variant="outline"
-          size="sm"
-          icon={
-            <FontAwesomeIcon icon={faExclamationTriangle} className="h-4 w-4" />
-          }
-          onClick={() => onReview(job)}
-        >
-          Review
-        </Button>
-      )}
-      {job.status === "completed" && (
+      ) : job.status === MarkingJobStatus.COMPLETED ? (
         <Button
           variant="outline"
           size="sm"
           icon={<FontAwesomeIcon icon={faEye} className="h-4 w-4" />}
           onClick={() => onViewResults(job)}
         >
-          Results
+          View Results
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<FontAwesomeIcon icon={faEdit} className="h-4 w-4" />}
+          onClick={() => onEdit(job)}
+        >
+          Continue
         </Button>
       )}
       <Button
@@ -76,9 +60,7 @@ export function JobActions({
         size="sm"
         icon={<FontAwesomeIcon icon={faTrash} className="h-4 w-4" />}
         onClick={() => onDelete(job.id)}
-      >
-        Delete
-      </Button>
+      />
     </div>
   );
 }
