@@ -19,12 +19,25 @@ def get_corresponding_points(points, H):
     correspondingPoints = np.matmul(H, point)
     correspondingPoints = correspondingPoints.T
     for i in range(0, x):
-        correspondingPoints[i][0] = correspondingPoints[i][0] / \
-            correspondingPoints[i][2]
-        correspondingPoints[i][1] = correspondingPoints[i][1] / \
-            correspondingPoints[i][2]
+        # Check for division by zero or very small numbers
+        if abs(correspondingPoints[i][2]) < 1e-10:
+            # If z is too small, use the original coordinates
+            correspondingPoints[i][0] = points[i][0]
+            correspondingPoints[i][1] = points[i][1]
+        else:
+            correspondingPoints[i][0] = correspondingPoints[i][0] / correspondingPoints[i][2]
+            correspondingPoints[i][1] = correspondingPoints[i][1] / correspondingPoints[i][2]
         
-    adjusted_points = [(x[0], x[1]) for x in correspondingPoints]
+    # Convert to valid coordinates and filter out invalid ones
+    adjusted_points = []
+    for point in correspondingPoints:
+        x, y = point[0], point[1]
+        # Check for NaN or infinite values
+        if np.isfinite(x) and np.isfinite(y):
+            adjusted_points.append((float(x), float(y)))
+        else:
+            # Use original coordinate if transformation failed
+            adjusted_points.append((float(points[len(adjusted_points)][0]), float(points[len(adjusted_points)][1])))
     if isinstance(adjusted_points, np.ndarray):
         adjusted_points = np.array(adjusted_points)
 
@@ -101,32 +114,36 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
         "more_than_one_marked": [],
         "not_marked": [],
     }
+    labeled_points = []
     for i in range(0, choice_distribution.shape[0]):    # for every question
         correct_choice = False
-        marked_points = []
+        labeled_points.append([])
         for k in range(0, choice_distribution[i]):  # for every choice
             if marking_scheme[idd][0] == 1 and answer_script[idd][0] == 1:
                 correct_choice = True
             if answer_script[idd][0] == 1:  # count the number of marked choices
-                marked_points.append(answer_script[idd])
+                labeled_points[i].append({"marked": True, "coordinates": answer_script[idd][1]})
+            else:
+                labeled_points[i].append({"marked": False, "coordinates": answer_script[idd][1]})
             idd += 1
+        marked_points = [point["coordinates"] for point in labeled_points[i] if point["marked"]]
         if correct_choice and len(marked_points) == 1:
             correct.append(i+1)
             correct_mark += 1
             columnwise_total[i//30] += 1
-            points["correct"].append({"question_number": i+1, "answer": "correct", "coordinates": marked_points[0][1]})
+            points["correct"].append({"question_number": i+1, "answer": "correct", "coordinates": marked_points[0]})
             if facility_index:
                 facility_index[i+1] += 1
         elif len(marked_points) > 1:
             more_than_one_marked.append(i+1)
             for point in marked_points:
-                points["more_than_one_marked"].append({"question_number": i+1, "answer": "more than one marked", "coordinates": point[1]})
+                points["more_than_one_marked"].append({"question_number": i+1, "answer": "more than one marked", "coordinates": point})
         elif len(marked_points) == 0:
             not_marked.append(i+1)
             for point in marked_points:
-                points["not_marked"].append({"question_number": i+1, "answer": "not marked", "coordinates": point[1]})
+                points["not_marked"].append({"question_number": i+1, "answer": "not marked", "coordinates": point})
         else:
             for point in marked_points:
-                points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point[1]})
+                points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point})
             incorrect.append(i+1)
-    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points
+    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points, labeled_points

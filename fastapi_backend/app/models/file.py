@@ -2,75 +2,70 @@
 File model for uploaded files and documents.
 """
 
-from sqlalchemy import Column, String, Integer, BigInteger, Boolean, ForeignKey, Text, Enum
+from datetime import datetime, timedelta
+from sqlalchemy import Column, DateTime, String, Integer, BigInteger, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 from .base import BaseModel
 
 
-class FileType(PyEnum):
+class FileOrFolderType(PyEnum):
     """Enum for file types."""
     TEMPLATE = "template"
-    ANSWER_SHEET = "answer_sheet"
+    TEMPLATE_CONFIG = "template_config"
+    ANSWER_SHEETS_FOLDER = "answer_sheets_folder"
     MARKING_SCHEME = "marking_scheme"
+    MARKING_CONFIG = "marking_config"
     RESULT = "result"
     REPORT = "report"
     OTHER = "other"
 
 
-class FileStatus(PyEnum):
+class FileOrFolderStatus(PyEnum):
     """Enum for file processing status."""
+    PENDING = "pending"
+    UPLOADING = "uploading"
     UPLOADED = "uploaded"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
     FAILED = "failed"
-    ARCHIVED = "archived"
+    DELETED = "deleted"
 
 
-class File(BaseModel):
+class FileOrFolder(BaseModel):
     """File model for uploaded files and documents."""
     
-    __tablename__ = "files"
+    __tablename__ = "files_or_folders"
     
     # File metadata
-    filename = Column(String(255), nullable=False)
-    original_filename = Column(String(255), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    file_size = Column(BigInteger, nullable=False)  # Size in bytes
-    mime_type = Column(String(100), nullable=True)
+    name = Column(String(255), nullable=False)
+    original_name = Column(String(255), nullable=True)
+    path = Column(String(500), nullable=False)
+    size = Column(BigInteger, nullable=True)
+    extension = Column(String(100), nullable=True)
     
     # File categorization
-    file_type = Column(Enum(FileType), nullable=False, default=FileType.OTHER)
-    status = Column(Enum(FileStatus), nullable=False, default=FileStatus.UPLOADED)
-    
-    # Processing information
-    processing_notes = Column(Text, nullable=True)
-    error_message = Column(Text, nullable=True)
-    
-    # Metadata
-    file_metadata = Column(Text, nullable=True)  # JSON string for additional metadata
+    file_type = Column(Enum(FileOrFolderType), nullable=False, default=FileOrFolderType.OTHER)
+    status = Column(Enum(FileOrFolderStatus), nullable=False, default=FileOrFolderStatus.PENDING)
     
     # File organization
-    is_archived = Column(Boolean, default=False, nullable=False)
-    archive_reason = Column(String(255), nullable=True)
+    deletion_date = Column(DateTime, nullable=False, default=datetime.now() + timedelta(days=7))
     
     # Foreign keys
-    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    template_id = Column(Integer, ForeignKey("templates.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Relationships
-    uploaded_by_user = relationship("User", back_populates="files")
-    template = relationship("Template")
+    created_by_user = relationship("User", back_populates="files")
+    template_configurations = relationship("Template", foreign_keys="[Template.configuration_file_id]", back_populates="configuration_file")
+    template_files = relationship("Template", foreign_keys="[Template.template_file_id]", back_populates="template_file")
     
     def __repr__(self):
-        return f"<File(id={self.id}, filename='{self.filename}', type='{self.file_type}', status='{self.status}')>"
+        return f"<FileOrFolder(id={self.id}, name='{self.name}', type='{self.file_type}', status='{self.status}')>"
     
     @property
     def file_size_mb(self) -> float:
         """Get file size in megabytes."""
-        return self.file_size / (1024 * 1024) if self.file_size else 0.0
+        return self.size / (1024 * 1024) if self.size else 0.0
     
     @property
     def file_size_kb(self) -> float:
         """Get file size in kilobytes."""
-        return self.file_size / 1024 if self.file_size else 0.0
+        return self.size / 1024 if self.size else 0.0

@@ -1,7 +1,7 @@
 import datetime
 from fastapi import APIRouter, HTTPException, Form, Response
 import uuid
-from app.schemas.file import FileUploadResponse
+from app.schemas.file import FileResponse
 from app.storage.shared_storage import SharedStorage
 from app.template_generator import generate_template_pdf
 import logging
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/custom_template", tags=["custom_template"])
 
 logger = logging.getLogger(__name__)
 
-@router.post("/generate", response_model=FileUploadResponse)
+@router.post("/generate", response_model=FileResponse)
 async def generate_pdf(
     title: str = Form(...),
     questions: int = Form(...),
@@ -58,13 +58,18 @@ async def generate_pdf(
         
         logger.info(f"PDF generated and saved successfully: {final_path}")
 
-        return FileUploadResponse(
-            message="PDF generated and saved successfully",
-            filename=filename,
-            file_id=file_id,
-            path=final_path,
-            file_size=len(pdf_content)
-        )
+        #TODO: Create a Template model
+        return {
+            "file_id": file_id,
+            "filename": filename,
+            "file_size": len(pdf_content),
+            "file_type": "pdf",
+            "status": "generated",
+            "deletion_date": None,
+            "created_by": user_id,
+            "created_at": datetime.datetime.now(),
+            "updated_at": datetime.datetime.now()
+        }
         
     except HTTPException:
         raise

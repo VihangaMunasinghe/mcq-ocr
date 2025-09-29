@@ -6,8 +6,9 @@ Handles producers and consumers for template configuration and marking jobs.
 import json
 import asyncio
 import logging
+import os
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import aio_pika
 from aio_pika import Connection, Channel, Queue, Message, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
@@ -20,7 +21,9 @@ from .database import get_async_db, AsyncSessionLocal
 from app.models.marking_job import MarkingJob
 from app.models.template_config_job import TemplateConfigJob
 from app.models.marking_job import MarkingJobStatus
-from app.models.template import TemplateConfigStatus
+from app.models.template import Template, TemplateConfigStatus
+from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
+from app.api.deps import get_websocket_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -99,6 +102,16 @@ class RabbitMQManager:
             {
                 "name": "marking_job_results",
                 "routing_key": "marking.job.result", 
+                "durable": True
+            },
+            {
+                "name": "marking_scheme_config_queue",
+                "routing_key": "marking.scheme.config",
+                "durable": True
+            },
+            {
+                "name": "marking_scheme_config_results",
+                "routing_key": "marking.scheme.config.result",
                 "durable": True
             }
         ]
@@ -219,6 +232,76 @@ class TemplateConfigProducer:
                     logger.error(f"Failed to update job status to failed: {commit_error}")
             raise
 
+class MarkingSchemeConfigProducer:
+    """Producer for marking scheme configuration jobs."""
+    
+    def __init__(self, rabbitmq_manager: RabbitMQManager):
+        self.rabbitmq = rabbitmq_manager
+    
+    async def submit_marking_scheme_config_job(self, job_id: int, db: AsyncSession):
+        """Submit a marking scheme configuration job to the queue."""
+        try:
+            # Get job from database with Template and marking scheme eagerly loaded
+            result = await db.execute(
+                select(MarkingJob)
+                .options(
+                    selectinload(MarkingJob.template).selectinload(Template.template_file),
+                    selectinload(MarkingJob.template).selectinload(Template.configuration_file),
+                    selectinload(MarkingJob.marking_scheme)
+                )
+                .where(MarkingJob.id == job_id)
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                raise ValueError(f"MarkingJob with id {job_id} not found")
+            
+            if not job.marking_scheme:
+                raise ValueError(f"MarkingJob {job_id} has no marking scheme attached")
+            
+            
+            # Create message payload
+            try:
+                message = job.to_marking_scheme_config_job_data()
+                logger.info(f"Created marking scheme config job data for job {job_id}: {message}")
+            except Exception as e:
+                logger.error(f"Failed to create marking scheme config job data for job {job_id}: {e}")
+                raise
+            
+            # Determine priority based on job priority
+            priority_map = {
+                "urgent": 9,
+                "high": 7,
+                "normal": 5,
+                "low": 1
+            }
+            priority = priority_map.get(job.priority.value, 5)
+            
+            # Check if RabbitMQ connection is available
+            if not self.rabbitmq.connection or self.rabbitmq.connection.is_closed:
+                logger.error("RabbitMQ connection is not available")
+                raise ConnectionError("RabbitMQ connection is not available")
+            
+            # Publish to queue
+            try:
+                await self.rabbitmq.publish_message(
+                    routing_key="marking.scheme.config",
+                    message=message,
+                    priority=priority
+                )
+                logger.info(f"Successfully published marking scheme config job {job_id} to queue")
+            except Exception as e:
+                logger.error(f"Failed to publish message to queue for job {job_id}: {e}")
+                raise
+            
+            logger.info(f"Submitted marking scheme config job {job_id} to queue")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to submit marking scheme config job {job_id}: {e}")
+            # Update job status to failed (caller will handle commit)
+            if 'job' in locals():
+                job.status = MarkingJobStatus.FAILED
+            raise
 
 class MarkingJobProducer:
     """Producer for marking jobs."""
@@ -229,9 +312,14 @@ class MarkingJobProducer:
     async def submit_marking_job(self, job_id: int, db: AsyncSession):
         """Submit a marking job to the queue."""
         try:
-            # Get job from database
+            # Get job from database with all required relationships eagerly loaded
             result = await db.execute(
-                select(MarkingJob).options(selectinload(MarkingJob.template)).where(MarkingJob.id == job_id)
+                select(MarkingJob).options(
+                    selectinload(MarkingJob.template).selectinload(Template.template_file),
+                    selectinload(MarkingJob.template).selectinload(Template.configuration_file),
+                    selectinload(MarkingJob.marking_scheme),
+                    selectinload(MarkingJob.answer_sheets_folder)
+                ).where(MarkingJob.id == job_id)
             )
             result = result.scalar_one_or_none()
             if not result:
@@ -239,13 +327,11 @@ class MarkingJobProducer:
             
             job = result
             
-            # Update job status
-            job.status = MarkingJobStatus.QUEUED
+            # Set processing started time (status will be updated by the caller)
             job.processing_started_at = datetime.now(timezone.utc).isoformat()
-            await db.commit()
             
             # Create message payload
-            message = job.to_job_data()
+            message = job.to_marking_job_data()
             
             # Determine priority based on job priority
             priority_map = {
@@ -268,10 +354,9 @@ class MarkingJobProducer:
             
         except Exception as e:
             logger.error(f"Failed to submit marking job {job_id}: {e}")
-            # Update job status to failed
+            # Update job status to failed (caller will handle commit)
             if 'job' in locals():
                 job.status = MarkingJobStatus.FAILED
-                await db.commit()
             raise
 
 
@@ -318,13 +403,65 @@ class TemplateConfigResultConsumer:
                             
                             # Store results and update template
                             if 'template_config_path' in result_data['result']:
-                                job.template.configuration_path = result_data['result']['template_config_path']
+                                template_config_path = result_data['result']['template_config_path']
+                                
+                                # Create File record for the template configuration file
+                                config_file_name = os.path.basename(template_config_path)
+                                config_file_size = None
+                                try:
+                                    if os.path.exists(template_config_path):
+                                        config_file_size = os.path.getsize(template_config_path)
+                                except OSError:
+                                    logger.warning(f"Could not get file size for {template_config_path}")
+                                
+                                config_file_record = FileOrFolder(
+                                    name=config_file_name,
+                                    original_name=config_file_name,
+                                    path=template_config_path,
+                                    size=config_file_size,
+                                    extension=os.path.splitext(config_file_name)[1].lower() if '.' in config_file_name else None,
+                                    file_type=FileOrFolderType.TEMPLATE_CONFIG,
+                                    status=FileOrFolderStatus.UPLOADED,
+                                    deletion_date=datetime.now() + timedelta(days=7),
+                                    created_by=job.created_by,
+                                )
+                                
+                                db.add(config_file_record)
+                                await db.flush()  # Get the ID without committing
+                                
+                                job.template.configuration_file_id = config_file_record.id
                             
                             if 'output_image_path' in result_data['result']:
-                                job.template.template_file_path = result_data['result']['output_image_path']
+                                output_image_path = result_data['result']['output_image_path']
+                                
+                                # Create File record for the template output image file
+                                template_file_name = os.path.basename(output_image_path)
+                                template_file_size = None
+                                try:
+                                    if os.path.exists(output_image_path):
+                                        template_file_size = os.path.getsize(output_image_path)
+                                except OSError:
+                                    logger.warning(f"Could not get file size for {output_image_path}")
+                                
+                                template_file_record = FileOrFolder(
+                                    name=template_file_name,
+                                    original_name=template_file_name,
+                                    path=output_image_path,
+                                    size=template_file_size,
+                                    extension=os.path.splitext(template_file_name)[1].lower() if '.' in template_file_name else None,
+                                    file_type=FileOrFolderType.TEMPLATE,
+                                    status=FileOrFolderStatus.UPLOADED,
+                                    deletion_date=datetime.now() + timedelta(days=7),
+                                    created_by=job.created_by,
+                                )
+                                
+                                db.add(template_file_record)
+                                await db.flush()  # Get the ID without committing
+                                
+                                job.template.template_file_id = template_file_record.id
                             
-                            if 'result_image_path' in result_data['result']:
-                                job.result_image_path = result_data['result']['result_image_path']
+                            if 'debug_image_path' in result_data['result']:
+                                job.debug_image_path = result_data['result']['debug_image_path']
                             
                             # Update template with configuration results
                             if 'bubble_config' in result_data['result']:
@@ -383,6 +520,121 @@ class TemplateConfigResultConsumer:
                 if not self.is_consuming:
                     break
                 await self.process_template_config_result(message)
+    
+    def stop_consuming(self):
+        """Stop consuming messages."""
+        self.is_consuming = False
+
+
+class MarkingSchemeConfigResultConsumer:
+    """Consumer for marking scheme configuration job results."""
+    
+    def __init__(self, rabbitmq_manager: RabbitMQManager):
+        self.rabbitmq = rabbitmq_manager
+        self.is_consuming = False
+    
+    async def process_marking_scheme_config_result(self, message: AbstractIncomingMessage):
+        """Process marking scheme configuration result message."""
+        async with message.process():
+            try:
+                # Parse message
+                result_data = json.loads(message.body.decode())
+                job_id = result_data.get('job_id')
+                
+                if not job_id:
+                    logger.error("No job_id in marking scheme config result message")
+                    return
+                
+                # Get database session
+                async for db in get_async_db():
+                    try:
+                        # Get job from database
+                        result = await db.execute(
+                            select(MarkingJob).where(MarkingJob.id == job_id)
+                        )
+                        job = result.scalar_one_or_none()
+                        if not job:
+                            logger.error(f"MarkingJob {job_id} not found")
+                            return
+                        
+                        ws = get_websocket_manager()
+                        
+                        # Update job with results
+                        if result_data.get('status', 'failed') == 'completed':
+                            job.status = MarkingJobStatus.MARKING_SCHEME_CONFIGURED  
+                            job.processing_completed_at = datetime.now(timezone.utc).isoformat()
+                            
+                            # Store marking configuration file path
+                            if 'marking_scheme_config_path' in result_data['result']:
+                                marking_config_path = result_data['result']['marking_scheme_config_path']
+                                
+                                # Create File record for the marking configuration file
+                                config_file_name = os.path.basename(marking_config_path)
+                                config_file_size = None
+                                try:
+                                    if os.path.exists(marking_config_path):
+                                        config_file_size = os.path.getsize(marking_config_path)
+                                except OSError:
+                                    logger.warning(f"Could not get file size for {marking_config_path}")
+                                
+                                config_file_record = FileOrFolder(
+                                    name=config_file_name,
+                                    original_name=config_file_name,
+                                    path=marking_config_path,
+                                    size=config_file_size,
+                                    extension=os.path.splitext(config_file_name)[1].lower() if '.' in config_file_name else None,
+                                    file_type=FileOrFolderType.MARKING_CONFIG,
+                                    status=FileOrFolderStatus.UPLOADED,
+                                    deletion_date=datetime.now() + timedelta(days=7),
+                                    created_by=job.created_by,
+                                )
+                                
+                                db.add(config_file_record)
+                                await db.flush()  # Get the ID without committing
+                                
+                                job.marking_config_id = config_file_record.id
+                                job.marking_config_file_path = marking_config_path
+                            
+                            logger.info(f"Marking scheme config job {job_id} completed successfully")
+                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "completed"})
+                            
+                        else:
+                            job.status = MarkingJobStatus.FAILED
+                            error_message = result_data.get('error_message', 'Unknown error')
+                            job.error_message = error_message
+                            
+                            logger.error(f"Marking scheme config job {job_id} failed: {error_message}")
+                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "error", "message": error_message})
+                        
+                        await db.commit()
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing marking scheme config result for job {job_id}: {e}")
+                        await db.rollback()
+                    finally:
+                        await db.close()
+                        break
+                        
+            except Exception as e:
+                logger.error(f"Error parsing marking scheme config result message: {e}")
+    
+    async def start_consuming(self):
+        """Start consuming marking scheme configuration result messages."""
+        if self.is_consuming:
+            return
+        
+        self.is_consuming = True
+        queue = self.rabbitmq.queues.get("marking_scheme_config_results")
+        if not queue:
+            raise RuntimeError("marking_scheme_config_results queue not found")
+        
+        logger.info("Starting marking scheme config result consumer")
+        
+        async with queue.iterator() as queue_iter:
+            async for message in queue_iter:
+                if not self.is_consuming:
+                    break
+                await self.process_marking_scheme_config_result(message)
     
     def stop_consuming(self):
         """Stop consuming messages."""
@@ -483,8 +735,10 @@ class MarkingJobResultConsumer:
 
 # Global producer and consumer instances
 template_config_producer = TemplateConfigProducer(rabbitmq_manager)
+marking_scheme_config_producer = MarkingSchemeConfigProducer(rabbitmq_manager)
 marking_job_producer = MarkingJobProducer(rabbitmq_manager)
 template_config_consumer = TemplateConfigResultConsumer(rabbitmq_manager)
+marking_scheme_config_consumer = MarkingSchemeConfigResultConsumer(rabbitmq_manager)
 marking_job_consumer = MarkingJobResultConsumer(rabbitmq_manager)
 
 
@@ -498,6 +752,7 @@ async def initialize_queue_system():
         # Start consumers in background tasks
         logger.info("Starting background consumers...")
         asyncio.create_task(template_config_consumer.start_consuming())
+        asyncio.create_task(marking_scheme_config_consumer.start_consuming())
         asyncio.create_task(marking_job_consumer.start_consuming())
         
         logger.info("Queue system initialized successfully")
@@ -512,6 +767,7 @@ async def shutdown_queue_system():
     try:
         # Stop consumers
         template_config_consumer.stop_consuming()
+        marking_scheme_config_consumer.stop_consuming()
         marking_job_consumer.stop_consuming()
         
         # Disconnect from RabbitMQ
@@ -535,12 +791,26 @@ async def shutdown_queue_system():
 
 
 # Helpers for background tasks (manage own session; avoid using request-scoped session)
-async def submit_template_config_job(job_id: int) -> bool:
+async def submit_template_config_job(job_id: int, db: AsyncSession = None) -> bool:
     """Submit a template configuration job to the queue."""   
-    async with AsyncSessionLocal() as session:
-        return await template_config_producer.submit_template_config_job(job_id, session)
+    if db is not None:
+        return await template_config_producer.submit_template_config_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await template_config_producer.submit_template_config_job(job_id, session)
 
-async def submit_marking_job(job_id: int) -> bool:
+async def submit_marking_scheme_config_job(job_id: int, db: AsyncSession = None) -> bool:
+    """Submit a marking scheme configuration job to the queue."""
+    if db is not None:
+        return await marking_scheme_config_producer.submit_marking_scheme_config_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await marking_scheme_config_producer.submit_marking_scheme_config_job(job_id, session)
+
+async def submit_marking_job(job_id: int, db: AsyncSession = None) -> bool:
     """Submit a marking job to the queue."""
-    async with AsyncSessionLocal() as session:
-        return await marking_job_producer.submit_marking_job(job_id, session)
+    if db is not None:
+        return await marking_job_producer.submit_marking_job(job_id, db)
+    else:
+        async with AsyncSessionLocal() as session:
+            return await marking_job_producer.submit_marking_job(job_id, session)

@@ -46,7 +46,7 @@ services:
     image: postgres:15-alpine
     container_name: mcq-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: mcq_database
       POSTGRES_USER: mcq_user
@@ -116,6 +116,12 @@ services:
       - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
       - NFS_SHARED_PATH=/shared
       - INDEX_TASK_QUEUE=index_tasks
+      - TEMPLATE_CONFIG_QUEUE=template_config_queue
+      - MARKING_JOB_QUEUE=marking_job_queue
+      - MARKING_CONFIG_QUEUE=marking_scheme_config_queue
+      - MARKING_JOB_RESULTS_QUEUE=marking_job_results
+      - TEMPLATE_CONFIG_RESULTS_QUEUE=template_config_results
+      - MARKING_CONFIG_RESULTS_QUEUE=marking_scheme_config_results
     restart: unless-stopped
 
   # index-recognizer:

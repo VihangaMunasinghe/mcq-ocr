@@ -46,16 +46,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <div className="fixed bottom-0 right-0 p-6 z-50 space-y-4">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            duration={toast.duration}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
+      <div className="fixed top-4 right-4 z-[9999] space-y-3 w-80 pointer-events-none">
+        <div className="pointer-events-auto space-y-3">
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              duration={toast.duration}
+              onClose={() => removeToast(toast.id)}
+            />
+          ))}
+        </div>
       </div>
     </ToastContext.Provider>
   );

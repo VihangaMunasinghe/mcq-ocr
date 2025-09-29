@@ -18,7 +18,7 @@ class TemplateConfigJob:
             template_path: str (relative path in NFS storage)
             template_config_path: str (relative path in NFS storage)
             output_image_path: str (relative path in NFS storage)
-            result_image_path: str (relative path in NFS storage)
+            debug_image_path: str (relative path in NFS storage)
         '''
         self.id = data['id']
         self.name = data['name']
@@ -26,14 +26,14 @@ class TemplateConfigJob:
         self.template_path = data['template_path']
         self.template_config_path = data['template_config_path']
         self.output_image_path = data['output_image_path']
-        self.result_image_path = data['result_image_path']
+        self.debug_image_path = data['debug_image_path']
         self.num_of_columns = data.get('num_of_columns',None)
         self.num_of_rows_per_column = data.get('num_of_rows_per_column',None)
         self.num_of_options_per_question = data.get('num_of_options_per_question',None)
         self.save_intermediate_results = data['save_intermediate_results']
         self.template_config = None
         self.warped_img = None
-        self.result_img = None
+        self.debug_img = None
 
     def configure(self):
         """
@@ -55,7 +55,7 @@ class TemplateConfigJob:
             )
         self.template_config = bubble_configs
         self.warped_img = warped_img
-        self.result_img = result_img
+        self.debug_img = result_img
                 
         # Save configuration JSON to NFS storage
         save_json(
@@ -73,10 +73,10 @@ class TemplateConfigJob:
         logger.info(f"Warped image saved to NFS storage")
 
         # Save result image to NFS storage
-        if self.result_img is not None:
+        if self.debug_img is not None:
             save_image(
-                self.result_image_path, 
-                self.result_img
+                self.debug_image_path, 
+                self.debug_img
             )
             logger.info(f"Result image saved to NFS storage")
         else:
@@ -89,7 +89,7 @@ class TemplateConfigJob:
         if not file_exists(self.output_image_path):
             logger.error(f"Output image file does not exist")
             return False
-        if self.result_img is not None and self.result_image_path is not None and not file_exists(self.result_image_path):
+        if self.debug_img is not None and self.debug_image_path is not None and not file_exists(self.debug_image_path):
             logger.error(f"Result image file does not exist")
             return False
         

@@ -1,38 +1,32 @@
+from enum import Enum
+from token import OP
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
+from fastapi import Query
 
-class File(BaseModel):
-    file_path: str
+class DownloadType(str, Enum):
+    PATH = "path"
+    FILEID = "file_id"
+
+class FileDownloadResponse(BaseModel):
+    file_id: int
+    filename: str
+    file_size: Optional[int] = None
     file_type: str
-    file_name: str
-    file_size: int
-    file_content: bytes
-    file_metadata: dict
-
-class FileCreate(File):
-    pass
-
-class FileUpdate(File):
-    pass
-
-class FileDelete(BaseModel):
-    file_path: str
-    
-
-class FileGet(File):
+    status: str
+    deletion_date: datetime
+    created_by: int
     created_at: datetime
     updated_at: datetime
 
 class FileResponse(BaseModel):
-    id: str
+    file_id: int
     filename: str
-    file_size: int
-    content_type: str
+    file_size: Optional[int] = None
+    file_type: str
+    status: str
+    deletion_date: datetime
+    created_by: int
     created_at: datetime
-
-class FileUploadResponse(BaseModel):
-    message: str
-    filename: str
-    file_id: str
-    path: str
-    file_size: int = None
+    updated_at: datetime

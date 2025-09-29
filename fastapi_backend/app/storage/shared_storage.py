@@ -32,6 +32,9 @@ class SharedStorage:
         async with aiofiles.open(full_path, 'wb') as f:
             await f.write(file_content)
 
+    def file_exists(self, file_path: str):
+        return (self.base_path / file_path).exists()
+
     async def get_file(self, file_path: str):
         async with aiofiles.open(self.base_path / file_path, 'rb') as f:
             return await f.read()
@@ -87,11 +90,34 @@ class SharedStorage:
     async def unzip_file(self, file_path: str):
         try:   
             with zipfile.ZipFile(self.base_path / file_path, 'r') as zip_ref:
-                folder_path = self.base_path / file_path.replace('.zip', '')
+                # Create a unique folder name to avoid conflicts
+                base_folder_name = file_path.replace('.zip', '').replace('.ZIP', '')
+                folder_path = self.base_path / base_folder_name
+                
+                # If the folder already exists, remove it first to avoid conflicts
+                if folder_path.exists():
+                    shutil.rmtree(folder_path)
+                
+                # Create the directory
                 folder_path.mkdir(parents=True, exist_ok=True)
+                
+                # Extract all files
                 zip_ref.extractall(folder_path)
+                
+                # Delete the original zip file
                 await self.delete_file(file_path)
-                final_path = f"{file_path.replace('.zip', '')}/{zip_ref.namelist()[0]}"
+                
+                # Always return the extraction folder path since we want to point to the folder containing the extracted content
+                # This ensures we're always returning a directory path, not a file path
+                # Skip __MACOSX folder that Mac zip files often contain
+                for item in folder_path.iterdir():
+                    if item.is_dir() and item.name != "__MACOSX":
+                        final_path = item
+                        break
+                else:
+                    # If no non-__MACOSX directory found, use the extraction folder itself
+                    final_path = folder_path
+                    
         except Exception as e:
             raise Exception(f"Failed to unzip file: {str(e)}")
 

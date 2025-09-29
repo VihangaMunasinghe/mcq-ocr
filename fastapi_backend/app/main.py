@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import logging
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import files_router, templates_router, users_router, marking_router, generator_router
@@ -7,6 +9,11 @@ from app.config import get_settings
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
 
 settings = get_settings()
+
+handlers=[
+        logging.StreamHandler(sys.stdout)  # Send logs to stdout
+    ]
+logging.basicConfig(level=logging.INFO, handlers=handlers)
 
 
 @asynccontextmanager

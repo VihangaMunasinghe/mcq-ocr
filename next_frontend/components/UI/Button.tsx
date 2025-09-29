@@ -93,10 +93,12 @@ export function Button({
         </svg>
       )}
       {icon && iconPosition === "left" && !isLoading && (
-        <span className="mr-2">{icon}</span>
+        <span className={children ? "mr-2" : ""}>{icon}</span>
       )}
       {children}
-      {icon && iconPosition === "right" && <span className="ml-2">{icon}</span>}
+      {icon && iconPosition === "right" && (
+        <span className={children ? "ml-2" : ""}>{icon}</span>
+      )}
     </button>
   );
 }
