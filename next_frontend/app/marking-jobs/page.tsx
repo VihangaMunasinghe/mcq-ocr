@@ -56,7 +56,7 @@ export default function MarkingJobs() {
 
   const handleViewResults = (job: MarkingJobBasic) => {
     setSelectedJobData(job);
-    router.push(`/marking-jobs/results?markingJobId=${job.id}`);
+    router.push(`/marking-jobs/results/${job.id}`);
   };
 
   const handleDownloadResults = (format: "csv" | "pdf") => {

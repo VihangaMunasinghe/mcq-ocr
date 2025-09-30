@@ -86,6 +86,7 @@ class MarkingJob(BaseModel):
     marking_scheme = relationship("FileOrFolder", foreign_keys=[marking_scheme_id])
     marking_config = relationship("FileOrFolder", foreign_keys=[marking_config_id])
     answer_sheets_folder = relationship("FileOrFolder", foreign_keys=[answer_sheets_folder_id])
+    result_sheet_file = relationship("FileOrFolder", foreign_keys=[result_sheet_file_id])
     def __repr__(self):
         return f"<MarkingJob(id={self.id}, name='{self.name}', status='{self.status}')>"
     

@@ -14,6 +14,7 @@ class MarkingResponse(BaseModel):
     marking_scheme_id: Optional[int] = None
     marking_config_id: Optional[int] = None
     answer_sheets_folder_id: Optional[int] = None
+    result_sheet_file_id: Optional[int] = None
     save_intermediate_results: bool
     total_answer_sheets: Optional[int] = None
     processed_answer_sheets: Optional[int] = None
@@ -36,6 +37,13 @@ class MarkingResponseBasic(BaseModel):
     created_at: datetime
     updated_at: datetime
     created_by: int
+
+class ResultsData(MarkingResponseBasic):
+    marking_config_id: int
+    result_sheet_file_id: int
+    processing_started_at: datetime
+    processing_completed_at: datetime
+
 
 class MarkingCreateMetadata(BaseModel):
     name: str
