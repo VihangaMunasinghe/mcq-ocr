@@ -2,7 +2,7 @@ import React from "react";
 import { Select } from "../../../components/UI/Select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClipboardCheck } from "@fortawesome/free-solid-svg-icons";
-import { StatusFilterOption } from "./types";
+import { StatusFilterOption } from "../types/types";
 
 interface FiltersSectionProps {
   totalJobs: number;

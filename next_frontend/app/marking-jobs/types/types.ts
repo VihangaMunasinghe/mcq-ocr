@@ -58,6 +58,71 @@ export interface Step {
 }
 export interface Bubble {
   marked: boolean;
-  x: number;
-  y: number;
+  coordinates: [number, number];
+}
+
+export interface StudentResult {
+  row_number: number;
+  index_number: string;
+  correct: number;
+  incorrect: number;
+  more_than_one_marked: number;
+  not_marked: number;
+  columnwise_total: number[];
+  score: number;
+  flag: boolean;
+  flag_reason: string;
+  answer_sheet_path?: string;
+  labeled_points?: Bubble[][];
+}
+
+export interface JobInfo {
+  id: number;
+  name: string;
+  template_name: string;
+  priority: string;
+  status: string;
+  marking_config_id: number;
+  result_sheet_file_id: number;
+  created_at: string;
+  updated_at: string;
+  processing_started_at?: string;
+  processing_completed_at?: string;
+}
+
+export interface ResultsData {
+  job_info: JobInfo;
+  marking_scheme: Bubble[][];
+  results: StudentResult[];
+  total_answer_sheets: number;
+  processed_answer_sheets: number;
+  failed_answer_sheets: number;
+}
+
+export interface MarkingJobBasic {
+  id: number;
+  name: string;
+  status: MarkingJobStatus;
+  priority: string;
+  template_name: string;
+  created_at: string;
+  updated_at: string;
+  created_by: number;
+
+  completed: number;
+  total: number;
+}
+
+export interface ReviewQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  markedAnswer: string;
+  suggestedAnswer: string;
+  issue: string;
+}
+
+export interface StatusFilterOption {
+  value: string;
+  label: string;
 }

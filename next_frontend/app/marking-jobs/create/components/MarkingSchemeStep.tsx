@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faCog } from "@fortawesome/free-solid-svg-icons";
@@ -6,8 +6,9 @@ import { FileUpload } from "../../../../components/UI/FileUpload";
 import { Card } from "../../../../components/UI/Card";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
-import { Bubble, MarkingJobStatus } from "./types";
-import AnswersCorrectionModal from "@/components/UI/AnswersCorrectionModal";
+import { Bubble, MarkingJob, MarkingJobStatus } from "../../types/types";
+import AnswersCorrectionModal from "@/app/marking-jobs/create/components/MarkingSchemeCorrectionModal";
+import { convertBubbleDataToMarkingSchemeConfig, getMarkingSchemeBubbleData } from "../../utils";
 
 interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
@@ -22,6 +23,7 @@ export function MarkingSchemeStep({
 }: MarkingSchemeStepProps) {
   const [markingJob, setMarkingJob] = useCreateMarking();
   const { showToast } = useToast();
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>("");
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [isAnswersCorrectionModalOpen, setIsAnswersCorrectionModalOpen] =
     useState(false);
@@ -35,6 +37,15 @@ export function MarkingSchemeStep({
 
   const BACKEND_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+  useEffect(() => {
+    const imageUrl = markingJob.marking_scheme_id
+      ? `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingJob.marking_scheme_id}`
+      : markingSchemeFile
+      ? URL.createObjectURL(markingSchemeFile)
+      : "";
+    setPreviewImageUrl(imageUrl);
+  }, [markingJob.marking_scheme_id, markingSchemeFile, BACKEND_URL]);
 
   const handleMarkingSchemeUploadAndConfigure = async () => {
     if (!markingJob.id || !markingSchemeFile) {
@@ -59,14 +70,14 @@ export function MarkingSchemeStep({
       }
 
       const uploadData = await uploadResponse.json();
-      setMarkingJob((prev) => ({
+      setMarkingJob((prev: MarkingJob) => ({
         ...prev,
         marking_scheme_id: uploadData.id,
       }));
       console.log("Marking scheme file uploaded successfully:", uploadData);
       showToast("Marking scheme file uploaded successfully", "success");
 
-      configureMarkingSchemeViaWebSocket(markingJob.id, uploadData.file_id);
+      _configureMarkingSchemeViaWebSocket(markingJob.id, uploadData.file_id);
     } catch (err) {
       console.error("Error uploading/configuring marking scheme:", err);
       showToast(
@@ -80,7 +91,7 @@ export function MarkingSchemeStep({
     }
   };
 
-  const configureMarkingSchemeViaWebSocket = (
+  const _configureMarkingSchemeViaWebSocket = (
     markingJobId: number,
     markingSchemeId: number
   ): Promise<void> => {
@@ -171,72 +182,6 @@ export function MarkingSchemeStep({
     });
   };
 
-  const _getMarkingSchemeBubbleData = async () => {
-    const markingSchemeConfig = await fetch(
-      `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingJob.marking_config_id}`
-    );
-    const markingSchemeConfigDataJson = await markingSchemeConfig.json();
-    console.log("Marking scheme config data:", markingSchemeConfigDataJson);
-    if (!markingSchemeConfigDataJson["answers_with_coordinates"]) {
-      showToast("Missing marking scheme bubble data", "error");
-    }
-    const answersWithCoordinates =
-      markingSchemeConfigDataJson["answers_with_coordinates"];
-    const bubbleData: Bubble[][] = [];
-    const numQuestions = markingSchemeConfigDataJson["num_questions"];
-    const numOptionsPerQuestion =
-      markingSchemeConfigDataJson["options_per_question"];
-    for (let questionIndex = 0; questionIndex < numQuestions; questionIndex++) {
-      bubbleData.push([]);
-      for (
-        let optionIndex = 0;
-        optionIndex < numOptionsPerQuestion;
-        optionIndex++
-      ) {
-        const bubble =
-          answersWithCoordinates[
-            questionIndex * numOptionsPerQuestion + optionIndex
-          ];
-        bubbleData[questionIndex].push({
-          marked: bubble[0],
-          x: bubble[1][0],
-          y: bubble[1][1],
-        });
-      }
-    }
-    return bubbleData;
-  };
-
-  const _convertBubbleDataToMarkingSchemeConfig = (bubbleData: Bubble[][]) => {
-    const answersWithCoordinates: [boolean, [number, number]][] = [];
-
-    // Flatten the 2D bubble data back to the original format
-    for (
-      let questionIndex = 0;
-      questionIndex < bubbleData.length;
-      questionIndex++
-    ) {
-      for (
-        let optionIndex = 0;
-        optionIndex < bubbleData[questionIndex].length;
-        optionIndex++
-      ) {
-        const bubble = bubbleData[questionIndex][optionIndex];
-        answersWithCoordinates.push([bubble.marked, [bubble.x, bubble.y]]);
-      }
-    }
-
-    // Calculate metadata
-    const numQuestions = bubbleData.length;
-    const numOptionsPerQuestion =
-      bubbleData.length > 0 ? bubbleData[0].length : 0;
-
-    return {
-      answers_with_coordinates: answersWithCoordinates,
-      num_questions: numQuestions,
-      options_per_question: numOptionsPerQuestion,
-    };
-  };
 
   const handleMarkingSchemeVerify = async () => {
     if (!markingJob.marking_config_id || !markingJob.marking_scheme_id) {
@@ -250,12 +195,11 @@ export function MarkingSchemeStep({
       showToast("Missing marking scheme image URL", "error");
       return;
     }
-    const bubbleData = await _getMarkingSchemeBubbleData();
+    const bubbleData = await getMarkingSchemeBubbleData(markingJob.marking_config_id);
     if (!Array.isArray(bubbleData)) {
       showToast("Failed to load marking scheme bubble data", "error");
       return;
     }
-    
 
     // Small delay to ensure the modal is opened
     setTimeout(() => {
@@ -273,12 +217,12 @@ export function MarkingSchemeStep({
   ) => {
     try {
       if (!isUpdated) {
-        showToast("No changes made to marking scheme configuration", "success");
+        showToast("No changes made to marking scheme configuration", "info");
         return;
       }
       // Convert bubble data back to marking scheme config format
       const markingSchemeConfig =
-        _convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
+        convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
 
       // Send to backend
       const response = await fetch(
@@ -434,11 +378,11 @@ export function MarkingSchemeStep({
               className="h-fit"
             >
               <div className="space-y-6">
-                {markingSchemeFile ? (
+                {previewImageUrl !== "" ? (
                   <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                     <div className="relative flex justify-center items-center">
                       <Image
-                        src={URL.createObjectURL(markingSchemeFile)}
+                        src={previewImageUrl}
                         alt="Marking Scheme Preview"
                         width={400}
                         height={500}
@@ -476,29 +420,30 @@ export function MarkingSchemeStep({
             </Card>
 
             {/* Configure Button - Below Preview */}
-            {markingSchemeFile && markingJob.id && (
-              <div className="flex justify-between px-10">
-                <button
-                  onClick={handleMarkingSchemeUploadAndConfigure}
-                  disabled={isConfiguring}
-                  className="inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FontAwesomeIcon icon={faCog} className="mr-2 h-4 w-4" />
-                  {isConfiguring ? "Configuring..." : "Configure"}
-                </button>
-                <button
-                  onClick={handleMarkingSchemeVerify}
-                  disabled={
-                    markingJob.status !==
-                    MarkingJobStatus.MARKING_SCHEME_CONFIGURED
-                  }
-                  className="inline-flex items-center px-8 py-3 border border-green-600 text-sm font-medium rounded-md shadow-sm text-green-600 bg-transparent hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FontAwesomeIcon icon={faCheck} className="mr-2 h-4 w-4" />
-                  {isConfiguring ? "Verifying..." : "Verify"}
-                </button>
-              </div>
-            )}
+            {(markingJob.marking_scheme_id || markingSchemeFile) &&
+              markingJob.id && (
+                <div className="flex justify-between px-10">
+                  <button
+                    onClick={handleMarkingSchemeUploadAndConfigure}
+                    disabled={isConfiguring}
+                    className="inline-flex items-center px-8 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FontAwesomeIcon icon={faCog} className="mr-2 h-4 w-4" />
+                    {isConfiguring ? "Configuring..." : "Configure"}
+                  </button>
+                  <button
+                    onClick={handleMarkingSchemeVerify}
+                    disabled={
+                      markingJob.status !==
+                      MarkingJobStatus.MARKING_SCHEME_CONFIGURED
+                    }
+                    className="inline-flex items-center px-8 py-3 border border-green-600 text-sm font-medium rounded-md shadow-sm text-green-600 bg-transparent hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FontAwesomeIcon icon={faCheck} className="mr-2 h-4 w-4" />
+                    {isConfiguring ? "Verifying..." : "Verify"}
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       </div>

@@ -4,24 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
-import {
-  PageHeader,
-  DescriptionCard,
-  FiltersSection,
-  JobsTable,
-  ResultsModal,
-} from "./components";
-import { MarkingJobBasic } from "./components/types";
+
+import { MarkingJobBasic } from "./types/types";
+import { PageHeader } from "./components/PageHeader";
+import { JobsTable } from "./components/JobsTable";
+import { FiltersSection } from "./components/FiltersSection";
+import { DescriptionCard } from "./components/DescriptionCard";
 
 export default function MarkingJobs() {
   const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedJobData, setSelectedJobData] = useState<MarkingJobBasic | null>(
-    null
-  );
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [loading, setLoading] = useState(true);
@@ -55,20 +49,10 @@ export default function MarkingJobs() {
   };
 
   const handleViewResults = (job: MarkingJobBasic) => {
-    setSelectedJobData(job);
     router.push(`/marking-jobs/results/${job.id}`);
   };
 
-  const handleDownloadResults = (format: "csv" | "pdf") => {
-    console.log(
-      `Downloading results in ${format} format for job:`,
-      selectedJobData?.id
-    );
-    showToast(
-      `Results downloaded successfully in ${format.toUpperCase()} format`,
-      "success"
-    );
-  };
+
 
   useEffect(() => {
     const fetchMarkingJobs = async () => {
@@ -109,13 +93,6 @@ export default function MarkingJobs() {
         message="Are you sure you want to delete this marking job? This action cannot be undone."
         confirmText="Delete"
         type="warning"
-      />
-
-      <ResultsModal
-        isOpen={isResultModalOpen}
-        onClose={() => setIsResultModalOpen(false)}
-        job={selectedJobData}
-        onDownloadResults={handleDownloadResults}
       />
     </>
   );

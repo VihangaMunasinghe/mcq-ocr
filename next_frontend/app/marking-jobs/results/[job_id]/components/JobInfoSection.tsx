@@ -6,9 +6,8 @@ import {
   faFlag,
   faChartLine,
 } from "@fortawesome/free-solid-svg-icons";
-import { StatusBadge } from "../../../components/StatusBadge";
-import { JobInfo } from "../../types";
-import { MarkingJobStatus } from "@/app/marking-jobs/create/components/types";
+import { StatusBadge } from "@/app/marking-jobs/components/StatusBadge";
+import { JobInfo, MarkingJobStatus } from "@/app/marking-jobs/types/types";
 
 interface JobInfoSectionProps {
   jobInfo: JobInfo;
@@ -79,45 +78,8 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
           </div>
         </div>
 
-        {/* Progress Info */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Progress
-          </h3>
-          <div className="space-y-2">
-            <div>
-              <span className="text-sm text-gray-500">Total Papers:</span>
-              <p className="text-sm font-medium text-gray-900">
-                {jobInfo.total}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Completed:</span>
-              <p className="text-sm font-medium text-gray-900">
-                {jobInfo.completed}
-              </p>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Progress:</span>
-              <div className="flex items-center mt-1">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{
-                      width: `${(jobInfo.completed / jobInfo.total) * 100}%`,
-                    }}
-                  />
-                </div>
-                <span className="ml-2 text-sm text-gray-600">
-                  {Math.round((jobInfo.completed / jobInfo.total) * 100)}%
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Timing Info */}
-        <div className="space-y-4">
+        <div className="space-y-4 ">
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
             Timing
           </h3>
@@ -150,6 +112,14 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+        {/* Duration Info */}
+        <div className="space-y-4 ">
+          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+            Duration
+          </h3>
+          <div className="space-y-2">
             <div>
               <span className="text-sm text-gray-500 flex items-center">
                 <FontAwesomeIcon icon={faChartLine} className="h-3 w-3 mr-1" />

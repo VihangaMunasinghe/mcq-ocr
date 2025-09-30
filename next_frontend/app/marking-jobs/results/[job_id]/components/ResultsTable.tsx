@@ -5,9 +5,9 @@ import {
   faFlag,
   faExclamationTriangle,
 } from "@fortawesome/free-solid-svg-icons";
-import { Table, TableColumn } from "../../../../../components/UI/Table";
-import { Button } from "../../../../../components/UI/Button";
-import { StudentResult } from "../../types";
+import { Table, TableColumn } from "@/components/UI/Table";
+import { Button } from "@/components/UI/Button";
+import { StudentResult } from "@/app/marking-jobs/types/types";
 
 interface ResultsTableProps {
   results: StudentResult[];

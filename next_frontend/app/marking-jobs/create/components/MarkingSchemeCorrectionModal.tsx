@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import { Button } from "./Button";
-
-interface BubbleData {
-  marked: boolean;
-  x: number;
-  y: number;
-}
+import { Button } from "../../../../components/UI/Button";
+import { AnswerSheetViewer } from "../../../../components/UI/AnswerSheetViewer";
+import { Bubble } from "../../types/types";
 
 interface AnswersCorrectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   imageUrl: string;
-  bubbleData: BubbleData[][];
+  bubbleData: Bubble[][];
   confirmText?: string;
-  onConfirm?: (isUpdated: boolean, updatedBubbleData: BubbleData[][]) => void;
+  onConfirm?: (isUpdated: boolean, updatedBubbleData: Bubble[][]) => void;
 }
 
 const AnswersCorrectionModal = ({
@@ -26,7 +21,7 @@ const AnswersCorrectionModal = ({
   onConfirm: onConfirm,
 }: AnswersCorrectionModalProps) => {
   const [localBubbleData, setLocalBubbleData] =
-    useState<BubbleData[][]>(bubbleData);
+    useState<Bubble[][]>(bubbleData);
   const [showAllBubbles, setShowAllBubbles] = useState(true);
 
   const handleBubbleToggle = (questionIndex: number, optionIndex: number) => {
@@ -38,15 +33,26 @@ const AnswersCorrectionModal = ({
 
   const handleSave = () => {
     let isUpdated = false;
-    for (let questionIndex = 0; questionIndex < localBubbleData.length; questionIndex++) {
-      for (let optionIndex = 0; optionIndex < localBubbleData[questionIndex].length; optionIndex++) {
-        if (localBubbleData[questionIndex][optionIndex].marked !== bubbleData[questionIndex][optionIndex].marked) {
+    for (
+      let questionIndex = 0;
+      questionIndex < localBubbleData.length;
+      questionIndex++
+    ) {
+      for (
+        let optionIndex = 0;
+        optionIndex < localBubbleData[questionIndex].length;
+        optionIndex++
+      ) {
+        if (
+          localBubbleData[questionIndex][optionIndex].marked !==
+          bubbleData[questionIndex][optionIndex].marked
+        ) {
           isUpdated = true;
           break;
         }
       }
     }
-    onConfirm?.(isUpdated, localBubbleData);  
+    onConfirm?.(isUpdated, localBubbleData);
     onClose();
   };
 
@@ -140,73 +146,16 @@ const AnswersCorrectionModal = ({
           className="p-4 overflow-auto"
           style={{ maxHeight: "calc(100vh - 200px)" }}
         >
-          <div className="flex justify-center">
-            <div
-              className="relative bg-gray-100 border border-gray-200 rounded-lg overflow-hidden"
-              style={{ width: "1200px", height: "1600px" }}
-            >
-              {/* Background Image */}
-              <Image
-                src={imageUrl}
-                alt="Answer sheet"
-                width={1200}
-                height={1600}
-                className="w-full h-full"
-                draggable={false}
-                unoptimized
-                priority
-              />
-
-              {/* Positioned Checkboxes */}
-              {showAllBubbles &&
-                localBubbleData.map((question, questionIndex) =>
-                  question.map((bubble, optionIndex) => (
-                    <div
-                      key={`${questionIndex}-${optionIndex}`}
-                      className="absolute z-10 cursor-pointer"
-                      style={{
-                        left: `${bubble.x - 10}px`,
-                        top: `${bubble.y - 10}px`,
-                        width: "15px",
-                        height: "15px",
-                      }}
-                      onClick={() =>
-                        handleBubbleToggle(questionIndex, optionIndex)
-                      }
-                    >
-                      {/* Visible circle background */}
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
-                          bubble.marked
-                            ? "bg-green-600 border-green-600 scale-110"
-                            : "bg-transparent text-transparent border-green-700 hover:border-green-500 hover:scale-105"
-                        }`}
-                      >
-                        {/* Checkmark when selected */}
-                        {bubble.marked && (
-                          <svg
-                            className="w-4 h-4 text-white"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-
-                      {/* Debug info - remove in production */}
-                      <div className="absolute -bottom-6 left-0 text-xs bg-black/70 text-white px-1 rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                        Q{questionIndex + 1}-{optionIndex + 1}
-                      </div>
-                    </div>
-                  ))
-                )}
-            </div>
-          </div>
+          <AnswerSheetViewer
+            imageUrl={imageUrl}
+            bubbleData={localBubbleData}
+            onBubbleToggle={handleBubbleToggle}
+            showBubbles={showAllBubbles}
+            isInteractive={true}
+            width={1200}
+            height={1600}
+            isMarkingScheme={true}
+          />
         </div>
 
         {/* Footer */}

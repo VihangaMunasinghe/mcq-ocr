@@ -10,7 +10,7 @@ import {
   faBan,
   faClipboardCheck,
 } from "@fortawesome/free-solid-svg-icons";
-import { MarkingJobStatus } from "../create/components/types";
+import { MarkingJobStatus } from "../types/types";
 
 interface StatusBadgeProps {
   status: MarkingJobStatus;

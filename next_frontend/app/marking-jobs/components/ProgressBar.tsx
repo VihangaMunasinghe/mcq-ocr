@@ -1,6 +1,5 @@
 import React from "react";
-import { MarkingJobBasic } from "./types";
-import { MarkingJobStatus } from "../create/components/types";
+import { MarkingJobBasic, MarkingJobStatus } from "../types/types";
 
 interface ProgressBarProps {
   job: MarkingJobBasic;

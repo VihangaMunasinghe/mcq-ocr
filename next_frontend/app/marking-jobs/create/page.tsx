@@ -11,19 +11,16 @@ import {
   faPlay,
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
-import {
-  ProgressSteps,
-  MetadataStep,
-  MarkingSchemeStep,
-  AnswerSheetsStep,
-  MarkingJobForm,
-  Step,
-  NavigationButtons,
-} from "./components";
 import CreateMarkingProvider, {
   useCreateMarking,
 } from "@/hooks/useCreateMarking";
 import { useRouter } from "next/navigation";
+import { MarkingJobForm, Step } from "../types/types";
+import { MetadataStep } from "./components/MetadataStep";
+import { MarkingSchemeStep } from "./components/MarkingSchemeStep";
+import { AnswerSheetsStep } from "./components/AnswerSheetsStep";
+import { ProgressSteps } from "./components/ProgressSteps";
+import { NavigationButtons } from "./components/NavigationButtons";
 
 const steps: Step[] = [
   {
