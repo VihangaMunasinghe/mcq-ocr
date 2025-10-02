@@ -7,8 +7,7 @@ import {
   faStop,
   faEdit,
 } from "@fortawesome/free-solid-svg-icons";
-import { MarkingJobBasic } from "./types";
-import { MarkingJobStatus } from "../create/components/types";
+import { MarkingJobBasic, MarkingJobStatus } from "../types/types";
 
 interface JobActionsProps {
   job: MarkingJobBasic;

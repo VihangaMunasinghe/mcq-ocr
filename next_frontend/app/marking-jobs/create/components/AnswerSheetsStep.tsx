@@ -5,6 +5,7 @@ import { FileUpload } from "../../../../components/UI/FileUpload";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
 import { useRouter } from "next/navigation";
+import { MarkingJob } from "../../types/types";
 
 interface AnswerSheetsStepProps {
   answerSheetsFile: File | null;
@@ -53,7 +54,7 @@ export function AnswerSheetsStep({
       }
 
       const uploadData = await uploadResponse.json();
-      setMarkingJob((prev) => ({ ...prev, answer_sheets_folder_id: uploadData.file_id }));
+      setMarkingJob((prev: MarkingJob) => ({ ...prev, answer_sheets_folder_id: uploadData.file_id }));
 
       // Attach answer sheets to marking job
       const attachResponse = await fetch(

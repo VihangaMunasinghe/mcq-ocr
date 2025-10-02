@@ -690,6 +690,47 @@ class MarkingJobResultConsumer:
                             if 'results_summary' in result_data['result']:
                                 job.results_summary = result_data['result']['results_summary']
                             
+                            if 'processing_started_at' in result_data['result']:
+                                job.processing_started_at = result_data['result']['processing_started_at']
+                            
+                            if 'processing_completed_at' in result_data['result']:
+                                job.processing_completed_at = result_data['result']['processing_completed_at']
+                            
+                            if 'output_path' in result_data['result']:
+                                output_path = result_data['result']['output_path']
+                                job.result_sheet_file_path = output_path
+                                
+                                # Create FileOrFolder record for the result sheet
+                                result_file_name = output_path.split('/')[-1]  # Extract filename from path
+                                
+                                # Check if file already exists in database
+                                existing_file = await db.execute(
+                                    select(FileOrFolder).where(FileOrFolder.path == output_path)
+                                )
+                                existing_file_record = existing_file.scalar_one_or_none()
+                                
+                                if not existing_file_record:
+                                    # Create new file record
+                                    result_file_record = FileOrFolder(
+                                        name=result_file_name,
+                                        original_name=result_file_name,
+                                        path=output_path,
+                                        extension="xlsx",
+                                        size=0,  # Will be updated when file is accessed
+                                        file_type=FileOrFolderType.RESULT,
+                                        status=FileOrFolderStatus.UPLOADED,
+                                        created_by=job.created_by
+                                    )
+                                    
+                                    db.add(result_file_record)
+                                    await db.flush()  # Get the ID without committing
+                                    job.result_sheet_file_id = result_file_record.id
+                                    logger.info(f"Created file record {result_file_record.id} for result sheet: {output_path}")
+                                else:
+                                    job.result_sheet_file_id = existing_file_record.id
+                                    logger.info(f"Using existing file record {existing_file_record.id} for result sheet: {output_path}")
+                            
+                            
                             logger.info(f"Marking job {job_id} completed successfully")
                             
                         else:
