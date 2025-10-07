@@ -94,10 +94,16 @@ const ResultsPage = () => {
   };
 
   const handelUpdateResult = async (newResult: StudentResult) => {
-    const response = await fetch(`${BACKEND_URL}/api/results/${job_id}/update/${newResult.row_number}`, {
-      method: "PUT",
-      body: JSON.stringify(newResult),
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/api/markings/${job_id}/update-result/${newResult.row_number}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ result: newResult }),
+      }
+    );
     if (!response.ok) {
       showToast("Failed to update result", "error");
       return;

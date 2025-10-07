@@ -68,3 +68,25 @@ class MarkingAttachAnswerSheets(BaseModel):
 
 class UpdateMarkingSchemeConfigRequest(BaseModel):
     marking_scheme_config: dict[str, Any]
+
+class Bubble(BaseModel):
+    marked: bool
+    coordinates: list[float]  # [x, y] coordinates
+
+class StudentResult(BaseModel):
+    row_number: int
+    index_number: str
+    correct: list[int]
+    incorrect: list[int]
+    more_than_one_marked: list[int]
+    not_marked: list[int]
+    columnwise_total: list[int]
+    score: int
+    flag: bool
+    flag_reason: str
+    answer_sheet_path: str
+    labeled_points: list[list[Bubble]]
+
+class UpdateResultRequest(BaseModel):
+    result: StudentResult
+

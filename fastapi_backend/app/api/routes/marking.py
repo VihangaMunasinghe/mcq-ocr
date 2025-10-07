@@ -2,11 +2,13 @@ import uuid
 from fastapi import APIRouter, HTTPException, WebSocket
 from sqlalchemy import select
 import logging
+import io
 
 from sqlalchemy.orm import selectinload
+from openpyxl import load_workbook, Workbook
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
-from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ResultsData
+from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ResultsData, UpdateResultRequest
 from app.schemas.marking import UpdateMarkingSchemeConfigRequest
 from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -510,3 +512,91 @@ async def get_results(
     except Exception as e:
         logger.error(f"Failed to get results for marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get results")
+
+
+@router.put("/{marking_job_id}/update-result/{row_number}", response_model=MarkingResponse)
+async def update_result(
+    marking_job_id: int,
+    row_number: int,
+    request: UpdateResultRequest,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Update a result for a marking job"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).options(selectinload(MarkingJob.result_sheet_file)).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if not marking.result_sheet_file:
+            raise HTTPException(status_code=404, detail="Result sheet file not found")
+        
+        # Update the result in the Excel file
+        result_sheet_file_path = marking.result_sheet_file.path
+        storage = SharedStorage()
+        
+        # Get the current Excel file
+        excel_content = await storage.get_file(result_sheet_file_path)
+        
+        # Load the workbook from bytes
+        workbook = load_workbook(io.BytesIO(excel_content))
+        worksheet = workbook.active
+        
+        # Convert the StudentResult to Excel row format
+        # Assuming the Excel format matches the frontend structure
+        student_result = request.result
+        
+        # Map the student result to Excel columns
+        # Based on the frontend code, the columns are:
+        # [index_number, correct, incorrect, more_than_one_marked, not_marked, columnwise_total, score, flag, flag_reason, answer_sheet_path, labeled_points]
+        
+        # Convert arrays to comma-separated strings for Excel
+        correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else "-"
+        incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else "-"
+        more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else "-"
+        not_marked_str = ",".join(map(str, student_result.not_marked)) if student_result.not_marked else "-"
+        columnwise_total_str = ",".join(map(str, student_result.columnwise_total)) if student_result.columnwise_total else "-"
+        
+        # Convert labeled_points to JSON string
+        labeled_points_json = json.dumps(student_result.labeled_points, default=lambda x: x.dict() if hasattr(x, 'dict') else x)
+        
+        # Update the row (row_number is 1-based in Excel, but we need to account for header row)
+        excel_row = row_number + 1  # +1 because Excel is 1-based and we have a header row
+        
+        worksheet.cell(row=excel_row, column=1, value=student_result.index_number)  # A
+        worksheet.cell(row=excel_row, column=2, value=correct_str)  # B
+        worksheet.cell(row=excel_row, column=3, value=incorrect_str)  # C
+        worksheet.cell(row=excel_row, column=4, value=more_than_one_marked_str)  # D
+        worksheet.cell(row=excel_row, column=5, value=not_marked_str)  # E
+        worksheet.cell(row=excel_row, column=6, value=columnwise_total_str)  # F
+        worksheet.cell(row=excel_row, column=7, value=student_result.score)  # G
+        worksheet.cell(row=excel_row, column=8, value=student_result.flag)  # H
+        worksheet.cell(row=excel_row, column=9, value=student_result.flag_reason)  # I
+        worksheet.cell(row=excel_row, column=10, value=student_result.answer_sheet_path)  # J
+        worksheet.cell(row=excel_row, column=11, value=labeled_points_json)  # K
+        
+        # Save the workbook back to bytes
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        updated_excel_content = output.getvalue()
+        
+        # Save the updated file back to storage
+        await storage.save_file(updated_excel_content, result_sheet_file_path)
+        
+        await db.commit()
+        await db.refresh(marking)
+        return _get_marking_response(marking)   
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update result for marking job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update result")
