@@ -4,6 +4,7 @@ import { Button } from "@/components/UI/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { Bubble, StudentResult } from "@/app/marking-jobs/types/types";
+import { _updateCounts } from "@/app/utils/results";
 
 interface AnswerSheetModalProps {
   isOpen: boolean;
@@ -21,23 +22,63 @@ const AnswerSheetModal = ({
   markingScheme,
 }: AnswerSheetModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [localResult, setLocalResult] = useState<StudentResult>(result);
+  const [localResult, setLocalResult] = useState<StudentResult>(() => {
+    // Initialize with a deep clone to avoid reference issues
+    return {
+      ...result,
+      labeled_points: result.labeled_points?.map((question) =>
+        question.map((bubble) => ({ ...bubble }))
+      ),
+      correct: [...(result.correct || [])],
+      incorrect: [...(result.incorrect || [])],
+      more_than_one_marked: [...(result.more_than_one_marked || [])],
+      not_marked: [...(result.not_marked || [])],
+      columnwise_total: [...(result.columnwise_total || [])],
+    };
+  });
 
   const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+
+  // Update localResult when result prop changes
+  useEffect(() => {
+    const deepClonedResult = {
+      ...result,
+      labeled_points: result.labeled_points?.map((question) =>
+        question.map((bubble) => ({ ...bubble }))
+      ),
+      correct: [...(result.correct || [])],
+      incorrect: [...(result.incorrect || [])],
+      more_than_one_marked: [...(result.more_than_one_marked || [])],
+      not_marked: [...(result.not_marked || [])],
+      columnwise_total: [...(result.columnwise_total || [])],
+    };
+    setLocalResult(deepClonedResult);
+    setIsEditing(false);
+  }, [result]);
 
   const handleEdit = () => {
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    // Here you would typically save the changes to the backend
-    console.log("Saving index number change:", localResult.index_number);
     updateResult(localResult);
     setIsEditing(false);
   };
 
   const handleCancel = useCallback(() => {
-    setLocalResult(result);
+    // Deep clone the result to ensure we reset to the original state
+    const deepClonedResult = {
+      ...result,
+      labeled_points: result.labeled_points?.map((question) =>
+        question.map((bubble) => ({ ...bubble }))
+      ),
+      correct: [...(result.correct || [])],
+      incorrect: [...(result.incorrect || [])],
+      more_than_one_marked: [...(result.more_than_one_marked || [])],
+      not_marked: [...(result.not_marked || [])],
+      columnwise_total: [...(result.columnwise_total || [])],
+    };
+    setLocalResult(deepClonedResult);
     setIsEditing(false);
   }, [result]);
 
@@ -74,11 +115,29 @@ const AnswerSheetModal = ({
     questionIndex: number,
     optionIndex: number
   ): void {
-    const newData = [...(localResult.labeled_points || [])];
-    newData[questionIndex][optionIndex].marked =
-      !newData[questionIndex][optionIndex].marked;
-    
-    setLocalResult({ ...localResult, labeled_points: newData });
+    // Create a deep copy to avoid mutating the original state
+    let newLocalResult = {
+      ...localResult,
+      labeled_points: localResult.labeled_points?.map((question) =>
+        question.map((bubble) => ({ ...bubble }))
+      ),
+      correct: [...(localResult.correct || [])],
+      incorrect: [...(localResult.incorrect || [])],
+      more_than_one_marked: [...(localResult.more_than_one_marked || [])],
+      not_marked: [...(localResult.not_marked || [])],
+      columnwise_total: [...(localResult.columnwise_total || [])],
+    };
+
+    newLocalResult.labeled_points![questionIndex][optionIndex].marked =
+      !newLocalResult.labeled_points![questionIndex][optionIndex].marked;
+
+    newLocalResult = _updateCounts(
+      newLocalResult,
+      questionIndex,
+      markingScheme[questionIndex]
+    );
+
+    setLocalResult(newLocalResult);
   }
 
   return (
@@ -104,7 +163,6 @@ const AnswerSheetModal = ({
               justifyContent: "center",
             }}
             onClick={() => {
-              console.log("Close button clicked in modal");
               onClose();
             }}
             onMouseEnter={(e) => {
@@ -136,7 +194,7 @@ const AnswerSheetModal = ({
                       showBubbles={true}
                       isInteractive={isEditing}
                       width={1200}
-                      height={1600} 
+                      height={1600}
                       isMarkingScheme={false}
                       markingScheme={markingScheme}
                     />
@@ -169,7 +227,12 @@ const AnswerSheetModal = ({
                     <input
                       type="text"
                       value={localResult.index_number}
-                      onChange={(e) => setLocalResult({ ...localResult, index_number: e.target.value })}
+                      onChange={(e) =>
+                        setLocalResult({
+                          ...localResult,
+                          index_number: e.target.value,
+                        })
+                      }
                       disabled={!isEditing}
                       className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         !isEditing ? "bg-gray-50 text-gray-600" : "bg-white"
@@ -215,7 +278,7 @@ const AnswerSheetModal = ({
                         Correct Answers
                       </label>
                       <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.correct}
+                        {localResult.correct.length}
                       </div>
                     </div>
 
@@ -225,7 +288,7 @@ const AnswerSheetModal = ({
                         Incorrect Answers
                       </label>
                       <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.incorrect}
+                        {localResult.incorrect.length}
                       </div>
                     </div>
 
@@ -235,7 +298,7 @@ const AnswerSheetModal = ({
                         Duplicated
                       </label>
                       <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.more_than_one_marked}
+                        {localResult.more_than_one_marked.length}
                       </div>
                     </div>
 
@@ -245,7 +308,7 @@ const AnswerSheetModal = ({
                         Not Marked
                       </label>
                       <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.not_marked}
+                        {localResult.not_marked.length}
                       </div>
                     </div>
                   </div>
@@ -276,10 +339,10 @@ const AnswerSheetModal = ({
                         Total Questions
                       </label>
                       <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.correct +
-                          localResult.incorrect +
-                          localResult.more_than_one_marked +
-                          localResult.not_marked}
+                        {localResult.correct.length +
+                          localResult.incorrect.length +
+                          localResult.more_than_one_marked.length +
+                          localResult.not_marked.length}
                       </div>
                     </div>
                   </div>

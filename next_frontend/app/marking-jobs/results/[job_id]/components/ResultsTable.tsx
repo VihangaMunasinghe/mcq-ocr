@@ -49,7 +49,7 @@ export function ResultsTable({
       header: "Correct",
       accessor: (result: StudentResult) => (
         <span className="text-green-600 font-medium">
-          {result.correct}
+          {result.correct.length}
         </span>
       ),
       sortable: false,
@@ -58,7 +58,7 @@ export function ResultsTable({
       header: "Incorrect",
       accessor: (result: StudentResult) => (
         <span className="text-red-600 font-medium">
-          {result.incorrect}
+          {result.incorrect.length}
         </span>
       ),
       sortable: false,
@@ -67,7 +67,7 @@ export function ResultsTable({
       header: "More than one marked",
       accessor: (result: StudentResult) => (
         <span className="text-orange-600 font-medium">
-          {result.more_than_one_marked}
+          {result.more_than_one_marked.length}
         </span>
       ),
       sortable: false,
@@ -76,7 +76,7 @@ export function ResultsTable({
       header: "Not marked",
       accessor: (result: StudentResult) => (
         <span className="text-yellow-600 font-medium">
-          {result.not_marked}
+          {result.not_marked.length}
         </span>
       ),
       sortable: false,

@@ -8,7 +8,10 @@ import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
 import { Bubble, MarkingJob, MarkingJobStatus } from "../../types/types";
 import AnswersCorrectionModal from "@/app/marking-jobs/create/components/MarkingSchemeCorrectionModal";
-import { convertBubbleDataToMarkingSchemeConfig, getMarkingSchemeBubbleData } from "../../utils";
+import {
+  convertBubbleDataToMarkingSchemeConfig,
+  getMarkingSchemeBubbleData,
+} from "../../../utils/results";
 
 interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
@@ -182,7 +185,6 @@ export function MarkingSchemeStep({
     });
   };
 
-
   const handleMarkingSchemeVerify = async () => {
     if (!markingJob.marking_config_id || !markingJob.marking_scheme_id) {
       showToast("Missing marking config ID or marking scheme ID", "error");
@@ -195,7 +197,9 @@ export function MarkingSchemeStep({
       showToast("Missing marking scheme image URL", "error");
       return;
     }
-    const bubbleData = await getMarkingSchemeBubbleData(markingJob.marking_config_id);
+    const bubbleData = await getMarkingSchemeBubbleData(
+      markingJob.marking_config_id
+    );
     if (!Array.isArray(bubbleData)) {
       showToast("Failed to load marking scheme bubble data", "error");
       return;

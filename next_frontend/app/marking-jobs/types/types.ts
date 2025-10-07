@@ -64,16 +64,16 @@ export interface Bubble {
 export interface StudentResult {
   row_number: number;
   index_number: string;
-  correct: number;
-  incorrect: number;
-  more_than_one_marked: number;
-  not_marked: number;
+  correct: number[];
+  incorrect: number[];
+  more_than_one_marked: number[];
+  not_marked: number[];
   columnwise_total: number[];
   score: number;
   flag: boolean;
   flag_reason: string;
-  answer_sheet_path?: string;
-  labeled_points?: Bubble[][];
+  answer_sheet_path: string;
+  labeled_points: Bubble[][];
 }
 
 export interface JobInfo {
