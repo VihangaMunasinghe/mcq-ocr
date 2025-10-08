@@ -5,9 +5,11 @@ from typing import Callable, Dict, Any, Optional, Union
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic, BasicProperties
-from app.models.template_config_job import TemplateConfigJob
-from app.models.marking_job import MarkingJob
-from app.models.marking_scheme_config_job import MarkingSchemeConfigJob
+
+from app.markingworker.job_processor_interface import JobProcessorInterface
+from app.markingworker.template_config_processor import TemplateConfigProcessor
+from app.markingworker.marking_scheme_config_processor import MarkingSchemeConfigProcessor
+from app.markingworker.marking_job_processor import MarkingJobProcessor
 
 
 # Configure logging
@@ -161,50 +163,27 @@ class MCQMarkingWorker:
         job_data: Dict[str, Any], 
         progress_callback: Optional[Callable] = None
     ) -> Union[Dict[str, Any], bool]:
-        """Process template configuration job and return result"""
-        template_config_job = TemplateConfigJob(job_data)
-        success = template_config_job.configure()
-        
-        if success:
-            return {
-                'template_config_path': template_config_job.template_config_path,
-                'output_image_path': template_config_job.output_image_path,
-                'debug_image_path': template_config_job.debug_image_path,
-                'bubble_config': template_config_job.template_config
-            }
-        else:
-            return False
+        """Process template configuration job using TemplateConfigProcessor"""
+        processor = TemplateConfigProcessor(job_data, progress_callback)
+        return processor.process()
 
     def _process_marking_scheme_config(
         self, 
         job_data: Dict[str, Any], 
         progress_callback: Optional[Callable] = None
     ) -> Union[Dict[str, Any], bool]:
-        """Process marking configuration job and return result"""
-        marking_scheme_config_job = MarkingSchemeConfigJob(job_data)
-        success = marking_scheme_config_job.configure()
-        
-        if success:
-            return {
-                'marking_scheme_path': marking_scheme_config_job.marking_scheme_path,
-                'marking_scheme_config_path': marking_scheme_config_job.marking_scheme_config_path,
-            }
-        else:
-            return False
+        """Process marking scheme configuration job using MarkingSchemeConfigProcessor"""
+        processor = MarkingSchemeConfigProcessor(job_data, progress_callback)
+        return processor.process()
 
     def _process_marking_job(
         self, 
         job_data: Dict[str, Any], 
         progress_callback: Optional[Callable]
     ) -> bool:
-        """Process marking job and return result"""
-        marking_job = MarkingJob(job_data, progress_callback, rabbitmq_url=self.rabbitmq_url)
-        result = marking_job.mark_answers()
-        if result:
-            return True
-        else:
-            logger.error(f"Marking job failed: {job_data['id']}")
-            return False
+        """Process marking job using MarkingJobProcessor"""
+        processor = MarkingJobProcessor(job_data, progress_callback, rabbitmq_url=self.rabbitmq_url)
+        return processor.process()
 
     def process_template_config_job(
         self, 
