@@ -34,6 +34,8 @@ class MarkingResponseBasic(BaseModel):
     status: MarkingJobStatus
     priority: MarkingJobPriority
     template_name: str
+    total_answer_sheets: Optional[int] = None
+    processed_answer_sheets: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     created_by: int
@@ -89,4 +91,13 @@ class StudentResult(BaseModel):
 
 class UpdateResultRequest(BaseModel):
     result: StudentResult
+
+
+class ProgressRequest(BaseModel):
+    marking_job_ids: list[int]
+
+class ProgressResponse(BaseModel):
+    marking_job_id: int
+    progress: float
+
 

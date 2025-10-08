@@ -757,7 +757,10 @@ class MarkingJobResultConsumer:
                             # Try to send WebSocket message (may fail if connection closed)
                             ws = get_websocket_manager()
                             try:
-                                await ws.send_message_to_marking_job(str(job_id), {"status": "completed"})
+                                await ws.send_message_to_marking_job(str(job_id), {
+                                    "status": "completed",
+                                    "marking_job_id": job_id
+                                })
                             except Exception as ws_error:
                                 logger.warning(f"Failed to send WebSocket message for job {job_id}: {ws_error}")
                             
@@ -765,10 +768,17 @@ class MarkingJobResultConsumer:
                             if job.status != MarkingJobStatus.PROCESSING:
                                 job.status = MarkingJobStatus.PROCESSING
                                 await db.commit()
-                            logger.info(f"Marking job {job_id} is processing. Progress: {result_data['result']['progress']}")
+                            logger.info(f"Marking job {job_id} is processing. Progress: {result_data['result']['completed']}/{result_data['result']['total']}")
                             ws = get_websocket_manager()
                             try:
-                                await ws.send_message_to_marking_job(str(job_id), {"status": "processing", "progress": result_data['result']['progress']})
+                                await ws.send_message_to_marking_job(str(job_id), {
+                                    "status": "processing",
+                                    "marking_job_id": job_id,
+                                    "progress": {
+                                        "completed": result_data['result']['completed'],
+                                        "total": result_data['result']['total']
+                                    }
+                                    })
                             except Exception as ws_error:
                                 logger.warning(f"Failed to send WebSocket message for job {job_id}: {ws_error}")
                             

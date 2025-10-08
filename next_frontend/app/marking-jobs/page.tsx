@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
 
-import { MarkingJobBasic } from "./types/types";
+import { MarkingJobBasic, MarkingJobStatus } from "./types/types";
 import { PageHeader } from "./components/PageHeader";
 import { JobsTable } from "./components/JobsTable";
 import { FiltersSection } from "./components/FiltersSection";
@@ -17,7 +17,8 @@ export default function MarkingJobs() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const BACKEND_URL =
+    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [loading, setLoading] = useState(true);
   const [markingJobs, setMarkingJobs] = useState<MarkingJobBasic[]>([]);
   const { showToast } = useToast();
@@ -52,20 +53,84 @@ export default function MarkingJobs() {
     router.push(`/marking-jobs/results/${job.id}`);
   };
 
-  
-
-
   useEffect(() => {
+    const progressWebsocket = (markingJobIds: number[]) => {
+      const websocket = new WebSocket(`${BACKEND_URL}/api/markings/progress`);
+      websocket.onopen = () => {
+        websocket.send(JSON.stringify({ marking_job_ids: markingJobIds }));
+      };
+      websocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.status === "connected") {
+          console.log("WebSocket connection established");
+          return;
+        }
+        if (data.status === "error") {
+          console.error("WebSocket error:", data.message);
+          websocket.close();
+          return;
+        }
+        if (data.status === "processing") {
+          const jobId = data.marking_job_id;
+          const progress = data.progress;
+          console.log("Processing update:", data);
+          setMarkingJobs((prevJobs) =>
+            prevJobs.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    status: MarkingJobStatus.PROCESSING,
+                    processed_answer_sheets: progress.completed,
+                    total_answer_sheets: progress.total,
+                  }
+                : job
+            )
+          );
+        }
+        if (data.status === "completed") {
+          const jobId = data.marking_job_id;
+          console.log("Completed update:", data);
+          setMarkingJobs((prevJobs) =>
+            prevJobs.map((job) =>
+              job.id === jobId
+                ? {
+                    ...job,
+                    status: MarkingJobStatus.COMPLETED,
+                  }
+                : job
+            )
+          );
+        }
+      };
+      websocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        websocket.close();
+      };
+      websocket.onclose = () => {
+        console.log("WebSocket connection closed");
+        websocket.close();
+      };
+    };
+
     const fetchMarkingJobs = async () => {
       setLoading(true);
       const response = await fetch(`${BACKEND_URL}/api/markings`);
       const markingJobs: MarkingJobBasic[] = await response.json();
       setMarkingJobs(markingJobs);
-
+      progressWebsocket(
+        markingJobs
+          .map((job) =>
+            job.status === MarkingJobStatus.PROCESSING ||
+            job.status === MarkingJobStatus.QUEUED
+              ? job.id
+              : null
+          )
+          .filter((id) => id !== null)
+      );
       setLoading(false);
     };
     fetchMarkingJobs();
-  }, []);
+  }, [BACKEND_URL]);
 
   return (
     <>
@@ -79,13 +144,17 @@ export default function MarkingJobs() {
         onStatusFilterChange={setStatusFilter}
       />
 
-      {loading ? <div>Loading...</div> : <JobsTable
-        jobs={filteredJobs}
-        onStopJob={handleStopJob}
-        onEditJob={handleEditJob}
-        onViewResults={handleViewResults}
-        onDeleteJob={confirmDelete}
-      />}
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <JobsTable
+          jobs={filteredJobs}
+          onStopJob={handleStopJob}
+          onEditJob={handleEditJob}
+          onViewResults={handleViewResults}
+          onDeleteJob={confirmDelete}
+        />
+      )}
 
       <VerificationModal
         isOpen={isDeleteModalOpen}

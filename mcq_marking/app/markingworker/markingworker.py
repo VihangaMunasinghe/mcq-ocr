@@ -90,12 +90,14 @@ class MCQMarkingWorker:
         ch: BlockingChannel, 
         properties: Optional[BasicProperties], 
         job_id: Union[int, str], 
-        progress: float, 
+        completed: int, 
+        total: int,
         queue: str
     ) -> None:
         """Send progress to backend"""
         reply_data = self._create_reply_data(job_id, 'processing', {
-            'progress': progress
+            'completed': completed,
+            'total': total
         })
         self._publish_result(ch, properties, queue, reply_data)
 
@@ -209,9 +211,9 @@ class MCQMarkingWorker:
         """Process marking job from RabbitMQ"""
         job_data: Dict[str, Any] = json.loads(body)
 
-        def progress_callback(progress: float):
+        def progress_callback(completed: int, total:int):
             job_id = job_data.get('id', 'unknown')
-            self._send_progress_to_backend(ch, properties, job_id, progress, self.marking_job_results_queue)
+            self._send_progress_to_backend(ch, properties, job_id, completed, total, self.marking_job_results_queue)
             
         processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url)
         self.process_job_with_error_handling(

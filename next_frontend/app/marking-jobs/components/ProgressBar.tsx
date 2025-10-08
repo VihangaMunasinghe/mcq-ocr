@@ -6,8 +6,10 @@ interface ProgressBarProps {
 }
 
 export function ProgressBar({ job }: ProgressBarProps) {
-  let percentage =
-    job.total > 0 ? (job.completed / job.total) * 100 : 0;
+  const total = job.total_answer_sheets ?? 0;
+  const completed = job.processed_answer_sheets ?? 0;
+
+  let percentage = total > 0 ? (completed / total) * 100 : 0;
 
   switch (job.status) {
     case MarkingJobStatus.COMPLETED:
@@ -28,7 +30,7 @@ export function ProgressBar({ job }: ProgressBarProps) {
       percentage = 100;
       break;
   }
-  percentage += (job.total > 0 ? (job.completed / job.total) * (100 - percentage) : 0);
+  percentage += total > 0 ? (completed / total) * (100 - percentage) : 0;
 
   const getProgressBarColor = () => {
     switch (job.status) {
@@ -57,7 +59,11 @@ export function ProgressBar({ job }: ProgressBarProps) {
     <div className="w-full">
       <div className="flex justify-between text-xs mb-1">
         <span>
-          {job.total > 0 && <span>{job.completed} / {job.total}</span>}
+          {total > 0 && (
+            <span>
+              {completed} / {total}
+            </span>
+          )}
         </span>
         <span>{Math.round(percentage)}%</span>
       </div>

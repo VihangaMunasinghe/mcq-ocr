@@ -1,5 +1,6 @@
 from fastapi import WebSocket
 from enum import Enum
+from starlette.websockets import WebSocketState
 
 class WebSocketConnectionType(Enum):
     TEMPLATE_CONFIG = "template_config"
@@ -19,10 +20,21 @@ class WebSocketManager:
         connections[job_id].append(websocket)
         await self._send_message(connections, job_id, {"status": "connected"})
 
+    async def _register(self, connections: dict, job_id: str, websocket: WebSocket):
+        """Register a websocket without accepting it (already accepted)"""
+        if job_id not in connections:
+            connections[job_id] = []
+        connections[job_id].append(websocket)
+
     async def _disconnect(self, connections: dict, job_id: str, websocket: WebSocket):
         if job_id in connections.keys() and websocket in connections[job_id]:
             connections[job_id].remove(websocket)
-        await websocket.close()
+        # Only close if not already closed
+        if websocket.client_state != WebSocketState.DISCONNECTED:
+            try:
+                await websocket.close()
+            except Exception:
+                pass  # Already closed or closing
 
     async def _clean_connections(self, connections: dict, job_id: str):
         if job_id in connections.keys():
@@ -62,6 +74,10 @@ class WebSocketManager:
 
     async def connect_marking_job(self, job_id: str, websocket: WebSocket):
         await self._connect(self.marking_job_connections, job_id, websocket)
+
+    async def register_marking_job(self, job_id: str, websocket: WebSocket):
+        """Register a marking job websocket that's already been accepted"""
+        await self._register(self.marking_job_connections, job_id, websocket)
 
     async def send_message_to_marking_job(self, job_id: str, message: dict):
         await self._send_message(self.marking_job_connections, job_id, message)

@@ -105,12 +105,11 @@ export interface MarkingJobBasic {
   status: MarkingJobStatus;
   priority: string;
   template_name: string;
+  total_answer_sheets?: number;
+  processed_answer_sheets?: number;
   created_at: string;
   updated_at: string;
   created_by: number;
-
-  completed: number;
-  total: number;
 }
 
 export interface ReviewQuestion {

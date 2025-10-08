@@ -1,6 +1,7 @@
 import json
 import time
 from datetime import datetime
+from typing import Callable
 import pika
 import os
 import logging
@@ -18,7 +19,7 @@ INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 
 class MarkingJob:
-    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback=None):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[int,int]=None):
         """
         Initialize a MarkingJob instance.
 
@@ -108,7 +109,7 @@ class MarkingJob:
                 self.add_to_spreadsheet(results)
                 if self.save_intermediate_results:
                     save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
-                #update progress and send the progress to the backend
+                #update progress
                 self.processed_answer_sheets += 1
                 logger.info(f"Saved intermediate results")
             except Exception as e:
@@ -116,7 +117,8 @@ class MarkingJob:
                 logger.error(f"Error: {e}")
                 self.failed_answer_sheets += 1
             finally:
-                self.progress_callback(self.processed_answer_sheets / self.total_answer_sheets)
+                # Send progress to backend
+                self.progress_callback(self.processed_answer_sheets, self.total_answer_sheets)
         logger.info(f"Saving spreadsheet")
         save_spreadsheet(self.output_path, self.spreadsheet_workbook)
         logger.info(f"Saved spreadsheet")

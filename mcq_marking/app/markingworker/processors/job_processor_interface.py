@@ -45,7 +45,7 @@ class JobProcessorInterface(ABC):
         """
         pass
     
-    def report_progress(self, progress: float) -> None:
+    def report_progress(self, completed: int, total: int) -> None:
         """
         Report progress to the backend if callback is available.
         
@@ -53,5 +53,5 @@ class JobProcessorInterface(ABC):
             progress: Progress value between 0 and 1
         """
         if self.progress_callback:
-            self.progress_callback(self.job_id, progress)
+            self.progress_callback(self.job_id, completed, total)
 

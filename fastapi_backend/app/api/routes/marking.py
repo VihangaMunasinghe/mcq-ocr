@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, HTTPException, WebSocket
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 from sqlalchemy import select
 import logging
@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from openpyxl import load_workbook, Workbook
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
-from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ResultsData, UpdateResultRequest
+from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ProgressRequest, ProgressResponse, ResultsData, UpdateResultRequest
 from app.schemas.marking import UpdateMarkingSchemeConfigRequest
 from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,13 +69,11 @@ async def list_markings(
           MarkingResponseBasic(
               id=marking.id,
               name=marking.name,
-              description=marking.description,
               status=marking.status,
               priority=marking.priority,
               template_name=marking.template.name,
-              marking_scheme_id=marking.marking_scheme_id,
-              marking_config_id=marking.marking_config_id,
-              answer_sheets_folder_id=marking.answer_sheets_folder_id,
+              total_answer_sheets=marking.total_answer_sheets,
+              processed_answer_sheets=marking.processed_answer_sheets,
               created_at=marking.created_at,
               updated_at=marking.updated_at,
               created_by=marking.created_by
@@ -85,6 +83,72 @@ async def list_markings(
     except Exception as e:
         logger.error(f"Failed to list markings: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list markings")
+
+
+@router.websocket("/progress")
+async def progress_websocket(
+    websocket: WebSocket,
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get the progress for a marking job"""
+    user_id = 1  # TODO: Get from authentication
+    marking_job_ids = []
+    
+    try:
+        # Accept the WebSocket connection
+        await websocket.accept()
+        
+        # Receive the marking job IDs from the client
+        data = await websocket.receive_json()
+        
+        # Validate the received data
+        if "marking_job_ids" not in data:
+            await websocket.send_json({
+                "status": "error",
+                "message": "Missing marking_job_ids in request data"
+            })
+            await websocket.close()
+            return
+        
+        marking_job_ids = data["marking_job_ids"]
+        
+        # Register to all marking jobs (websocket already accepted)
+        for marking_job_id in marking_job_ids:
+            await websocket_manager.register_marking_job(str(marking_job_id), websocket)
+        
+        # Send connection confirmation
+        await websocket.send_json({
+            "status": "connected",
+            "message": "Connected to progress websocket"
+        })
+        
+        # Keep the connection open to receive progress updates
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected for marking jobs {marking_job_ids}")
+            
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"Failed to connect to progress websocket: {str(e)}")
+        if websocket.client_state == WebSocketState.CONNECTED:
+            try:
+                await websocket.send_json({
+                    "status": "error",
+                    "message": f"Failed to connect to progress websocket: {str(e)}"
+                })
+            except Exception:
+                pass
+    finally:
+        # Disconnect from all marking jobs
+        for marking_job_id in marking_job_ids:
+            try:
+                await websocket_manager.disconnect_marking_job(str(marking_job_id), websocket)
+            except Exception as e:
+                logger.warning(f"Failed to disconnect from marking job {marking_job_id}: {e}")
 
 @router.get("/{marking_job_id}", response_model=MarkingResponse)
 async def get_marking(
@@ -518,6 +582,7 @@ async def get_results(
     except Exception as e:
         logger.error(f"Failed to get results for marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get results")
+
 
 
 @router.put("/{marking_job_id}/update-result/{row_number}", response_model=MarkingResponse)
