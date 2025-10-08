@@ -595,18 +595,32 @@ class MarkingSchemeConfigResultConsumer:
                                 job.marking_config_id = config_file_record.id
                                 job.marking_config_file_path = marking_config_path
                             
+                            # Commit database changes first
+                            await db.commit()
+                            
                             logger.info(f"Marking scheme config job {job_id} completed successfully")
-                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "completed"})
+                            
+                            # Try to send WebSocket message (may fail if connection closed)
+                            try:
+                                await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "completed"})
+                            except Exception as ws_error:
+                                logger.warning(f"Failed to send WebSocket message for job {job_id}: {ws_error}")
                             
                         else:
                             job.status = MarkingJobStatus.FAILED
                             error_message = result_data.get('error_message', 'Unknown error')
                             job.error_message = error_message
                             
+                            # Commit database changes first
+                            await db.commit()
+                            
                             logger.error(f"Marking scheme config job {job_id} failed: {error_message}")
-                            await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "error", "message": error_message})
-                        
-                        await db.commit()
+                            
+                            # Try to send WebSocket message (may fail if connection closed)
+                            try:
+                                await ws.send_message_to_marking_scheme_config(str(job_id), {"status": "error", "message": error_message})
+                            except Exception as ws_error:
+                                logger.warning(f"Failed to send WebSocket error message for job {job_id}: {ws_error}")
                         
                     except Exception as e:
                         logger.error(f"Error processing marking scheme config result for job {job_id}: {e}")

@@ -4,8 +4,8 @@ Handles processing of marking jobs for answer sheets.
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable, Union
-from app.markingworker.job_processor_interface import JobProcessorInterface
+from typing import Dict, Any, Optional, Callable
+from app.markingworker.processors.job_processor_interface import JobProcessorInterface
 from app.models.marking_job import MarkingJob
 
 
@@ -21,7 +21,7 @@ class MarkingJobProcessor(JobProcessorInterface):
     def __init__(
         self, 
         job_data: Dict[str, Any], 
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Callable[[float], None],
         rabbitmq_url: Optional[str] = None
     ):
         """
@@ -70,7 +70,8 @@ class MarkingJobProcessor(JobProcessorInterface):
             self.marking_job = MarkingJob(
                 self.job_data, 
                 self.progress_callback, 
-                rabbitmq_url=self.rabbitmq_url
+                rabbitmq_url=self.rabbitmq_url,
+                progress_callback=self.progress_callback
             )
             result = self.marking_job.mark_answers()
             

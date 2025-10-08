@@ -1,15 +1,15 @@
 import json
 import logging
 from datetime import datetime
-from typing import Callable, Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic, BasicProperties
 
-from app.markingworker.job_processor_interface import JobProcessorInterface
-from app.markingworker.template_config_processor import TemplateConfigProcessor
-from app.markingworker.marking_scheme_config_processor import MarkingSchemeConfigProcessor
-from app.markingworker.marking_job_processor import MarkingJobProcessor
+from app.markingworker.processors.job_processor_interface import JobProcessorInterface
+from app.markingworker.processors.template_config_processor import TemplateConfigProcessor
+from app.markingworker.processors.marking_scheme_config_processor import MarkingSchemeConfigProcessor
+from app.markingworker.processors.marking_job_processor import MarkingJobProcessor
 
 
 # Configure logging
@@ -98,14 +98,6 @@ class MCQMarkingWorker:
             'progress': progress
         })
         self._publish_result(ch, properties, queue, reply_data)
-        
-    def _validate_job_id(self, job_data: Dict[str, Any]) -> Optional[Union[int, str]]:
-        """Validate job ID and return job_id or None if invalid"""
-        job_id: Union[int, str] = job_data.get('id', 'unknown')
-        if job_id == 'unknown':
-            logger.error("Job ID is unknown")
-            return None
-        return job_id
 
     def process_job_with_error_handling(
         self, 
@@ -113,16 +105,27 @@ class MCQMarkingWorker:
         method: Basic.Deliver, 
         properties: BasicProperties, 
         body: bytes, 
-        job_type: str, 
         reply_queue: str, 
-        job_processor: Callable[[Dict[str, Any], Optional[Callable]], Union[Dict[str, Any], bool]]
+        processor: JobProcessorInterface
     ) -> None:
-        """Generic method to process jobs with error handling"""
+        """
+        Generic method to process jobs with error handling using a processor object.
+        
+        Args:
+            ch: RabbitMQ channel
+            method: Delivery method
+            properties: Message properties
+            body: Message body
+            reply_queue: Queue to send results to
+            processor: Job processor object implementing JobProcessorInterface
+        """
         try:
             job_data: Dict[str, Any] = json.loads(body)
-            job_id = self._validate_job_id(job_data)
+            job_id = processor.job_id
+            job_type = processor.__class__.__name__.replace('Processor', '')
             
-            if job_id is None:
+            # Validate job ID
+            if job_id == 'unknown':
                 reply_data = self._create_reply_data('unknown', 'failed', 'Job ID is unknown')
                 self._publish_result(ch, properties, reply_queue, reply_data)
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
@@ -131,15 +134,25 @@ class MCQMarkingWorker:
             
             logger.info(f"Processing {job_type} job: {job_id}")
             
+            # Send initial processing status
             processing_reply_data = self._create_reply_data(job_id, 'processing', {
                 'progress': 0
             })
             self._publish_result(ch, properties, reply_queue, processing_reply_data)
-            # Execute the job-specific processing
-            result = job_processor(job_data, self._send_progress_to_backend)
+            
+            # Validate the job data
+            if not processor.validate():
+                reply_data = self._create_reply_data(job_id, 'failed', 'Job validation failed')
+                self._publish_result(ch, properties, reply_queue, reply_data)
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                logger.error(f"{job_type} job validation failed: {job_id}")
+                return
+            
+            # Execute the job-specific processing using the processor
+            result = processor.process()
 
             if result is False:
-                reply_data = self._create_reply_data(job_id, 'failed', 'Job failed')
+                reply_data = self._create_reply_data(job_id, 'failed', 'Job processing failed')
                 self._publish_result(ch, properties, reply_queue, reply_data)
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 logger.error(f"{job_type} job failed: {job_id}")
@@ -152,39 +165,12 @@ class MCQMarkingWorker:
             ch.basic_ack(delivery_tag=method.delivery_tag)
             
         except Exception as e:
-            logger.error(f"Error processing {job_type} job: {e}")
-            job_id = job_data.get('id', 'unknown') if 'job_data' in locals() else 'unknown'
+            logger.error(f"Error processing job: {e}")
+            job_id = processor.job_id if 'processor' in locals() else 'unknown'
             reply_data = self._create_reply_data(job_id, 'failed', str(e))
             self._publish_result(ch, properties, reply_queue, reply_data)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     
-    def _process_template_config(
-        self, 
-        job_data: Dict[str, Any], 
-        progress_callback: Optional[Callable] = None
-    ) -> Union[Dict[str, Any], bool]:
-        """Process template configuration job using TemplateConfigProcessor"""
-        processor = TemplateConfigProcessor(job_data, progress_callback)
-        return processor.process()
-
-    def _process_marking_scheme_config(
-        self, 
-        job_data: Dict[str, Any], 
-        progress_callback: Optional[Callable] = None
-    ) -> Union[Dict[str, Any], bool]:
-        """Process marking scheme configuration job using MarkingSchemeConfigProcessor"""
-        processor = MarkingSchemeConfigProcessor(job_data, progress_callback)
-        return processor.process()
-
-    def _process_marking_job(
-        self, 
-        job_data: Dict[str, Any], 
-        progress_callback: Optional[Callable]
-    ) -> bool:
-        """Process marking job using MarkingJobProcessor"""
-        processor = MarkingJobProcessor(job_data, progress_callback, rabbitmq_url=self.rabbitmq_url)
-        return processor.process()
-
     def process_template_config_job(
         self, 
         ch: BlockingChannel, 
@@ -193,11 +179,12 @@ class MCQMarkingWorker:
         body: bytes
     ) -> None:
         """Process template configuration job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+        processor = TemplateConfigProcessor(job_data, progress_callback=None)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'template config',
             self.template_config_results_queue,
-            self._process_template_config
+            processor
         )
 
     def process_marking_scheme_config_job(
@@ -207,12 +194,13 @@ class MCQMarkingWorker:
         properties: BasicProperties, 
         body: bytes
     ) -> None:
-        """Process marking configuration job from RabbitMQ"""
+        """Process marking scheme configuration job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+        processor = MarkingSchemeConfigProcessor(job_data, progress_callback=None)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'marking scheme config',
             self.marking_scheme_config_results_queue,
-            self._process_marking_scheme_config
+            processor
         )
     
 
@@ -224,11 +212,17 @@ class MCQMarkingWorker:
         body: bytes
     ) -> None:
         """Process marking job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+
+        def progress_callback(progress: float):
+            job_id = job_data.get('id', 'unknown')
+            self._send_progress_to_backend(ch, properties, job_id, progress, self.marking_job_results_queue)
+            
+        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'marking',
             self.marking_job_results_queue,
-            self._process_marking_job
+            processor
         )
     
     def start_consuming(self) -> None:

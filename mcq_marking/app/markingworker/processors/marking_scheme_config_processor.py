@@ -5,7 +5,7 @@ Handles processing of marking scheme configuration jobs.
 
 import logging
 from typing import Dict, Any, Optional, Callable, Union
-from app.markingworker.job_processor_interface import JobProcessorInterface
+from app.markingworker.processors.job_processor_interface import JobProcessorInterface
 from app.models.marking_scheme_config_job import MarkingSchemeConfigJob
 
 
