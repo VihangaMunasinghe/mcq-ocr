@@ -1,5 +1,6 @@
 import uuid
 from fastapi import APIRouter, HTTPException, WebSocket
+from starlette.websockets import WebSocketState
 from sqlalchemy import select
 import logging
 import io
@@ -288,17 +289,22 @@ async def configure_marking_scheme_websocket(
         logger.error(f"Failed to configure marking job {marking_job_id}: {str(e)}")
         logger.error(f"Exception type: {type(e).__name__}")
         logger.error(f"Exception details: {str(e)}")
-        try:
-            await websocket.send_json({
-                "status": "error",
-                "message": f"Failed to configure marking job: {str(e)}"
-            })
-        except Exception as send_error:
-            logger.error(f"Failed to send error message: {send_error}")
+        
+        # Only try to send error message if WebSocket is still connected
+        if websocket.client_state == WebSocketState.CONNECTED:
+            try:
+                await websocket.send_json({
+                    "status": "error",
+                    "message": f"Failed to configure marking job: {str(e)}"
+                })
+            except Exception as send_error:
+                logger.warning(f"Failed to send error message via WebSocket: {send_error}")
+        
+        # Try to disconnect gracefully
         try:
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
         except Exception as disconnect_error:
-            logger.error(f"Failed to disconnect WebSocket: {disconnect_error}")
+            logger.warning(f"Failed to disconnect WebSocket cleanly: {disconnect_error}")
 
 
 @router.post("/{marking_job_id}/attach-answer-sheets", response_model=MarkingResponse)

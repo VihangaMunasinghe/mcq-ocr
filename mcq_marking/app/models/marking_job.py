@@ -18,7 +18,7 @@ INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 
 class MarkingJob:
-    def __init__(self, data: dict, marking_job_progress=None, rabbitmq_url: str = "amqp://localhost", progress_callback=None):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback=None):
         """
         Initialize a MarkingJob instance.
 
@@ -130,8 +130,8 @@ class MarkingJob:
             'intermediate_results_path': self.intermediate_results_path,
             'output_path': self.output_path,
             'total_answer_sheets': len(self.answer_sheets),
-            'processed_answer_sheets': len(self.answer_sheets),
-            'failed_answer_sheets': 0,
+            'processed_answer_sheets': self.processed_answer_sheets,
+            'failed_answer_sheets': self.failed_answer_sheets,
             'processing_started_at': datetime.fromtimestamp(self.start_time).isoformat(),
             'processing_completed_at': datetime.now().isoformat(),
             'results_summary': None

@@ -15,7 +15,7 @@ import CreateMarkingProvider, {
   useCreateMarking,
 } from "@/hooks/useCreateMarking";
 import { useRouter } from "next/navigation";
-import { MarkingJobForm, Step } from "../types/types";
+import { MarkingJobForm, Step, MarkingJob, JobPriority } from "../types/types";
 import { MetadataStep } from "./components/MetadataStep";
 import { MarkingSchemeStep } from "./components/MarkingSchemeStep";
 import { AnswerSheetsStep } from "./components/AnswerSheetsStep";
@@ -65,19 +65,36 @@ function CreateMarkingJobContent() {
   });
 
   useEffect(() => {
-    async function fetchMarkingJob(markingJobId: number) {
+    async function fetchMarkingJob(jobId: number) {
       setIsLoading(true);
-      const response = await fetch(
-        `${BACKEND_URL}/api/markings/${markingJobId}`
-      );
-      const data = await response.json();
-      setFormData(data);
-      setMarkingJob(data);
-      setIsLoading(false);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/markings/${jobId}`);
+        const data: MarkingJob = await response.json();
+        console.log("Fetched marking job:", data);
+
+        // Map MarkingJob to MarkingJobForm
+        setFormData({
+          name: data.name || "",
+          description: data.description || "",
+          priority: (data.priority as JobPriority) || "normal",
+          template_id: data.template_id?.toString() || "",
+          markingSchemeFile: null, // Files can't be fetched, user needs to re-upload if needed
+          answerSheetsFile: null,
+          save_intermediate_results: data.save_intermediate_results || false,
+        });
+
+        setMarkingJob(data);
+      } catch (error) {
+        console.error("Failed to fetch marking job:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
+
     if (markingJobId) {
       fetchMarkingJob(markingJobId as number);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markingJobId]);
 
   const [errors, setErrors] = useState<

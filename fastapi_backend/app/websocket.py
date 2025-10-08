@@ -71,6 +71,3 @@ class WebSocketManager:
 
     async def clean_marking_job_connections(self, job_id: str):
         await self._clean_connections(self.marking_job_connections, job_id)
-
-    async def send_message_to_marking_job(self, job_id: str, message: dict):
-        await self._send_message(self.marking_job_connections, job_id, message)

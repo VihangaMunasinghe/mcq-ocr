@@ -1,8 +1,3 @@
-"""
-RabbitMQ queue management for MCQ OCR System.
-Handles producers and consumers for template configuration and marking jobs.
-"""
-
 import json
 import asyncio
 import logging
@@ -487,9 +482,14 @@ class TemplateConfigResultConsumer:
                             
                         else:
                             job.status = TemplateConfigStatus.FAILED
-                            error_message = result_data.get('error_message', 'Unknown error')
+                            # Try to get error message from either 'error_message' or 'result' field
+                            error_message = result_data.get('error_message') or result_data.get('result', 'Unknown error')
+                            if isinstance(error_message, dict):
+                                error_message = str(error_message)
+                            job.error_message = error_message
                             
                             logger.error(f"Template config job {job_id} failed: {error_message}")
+                            logger.error(f"Full result data: {result_data}")
                         
                         await db.commit()
                         
@@ -608,13 +608,17 @@ class MarkingSchemeConfigResultConsumer:
                             
                         else:
                             job.status = MarkingJobStatus.FAILED
-                            error_message = result_data.get('error_message', 'Unknown error')
+                            # Try to get error message from either 'error_message' or 'result' field
+                            error_message = result_data.get('error_message') or result_data.get('result', 'Unknown error')
+                            if isinstance(error_message, dict):
+                                error_message = str(error_message)
                             job.error_message = error_message
                             
                             # Commit database changes first
                             await db.commit()
                             
                             logger.error(f"Marking scheme config job {job_id} failed: {error_message}")
+                            logger.error(f"Full result data: {result_data}")
                             
                             # Try to send WebSocket message (may fail if connection closed)
                             try:
@@ -690,70 +694,99 @@ class MarkingJobResultConsumer:
                             job.status = MarkingJobStatus.COMPLETED
                             job.processing_completed_at = datetime.utcnow().isoformat()
                             
-                            # Store processing metrics
-                            if 'total_answer_sheets' in result_data['result']:
-                                job.total_answer_sheets = result_data['result']['total_answer_sheets']
-                            
-                            if 'processed_answer_sheets' in result_data['result']:
-                                job.processed_answer_sheets = result_data['result']['processed_answer_sheets']
-                            
-                            if 'failed_answer_sheets' in result_data['result']:
-                                job.failed_answer_sheets = result_data['result']['failed_answer_sheets']
-                            
-                            # Store results summary
-                            if 'results_summary' in result_data['result']:
-                                job.results_summary = result_data['result']['results_summary']
-                            
-                            if 'processing_started_at' in result_data['result']:
-                                job.processing_started_at = result_data['result']['processing_started_at']
-                            
-                            if 'processing_completed_at' in result_data['result']:
-                                job.processing_completed_at = result_data['result']['processing_completed_at']
-                            
-                            if 'output_path' in result_data['result']:
-                                output_path = result_data['result']['output_path']
-                                job.result_sheet_file_path = output_path
+                            # Only process result details if result is a dictionary (not a boolean)
+                            result = result_data.get('result', {})
+                            if isinstance(result, dict):
+                                # Store processing metrics
+                                if 'total_answer_sheets' in result:
+                                    job.total_answer_sheets = result['total_answer_sheets']
                                 
-                                # Create FileOrFolder record for the result sheet
-                                result_file_name = output_path.split('/')[-1]  # Extract filename from path
+                                if 'processed_answer_sheets' in result:
+                                    job.processed_answer_sheets = result['processed_answer_sheets']
                                 
-                                # Check if file already exists in database
-                                existing_file = await db.execute(
-                                    select(FileOrFolder).where(FileOrFolder.path == output_path)
-                                )
-                                existing_file_record = existing_file.scalar_one_or_none()
+                                if 'failed_answer_sheets' in result:
+                                    job.failed_answer_sheets = result['failed_answer_sheets']
                                 
-                                if not existing_file_record:
-                                    # Create new file record
-                                    result_file_record = FileOrFolder(
-                                        name=result_file_name,
-                                        original_name=result_file_name,
-                                        path=output_path,
-                                        extension="xlsx",
-                                        size=0,  # Will be updated when file is accessed
-                                        file_type=FileOrFolderType.RESULT,
-                                        status=FileOrFolderStatus.UPLOADED,
-                                        created_by=job.created_by
-                                    )
+                                # Store results summary
+                                if 'results_summary' in result:
+                                    job.results_summary = result['results_summary']
+                                
+                                if 'processing_started_at' in result:
+                                    job.processing_started_at = result['processing_started_at']
+                                
+                                if 'processing_completed_at' in result:
+                                    job.processing_completed_at = result['processing_completed_at']
+                                
+                                if 'output_path' in result:
+                                    output_path = result['output_path']
+                                    job.result_sheet_file_path = output_path
                                     
-                                    db.add(result_file_record)
-                                    await db.flush()  # Get the ID without committing
-                                    job.result_sheet_file_id = result_file_record.id
-                                    logger.info(f"Created file record {result_file_record.id} for result sheet: {output_path}")
-                                else:
-                                    job.result_sheet_file_id = existing_file_record.id
-                                    logger.info(f"Using existing file record {existing_file_record.id} for result sheet: {output_path}")
+                                    # Create FileOrFolder record for the result sheet
+                                    result_file_name = output_path.split('/')[-1]  # Extract filename from path
+                                    
+                                    # Check if file already exists in database
+                                    existing_file = await db.execute(
+                                        select(FileOrFolder).where(FileOrFolder.path == output_path)
+                                    )
+                                    existing_file_record = existing_file.scalar_one_or_none()
+                                    
+                                    if not existing_file_record:
+                                        # Create new file record
+                                        result_file_record = FileOrFolder(
+                                            name=result_file_name,
+                                            original_name=result_file_name,
+                                            path=output_path,
+                                            extension="xlsx",
+                                            size=0,  # Will be updated when file is accessed
+                                            file_type=FileOrFolderType.RESULT,
+                                            status=FileOrFolderStatus.UPLOADED,
+                                            created_by=job.created_by
+                                        )
+                                        
+                                        db.add(result_file_record)
+                                        await db.flush()  # Get the ID without committing
+                                        job.result_sheet_file_id = result_file_record.id
+                                        logger.info(f"Created file record {result_file_record.id} for result sheet: {output_path}")
+                                    else:
+                                        job.result_sheet_file_id = existing_file_record.id
+                                        logger.info(f"Using existing file record {existing_file_record.id} for result sheet: {output_path}")
                             
-                            
+                            await db.commit()
                             logger.info(f"Marking job {job_id} completed successfully")
+
+                            # Try to send WebSocket message (may fail if connection closed)
+                            ws = get_websocket_manager()
+                            try:
+                                await ws.send_message_to_marking_job(str(job_id), {"status": "completed"})
+                            except Exception as ws_error:
+                                logger.warning(f"Failed to send WebSocket message for job {job_id}: {ws_error}")
                             
+                        elif result_data.get('status', 'failed') == 'processing':
+                            if job.status != MarkingJobStatus.PROCESSING:
+                                job.status = MarkingJobStatus.PROCESSING
+                                await db.commit()
+                            logger.info(f"Marking job {job_id} is processing. Progress: {result_data['result']['progress']}")
+                            ws = get_websocket_manager()
+                            try:
+                                await ws.send_message_to_marking_job(str(job_id), {"status": "processing", "progress": result_data['result']['progress']})
+                            except Exception as ws_error:
+                                logger.warning(f"Failed to send WebSocket message for job {job_id}: {ws_error}")
+                            
+                            logger.info(f"Marking job {job_id} is processing")
                         else:
                             job.status = MarkingJobStatus.FAILED
-                            error_message = result_data.get('error_message', 'Unknown error')
+                            # Try to get error message from either 'error_message' or 'result' field
+                            error_message = result_data.get('error_message') or result_data.get('result', 'Unknown error')
+                            if isinstance(error_message, dict):
+                                error_message = str(error_message)
+                            job.error_message = error_message
                             
                             logger.error(f"Marking job {job_id} failed: {error_message}")
+                            logger.error(f"Full result data: {result_data}")
+                            
+                            await db.commit()
                         
-                        await db.commit()
+                        
                         
                     except Exception as e:
                         logger.error(f"Error processing marking job result for job {job_id}: {e}")
@@ -832,17 +865,6 @@ async def shutdown_queue_system():
         
     except Exception as e:
         logger.error(f"Error during queue system shutdown: {e}")
-
-
-# # Convenience functions for external use
-# async def submit_template_config_job(job_id: int, db: AsyncSession) -> bool:
-#     """Submit a template configuration job to the queue."""
-#     return await template_config_producer.submit_template_config_job(job_id, db)
-
-
-# async def submit_marking_job(job_id: int, db: AsyncSession) -> bool:
-#     """Submit a marking job to the queue."""
-#     return await marking_job_producer.submit_marking_job(job_id, db)
 
 
 # Helpers for background tasks (manage own session; avoid using request-scoped session)

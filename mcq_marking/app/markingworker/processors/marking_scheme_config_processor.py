@@ -36,12 +36,26 @@ class MarkingSchemeConfigProcessor(JobProcessorInterface):
         Returns:
             True if job data is valid, False otherwise
         """
-        required_fields = ['id', 'marking_scheme_path']
+        # Required fields based on backend to_marking_scheme_config_job_data() structure
+        required_fields = [
+            'id',
+            'name',
+            'template_id',
+            'template_path',
+            'template_config_path',
+            'config_type',
+            'marking_scheme_path',
+            'marking_scheme_config_path'
+        ]
         
+        missing_fields = []
         for field in required_fields:
             if field not in self.job_data:
-                logger.error(f"Missing required field: {field}")
-                return False
+                missing_fields.append(field)
+        
+        if missing_fields:
+            logger.error(f"Missing required fields in marking scheme config job {self.job_id}: {', '.join(missing_fields)}")
+            return False
         
         return True
     

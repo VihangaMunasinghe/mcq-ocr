@@ -63,7 +63,7 @@ class DatabaseSettings(BaseSettings):
     )
     
     database_echo: bool = Field(
-        default=True,
+        default=False,
         env="DATABASE_ECHO"
     )
 

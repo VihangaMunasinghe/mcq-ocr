@@ -52,6 +52,7 @@ export default function MarkingJobs() {
     router.push(`/marking-jobs/results/${job.id}`);
   };
 
+  
 
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function MarkingJobs() {
       const response = await fetch(`${BACKEND_URL}/api/markings`);
       const markingJobs: MarkingJobBasic[] = await response.json();
       setMarkingJobs(markingJobs);
+
       setLoading(false);
     };
     fetchMarkingJobs();

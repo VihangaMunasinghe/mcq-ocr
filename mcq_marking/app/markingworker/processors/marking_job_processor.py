@@ -4,7 +4,7 @@ Handles processing of marking jobs for answer sheets.
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Union
 from app.markingworker.processors.job_processor_interface import JobProcessorInterface
 from app.models.marking_job import MarkingJob
 
@@ -43,21 +43,37 @@ class MarkingJobProcessor(JobProcessorInterface):
         Returns:
             True if job data is valid, False otherwise
         """
-        required_fields = ['id', 'answer_sheets_folder', 'marking_scheme_config_path']
+        # Required fields based on backend to_marking_job_data() structure
+        required_fields = [
+            'id',
+            'name', 
+            'template_path',
+            'template_config_path',
+            'config_type',
+            'marking_scheme_path',
+            'marking_scheme_config_path',
+            'answers_folder_path',
+            'result_sheet_file_path',
+            'save_intermediate_results'
+        ]
         
+        missing_fields = []
         for field in required_fields:
             if field not in self.job_data:
-                logger.error(f"Missing required field: {field}")
-                return False
+                missing_fields.append(field)
+        
+        if missing_fields:
+            logger.error(f"Missing required fields in marking job {self.job_id}: {', '.join(missing_fields)}")
+            return False
         
         return True
     
-    def process(self) -> bool:
+    def process(self) -> Union[Dict[str, Any], bool]:
         """
         Process the marking job.
         
         Returns:
-            True if successful, False otherwise
+            Dictionary with marking results if successful, False otherwise
         """
         try:
             if not self.validate():
@@ -68,8 +84,7 @@ class MarkingJobProcessor(JobProcessorInterface):
             
             # Create and execute the marking job
             self.marking_job = MarkingJob(
-                self.job_data, 
-                self.progress_callback, 
+                self.job_data,
                 rabbitmq_url=self.rabbitmq_url,
                 progress_callback=self.progress_callback
             )
@@ -77,7 +92,8 @@ class MarkingJobProcessor(JobProcessorInterface):
             
             if result:
                 logger.info(f"Marking job completed successfully: {self.job_id}")
-                return True
+                # Return the actual result dictionary from mark_answers()
+                return result
             else:
                 logger.error(f"Marking job failed: {self.job_id}")
                 return False

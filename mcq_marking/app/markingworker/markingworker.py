@@ -134,11 +134,6 @@ class MCQMarkingWorker:
             
             logger.info(f"Processing {job_type} job: {job_id}")
             
-            # Send initial processing status
-            processing_reply_data = self._create_reply_data(job_id, 'processing', {
-                'progress': 0
-            })
-            self._publish_result(ch, properties, reply_queue, processing_reply_data)
             
             # Validate the job data
             if not processor.validate():

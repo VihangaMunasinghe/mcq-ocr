@@ -36,12 +36,26 @@ class TemplateConfigProcessor(JobProcessorInterface):
         Returns:
             True if job data is valid, False otherwise
         """
-        required_fields = ['id', 'template_path']
+        # Required fields based on backend to_job_data() structure
+        required_fields = [
+            'id',
+            'name',
+            'config_type',
+            'template_path',
+            'template_config_path',
+            'num_of_columns',
+            'num_of_rows_per_column',
+            'num_of_options_per_question'
+        ]
         
+        missing_fields = []
         for field in required_fields:
             if field not in self.job_data:
-                logger.error(f"Missing required field: {field}")
-                return False
+                missing_fields.append(field)
+        
+        if missing_fields:
+            logger.error(f"Missing required fields in template config job {self.job_id}: {', '.join(missing_fields)}")
+            return False
         
         return True
     
