@@ -42,7 +42,7 @@ class MarkingJob(BaseModel):
     description = Column(Text, nullable=True)
 
     # Job status and priority
-    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.PENDING)
+    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.INITIALIZED)
     priority = Column(Enum(MarkingJobPriority), nullable=False, default=MarkingJobPriority.NORMAL)
 
     # File references and paths

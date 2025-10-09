@@ -187,7 +187,7 @@ async def create_marking(
         marking_record = MarkingJob(
           name=marking.name,
           description=marking.description,
-          status=MarkingJobStatus.PENDING,
+          status=MarkingJobStatus.INITIALIZED,
           template_id=marking.template_id,
           save_intermediate_results=marking.save_intermediate_results,
           priority=marking.priority,
@@ -288,10 +288,10 @@ async def configure_marking_scheme_websocket(
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
             return
         
-        if marking.status not in [MarkingJobStatus.PENDING, MarkingJobStatus.FAILED, MarkingJobStatus.MARKING_SCHEME_CONFIGURED]:
+        if marking.status not in [MarkingJobStatus.INITIALIZED, MarkingJobStatus.FAILED, MarkingJobStatus.MARKING_SCHEME_CONFIGURED]:
             await websocket.send_json({
                 "status": "error",
-                "message": "Job must be in pending, failed, or marking scheme configured status to configure"
+                "message": "Job must be in initialized, failed, or marking scheme configured status to configure"
             })
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
             return

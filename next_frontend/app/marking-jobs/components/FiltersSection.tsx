@@ -14,11 +14,14 @@ interface FiltersSectionProps {
 
 const statusFilterOptions: StatusFilterOption[] = [
   { value: "all", label: "All Statuses" },
-  { value: "pending", label: "Pending" },
+  { value: "initialized", label: "Initialized" },
+  { value: "marking_scheme_configured", label: "Scheme Configured" },
+  { value: "marking_scheme_verified", label: "Scheme Verified" },
+  { value: "answer_sheets_attached", label: "Sheets Attached" },
+  { value: "queued", label: "Queued" },
   { value: "processing", label: "Processing" },
-  { value: "in-progress", label: "In Progress" },
-  { value: "review-required", label: "Review Required" },
   { value: "completed", label: "Completed" },
+  { value: "failed", label: "Failed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
