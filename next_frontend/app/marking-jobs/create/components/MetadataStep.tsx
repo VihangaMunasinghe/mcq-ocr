@@ -222,7 +222,7 @@ export function MetadataStep({
                       Description
                     </label>
                     <textarea
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      className="block w-full px-3 py-2 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       rows={3}
                       placeholder="Optional description for this marking job"
                       value={formData.description}

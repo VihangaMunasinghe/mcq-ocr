@@ -47,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-            block rounded-md shadow-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:text-sm
+            block w-full px-3 py-2 rounded-md shadow-sm border-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:text-sm
             ${leftIcon ? "pl-10" : ""}
             ${rightIcon ? "pr-10" : ""}
             ${
@@ -55,7 +55,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                 ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
                 : ""
             }
-            ${fullWidth ? "w-full" : ""}
           `}
             aria-invalid={error ? "true" : "false"}
             aria-describedby={

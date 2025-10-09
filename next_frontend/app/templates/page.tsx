@@ -8,7 +8,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { Template } from "@/models/template";
 import TemplateCard from "./components/template_card";
-import ViewTemplateModal from "./components/view-template-modal";
 import { FormUploadModal } from "@/components/Modals/FormUploadModal";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
@@ -302,15 +301,6 @@ export default function Templates() {
         confirmText="Delete"
         type="warning"
       />
-
-      {/* View Template Modal */}
-      {viewingTemplate && (
-        <ViewTemplateModal
-          isViewModalOpen={isViewModalOpen}
-          setIsViewModalOpen={setIsViewModalOpen}
-          viewingTemplate={viewingTemplate}
-        />
-      )}
     </>
   );
 }

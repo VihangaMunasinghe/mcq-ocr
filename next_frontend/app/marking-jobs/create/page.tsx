@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -228,7 +228,16 @@ export default function CreateMarkingJob() {
   return (
     <div className="min-h-screen bg-gray-50">
       <CreateMarkingProvider>
-        <CreateMarkingJobContent />
+        <Suspense
+          fallback={
+            <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-500">Loading...</p>
+            </div>
+          }
+        >
+          <CreateMarkingJobContent />
+        </Suspense>
       </CreateMarkingProvider>
     </div>
   );
