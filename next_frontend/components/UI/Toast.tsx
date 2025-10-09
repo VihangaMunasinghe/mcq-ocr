@@ -64,7 +64,7 @@ export function Toast({ message, type, duration = 5000, onClose }: ToastProps) {
 
   const getStyles = () => {
     const baseStyles =
-      "w-full bg-white shadow-xl rounded-lg pointer-events-auto border-l-4 overflow-hidden transform transition-all duration-200 hover:scale-105";
+      "min-w-[320px] max-w-md bg-white shadow-xl rounded-lg pointer-events-auto border-l-4 overflow-hidden transform transition-all duration-200 hover:scale-105";
     switch (type) {
       case "success":
         return `${baseStyles} border-l-green-500 shadow-green-100`;
@@ -99,15 +99,17 @@ export function Toast({ message, type, duration = 5000, onClose }: ToastProps) {
       <div className={getStyles()}>
         <div className="p-4">
           <div className="flex items-start">
-            <div className={`flex-shrink-0 ${getBgColor()} p-1 rounded-full`}>
+            <div className={`flex-shrink-0 ${getBgColor()} p-2 rounded-full`}>
               {getIcon()}
             </div>
-            <div className="ml-3 w-0 flex-1 pt-0.5">
-              <p className="text-sm font-medium text-gray-900">{message}</p>
+            <div className="ml-3 flex-1 pt-0.5">
+              <p className="text-sm font-medium text-gray-900 leading-relaxed">
+                {message}
+              </p>
             </div>
             <div className="ml-4 flex-shrink-0 flex">
               <button
-                className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                 onClick={() => {
                   setIsVisible(false);
                   setTimeout(onClose, 300);

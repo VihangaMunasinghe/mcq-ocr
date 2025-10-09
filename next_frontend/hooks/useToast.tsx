@@ -46,8 +46,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <div className="fixed top-4 right-4 z-[9999] space-y-3 w-80 pointer-events-none">
-        <div className="pointer-events-auto space-y-3">
+      <div className="fixed inset-0 pointer-events-none z-[9999]">
+        <div className="absolute top-4 right-4 pointer-events-auto space-y-3 flex flex-col items-end">
           {toasts.map((toast) => (
             <Toast
               key={toast.id}
