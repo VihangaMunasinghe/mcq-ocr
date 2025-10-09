@@ -9,7 +9,6 @@ import {
   faFileText,
   faUpload,
   faPlay,
-  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import CreateMarkingProvider, {
   useCreateMarking,
@@ -52,7 +51,7 @@ function CreateMarkingJobContent() {
 
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
-  const [markingJob, setMarkingJob] = useCreateMarking();
+  const [, setMarkingJob] = useCreateMarking();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<MarkingJobForm>({
     name: "",
@@ -166,71 +165,71 @@ function CreateMarkingJobContent() {
   };
 
   return (
-    <>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <div className="flex items-center mb-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />}
-              onClick={() => router.push("/marking-jobs")}
-            >
-              Back to Jobs
-            </Button>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="space-y-6">
+        {/* Page Header - Match main page design */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="flex items-center mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={
+                    <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
+                  }
+                  onClick={() => router.push("/marking-jobs")}
+                  className="text-gray-600 hover:text-gray-900 mr-2"
+                >
+                  Back to Jobs
+                </Button>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {markingJobId ? "Edit Marking Job" : "Create New Marking Job"}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Follow the steps below to create and start a new marking job
+              </p>
+            </div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Create New Marking Job
-          </h2>
         </div>
-      </div>
 
-      {/* Description Card */}
-      <div className="bg-white p-4 rounded-md shadow-sm mb-6">
-        <p className="text-sm text-gray-600">
-          Follow the steps below to create and start a new marking job. Upload
-          your marking scheme and answer sheets to begin automatic grading.
-        </p>
-      </div>
-
-      {/* Progress Steps */}
-      <div className="mb-6">
+        {/* Progress Steps */}
         <ProgressSteps steps={steps} currentStep={currentStep} />
-      </div>
 
-      {/* Step Content */}
-      {isLoading ? (
-        <div className="flex justify-center items-center h-full">
-          <FontAwesomeIcon icon={faSpinner} className="h-8 w-8 animate-spin" />
-        </div>
-      ) : (
-        <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-          <div className="p-6">{renderStepContent()}</div>
-
-          {/* Navigation */}
-
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
-            <NavigationButtons
-              currentStep={currentStep}
-              totalSteps={steps.length}
-              isSubmitting={false}
-              onPrevStep={prevStep}
-              onNextStep={nextStep}
-              onSubmit={() => {}}
-              hideNext={false}
-            />
+        {/* Step Content */}
+        {isLoading ? (
+          <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-500">Loading marking job...</p>
           </div>
-        </div>
-      )}
-    </>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
+            <div className="p-6">{renderStepContent()}</div>
+
+            {/* Navigation */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+              <NavigationButtons
+                currentStep={currentStep}
+                totalSteps={steps.length}
+                onPrevStep={prevStep}
+                onNextStep={nextStep}
+                hideNext={false}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 export default function CreateMarkingJob() {
   return (
-    <CreateMarkingProvider>
-      <CreateMarkingJobContent />
-    </CreateMarkingProvider>
+    <div className="min-h-screen bg-gray-50">
+      <CreateMarkingProvider>
+        <CreateMarkingJobContent />
+      </CreateMarkingProvider>
+    </div>
   );
 }

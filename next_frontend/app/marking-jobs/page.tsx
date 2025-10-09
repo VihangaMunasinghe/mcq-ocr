@@ -7,15 +7,18 @@ import { useToast } from "../../hooks/useToast";
 
 import { MarkingJobBasic, MarkingJobStatus } from "./types/types";
 import { PageHeader } from "./components/PageHeader";
-import { JobsTable } from "./components/JobsTable";
+import { StatsOverview } from "./components/StatsOverview";
 import { FiltersSection } from "./components/FiltersSection";
-import { DescriptionCard } from "./components/DescriptionCard";
+import { JobsTable } from "./components/EnhancedJobsTable";
+import { RecentActivity } from "./components/RecentActivity";
 
 export default function MarkingJobs() {
   const router = useRouter();
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   const BACKEND_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -27,6 +30,26 @@ export default function MarkingJobs() {
     statusFilter === "all"
       ? markingJobs
       : markingJobs.filter((job) => job.status === statusFilter);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedJobs = filteredJobs.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page when changing filter
+  };
 
   const handleDeleteJob = () => {
     console.log(`Deleting job with ID: ${selectedJob}`);
@@ -133,28 +156,45 @@ export default function MarkingJobs() {
   }, [BACKEND_URL]);
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader onCreateNew={() => router.push("marking-jobs/create")} />
 
-      <DescriptionCard />
+      <StatsOverview jobs={markingJobs} />
 
       <FiltersSection
         totalJobs={markingJobs.length}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
       />
 
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        <JobsTable
-          jobs={filteredJobs}
-          onStopJob={handleStopJob}
-          onEditJob={handleEditJob}
-          onViewResults={handleViewResults}
-          onDeleteJob={confirmDelete}
-        />
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {loading ? (
+            <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-500">Loading marking jobs...</p>
+            </div>
+          ) : (
+            <JobsTable
+              jobs={paginatedJobs}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredJobs.length}
+              onPageChange={handlePageChange}
+              onItemsPerPageChange={handleItemsPerPageChange}
+              onStopJob={handleStopJob}
+              onEditJob={handleEditJob}
+              onViewResults={handleViewResults}
+              onDeleteJob={confirmDelete}
+            />
+          )}
+        </div>
+
+        <div>
+          <RecentActivity jobs={markingJobs} />
+        </div>
+      </div>
 
       <VerificationModal
         isOpen={isDeleteModalOpen}
@@ -165,6 +205,6 @@ export default function MarkingJobs() {
         confirmText="Delete"
         type="warning"
       />
-    </>
+    </div>
   );
 }
