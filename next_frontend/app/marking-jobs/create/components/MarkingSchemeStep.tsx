@@ -49,7 +49,10 @@ export function MarkingSchemeStep({
   }, [markingJob.marking_scheme_id, markingSchemeFile, BACKEND_URL]);
 
   const handleMarkingSchemeUploadAndConfigure = async () => {
-    if (!markingJob.id || !markingSchemeFile) {
+    if (
+      !markingJob.id ||
+      (!markingJob.marking_scheme_id && !markingSchemeFile)
+    ) {
       showToast("Missing marking job ID or file", "error");
       return;
     }
@@ -57,28 +60,32 @@ export function MarkingSchemeStep({
     setIsConfiguring(true);
     try {
       // Upload marking scheme file
-      const marking_file_formData = new FormData();
-      marking_file_formData.append("file", markingSchemeFile);
-      marking_file_formData.append("file_type", "marking_scheme");
+      let marking_file_id = markingJob.marking_scheme_id;
+      if (markingSchemeFile) {
+        const marking_file_formData = new FormData();
+        marking_file_formData.append("file", markingSchemeFile);
+        marking_file_formData.append("file_type", "marking_scheme");
 
-      const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
-        method: "POST",
-        body: marking_file_formData,
-      });
+        const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
+          method: "POST",
+          body: marking_file_formData,
+        });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload marking scheme file");
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload marking scheme file");
+        }
+
+        const uploadData = await uploadResponse.json();
+        setMarkingJob((prev: MarkingJob) => ({
+          ...prev,
+          marking_scheme_id: uploadData.id,
+        }));
+        marking_file_id = uploadData.id;
+        console.log("Marking scheme file uploaded successfully:", uploadData);
+        showToast("Marking scheme file uploaded successfully", "success");
       }
 
-      const uploadData = await uploadResponse.json();
-      setMarkingJob((prev: MarkingJob) => ({
-        ...prev,
-        marking_scheme_id: uploadData.id,
-      }));
-      console.log("Marking scheme file uploaded successfully:", uploadData);
-      showToast("Marking scheme file uploaded successfully", "success");
-
-      _configureMarkingSchemeViaWebSocket(markingJob.id, uploadData.file_id);
+      _configureMarkingSchemeViaWebSocket(markingJob.id, marking_file_id!);
     } catch (err) {
       console.error("Error uploading/configuring marking scheme:", err);
       showToast(
@@ -207,18 +214,17 @@ export function MarkingSchemeStep({
     setIsAnswersCorrectionModalOpen(true);
   };
 
-  const handleAnswersCorrectionModalConfirm = async (
+  const handleAnswersVerifyConfirm = async (
     isUpdated: boolean,
     updatedBubbleData: Bubble[][]
   ) => {
     try {
-      if (!isUpdated) {
-        return;
+      let markingSchemeConfig = null;
+      if (isUpdated) {
+        // Convert bubble data back to marking scheme config format
+        markingSchemeConfig =
+          convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
       }
-      // Convert bubble data back to marking scheme config format
-      const markingSchemeConfig =
-        convertBubbleDataToMarkingSchemeConfig(updatedBubbleData);
-
       // Send to backend
       const response = await fetch(
         `${BACKEND_URL}/api/markings/${markingJob.id}/update-marking-scheme-config`,
@@ -227,15 +233,19 @@ export function MarkingSchemeStep({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ marking_scheme_config: markingSchemeConfig }),
+          body: JSON.stringify({
+            isUpdated: isUpdated,
+            marking_scheme_config: markingSchemeConfig,
+          }),
         }
       );
 
       if (!response.ok) {
         throw new Error("Failed to update marking scheme config");
       }
-
-      console.log("Marking scheme configuration updated successfully");
+      showToast("Marking scheme verifid successfully", "success");
+      const response_data: MarkingJob = await response.json();
+      setMarkingJob(response_data);
     } catch (error) {
       console.error("Error updating marking scheme config:", error);
       showToast("Failed to update marking scheme configuration", "error");
@@ -485,7 +495,7 @@ export function MarkingSchemeStep({
         onClose={() => setIsAnswersCorrectionModalOpen(false)}
         imageUrl={answersCorrectionModalConfig.imageUrl}
         markingConfigId={answersCorrectionModalConfig.markingConfigId}
-        onConfirm={handleAnswersCorrectionModalConfirm}
+        onConfirm={handleAnswersVerifyConfirm}
       />
     </div>
   );

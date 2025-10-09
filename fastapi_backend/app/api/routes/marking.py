@@ -288,14 +288,6 @@ async def configure_marking_scheme_websocket(
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
             return
         
-        if marking.status not in [MarkingJobStatus.INITIALIZED, MarkingJobStatus.FAILED, MarkingJobStatus.MARKING_SCHEME_CONFIGURED]:
-            await websocket.send_json({
-                "status": "error",
-                "message": "Job must be in initialized, failed, or marking scheme configured status to configure"
-            })
-            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
-            return
-        
         # Update marking scheme ID and generate marking config file path
         marking.marking_scheme_id = marking_scheme_id
         
@@ -370,6 +362,79 @@ async def configure_marking_scheme_websocket(
         except Exception as disconnect_error:
             logger.warning(f"Failed to disconnect WebSocket cleanly: {disconnect_error}")
 
+@router.post("/{marking_job_id}/update-marking-scheme-config", response_model=MarkingResponse)
+async def update_marking_scheme_config(
+    marking_job_id: int,
+    request: UpdateMarkingSchemeConfigRequest,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Update the marking scheme configuration for a job"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        # Validate that the job is in the correct status to update marking scheme config
+        if marking.status in [MarkingJobStatus.INITIALIZED]:
+            raise HTTPException(
+                status_code=400, 
+                detail="Job must be in marking scheme configured or higher to verify"
+            )
+        
+        # Validate that the job has a marking config file path
+        if not marking.marking_config_file_path:
+            raise HTTPException(
+                status_code=400, 
+                detail="Marking scheme must be configured first before updating"
+            )
+        
+        if not request.isUpdated:
+            marking.status = MarkingJobStatus.MARKING_SCHEME_VERIFIED
+        else:
+
+        
+            # Update the marking config file with the new configuration
+            try:
+                # Save the updated configuration to the storage
+                storage = SharedStorage()
+                config_json = json.dumps(request.marking_scheme_config, indent=2)
+                await storage.save_file(
+                    config_json.encode('utf-8'),
+                    marking.marking_config_file_path
+                )
+                
+                marking.status = MarkingJobStatus.MARKING_SCHEME_VERIFIED
+                
+                logger.info(f"Successfully updated marking scheme config for job {marking_job_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to save updated marking scheme config: {str(e)}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Failed to save updated configuration: {str(e)}"
+                )
+            
+                
+        await db.commit()
+        await db.refresh(marking)
+        
+        return _get_marking_response(marking)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update marking scheme config for job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update marking scheme configuration")
+
 
 @router.post("/{marking_job_id}/attach-answer-sheets", response_model=MarkingResponse)
 async def attach_answer_sheets(
@@ -392,8 +457,8 @@ async def attach_answer_sheets(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.MARKING_SCHEME_CONFIGURED and marking.status != MarkingJobStatus.COMPLETED:
-            raise HTTPException(status_code=400, detail="Job must be in marking scheme configured status to attach answer sheets")
+        if marking.status not in [MarkingJobStatus.MARKING_SCHEME_VERIFIED, MarkingJobStatus.ANSWER_SHEETS_ATTACHED, MarkingJobStatus.COMPLETED]:
+            raise HTTPException(status_code=400, detail="Job must be in marking scheme verified status or higher to attach answer sheets")
         
         # Update answer sheets folder ID
         marking.answer_sheets_folder_id = sheets_data.answer_sheets_folder_id
@@ -432,8 +497,8 @@ async def start_marking(
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
         
-        if marking.status != MarkingJobStatus.ANSWER_SHEETS_ATTACHED and marking.status != MarkingJobStatus.COMPLETED:
-            raise HTTPException(status_code=400, detail="Job must be in answer sheets attached status to start")
+        if marking.status not in [MarkingJobStatus.ANSWER_SHEETS_ATTACHED, MarkingJobStatus.COMPLETED, MarkingJobStatus.FAILED]:
+            raise HTTPException(status_code=400, detail="Job must be in answer sheets attached status or higher to start")
         
         # Validate preconditions
         if not marking.marking_scheme_id:
@@ -476,71 +541,6 @@ async def start_marking(
         raise HTTPException(status_code=500, detail="Failed to start marking job")
 
 
-@router.post("/{marking_job_id}/update-marking-scheme-config", response_model=MarkingResponse)
-async def update_marking_scheme_config(
-    marking_job_id: int,
-    request: UpdateMarkingSchemeConfigRequest,
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Update the marking scheme configuration for a job"""
-    user_id = 1  # TODO: Get from authentication
-    try:
-        # Get the marking job
-        result = await db.execute(
-            select(MarkingJob).where(
-                MarkingJob.id == marking_job_id,
-                MarkingJob.created_by == user_id
-            )
-        )
-        marking = result.scalar_one_or_none()
-        
-        if not marking:
-            raise HTTPException(status_code=404, detail="Marking job not found")
-        
-        # Validate that the job has a marking config file path
-        if not marking.marking_config_file_path:
-            raise HTTPException(
-                status_code=400, 
-                detail="Marking scheme must be configured first before updating"
-            )
-        
-        # Update the marking config file with the new configuration
-        try:
-            # Save the updated configuration to the storage
-            storage = SharedStorage()
-            config_json = json.dumps(request.marking_scheme_config, indent=2)
-            await storage.save_file(
-                config_json.encode('utf-8'),
-                marking.marking_config_file_path
-            )
-            
-            # Update the status to indicate the config has been updated
-            if marking.status == MarkingJobStatus.MARKING_SCHEME_CONFIGURED:
-                # Keep the status as configured since we're just updating
-                pass
-            else:
-                # If it was in a different state, mark as configured
-                marking.status = MarkingJobStatus.MARKING_SCHEME_CONFIGURED
-            
-            await db.commit()
-            await db.refresh(marking)
-            
-            logger.info(f"Successfully updated marking scheme config for job {marking_job_id}")
-            
-        except Exception as e:
-            logger.error(f"Failed to save updated marking scheme config: {str(e)}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Failed to save updated configuration: {str(e)}"
-            )
-        
-        return _get_marking_response(marking)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update marking scheme config for job {marking_job_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update marking scheme configuration")
 
 
 @router.get("/{marking_job_id}/results", response_model=ResultsData)
@@ -620,16 +620,8 @@ async def update_result(
         # Load the workbook from bytes
         workbook = load_workbook(io.BytesIO(excel_content))
         worksheet = workbook.active
-        
-        # Convert the StudentResult to Excel row format
-        # Assuming the Excel format matches the frontend structure
         student_result = request.result
         
-        # Map the student result to Excel columns
-        # Based on the frontend code, the columns are:
-        # [index_number, correct, incorrect, more_than_one_marked, not_marked, columnwise_total, score, flag, flag_reason, answer_sheet_path, labeled_points]
-        
-        # Convert arrays to comma-separated strings for Excel
         correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else "-"
         incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else "-"
         more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else "-"

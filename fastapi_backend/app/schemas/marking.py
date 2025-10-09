@@ -69,7 +69,8 @@ class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
 
 class UpdateMarkingSchemeConfigRequest(BaseModel):
-    marking_scheme_config: dict[str, Any]
+    isUpdated: bool
+    marking_scheme_config: Optional[dict[str, Any]] = None
 
 class Bubble(BaseModel):
     marked: bool

@@ -69,6 +69,7 @@ const isStepAccessible = (
         MarkingJobStatus.PROCESSING,
         MarkingJobStatus.COMPLETED,
         MarkingJobStatus.FAILED,
+        MarkingJobStatus.CANCELLED,
       ].includes(jobStatus);
     case 3: // Answer Sheets step - accessible if marking scheme is verified or above
       return [
@@ -78,6 +79,7 @@ const isStepAccessible = (
         MarkingJobStatus.PROCESSING,
         MarkingJobStatus.COMPLETED,
         MarkingJobStatus.FAILED,
+        MarkingJobStatus.CANCELLED,
       ].includes(jobStatus);
     default:
       return false;
