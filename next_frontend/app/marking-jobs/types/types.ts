@@ -3,8 +3,9 @@ import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 export type JobPriority = "normal" | "urgent";
 
 export enum MarkingJobStatus {
-  PENDING = "pending",
+  INITIALIZED = "initialized",
   MARKING_SCHEME_CONFIGURED = "marking_scheme_configured",
+  MARKING_SCHEME_VERIFIED = "marking_scheme_verified",
   ANSWER_SHEETS_ATTACHED = "answer_sheets_attached",
   QUEUED = "queued",
   PROCESSING = "processing",
@@ -64,16 +65,16 @@ export interface Bubble {
 export interface StudentResult {
   row_number: number;
   index_number: string;
-  correct: number;
-  incorrect: number;
-  more_than_one_marked: number;
-  not_marked: number;
+  correct: number[];
+  incorrect: number[];
+  more_than_one_marked: number[];
+  not_marked: number[];
   columnwise_total: number[];
   score: number;
   flag: boolean;
   flag_reason: string;
-  answer_sheet_path?: string;
-  labeled_points?: Bubble[][];
+  answer_sheet_path: string;
+  labeled_points: Bubble[][];
 }
 
 export interface JobInfo {
@@ -105,12 +106,11 @@ export interface MarkingJobBasic {
   status: MarkingJobStatus;
   priority: string;
   template_name: string;
+  total_answer_sheets?: number;
+  processed_answer_sheets?: number;
   created_at: string;
   updated_at: string;
   created_by: number;
-
-  completed: number;
-  total: number;
 }
 
 export interface ReviewQuestion {

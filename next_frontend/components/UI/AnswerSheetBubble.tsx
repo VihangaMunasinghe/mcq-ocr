@@ -1,5 +1,6 @@
-import { Bubble } from '@/app/marking-jobs/types/types';
-import React from 'react'
+import { Bubble } from "@/app/marking-jobs/types/types";
+import { colorClasses } from "@/constants/ansersheet_view_color_classes";
+import React from "react";
 
 export interface BubbleStyle {
   color: string;
@@ -15,7 +16,19 @@ interface AnswerSheetBubbleProps {
   handleBubbleClick: (questionIndex: number, optionIndex: number) => void;
 }
 
-const AnswerSheetBubble = ({ bubble, bubbleStyle, questionIndex, optionIndex, isInteractive, handleBubbleClick }: AnswerSheetBubbleProps) => {
+const AnswerSheetBubble = ({
+  bubble,
+  bubbleStyle,
+  questionIndex,
+  optionIndex,
+  isInteractive,
+  handleBubbleClick,
+}: AnswerSheetBubbleProps) => {
+  // Get color classes or fallback to gray for unknown colors
+  const colorClass =
+    colorClasses[bubbleStyle.color as keyof typeof colorClasses] ||
+    colorClasses.gray;
+
   return (
     <div
       key={`${questionIndex}-${optionIndex}`}
@@ -31,20 +44,22 @@ const AnswerSheetBubble = ({ bubble, bubbleStyle, questionIndex, optionIndex, is
       onClick={() => handleBubbleClick(questionIndex, optionIndex)}
     >
       {/* Visible circle background */}
-      {bubbleStyle.color !== "transparent" && <div
-        className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
-          bubble.marked
-            ? `bg-${bubbleStyle.color}-600 border-${bubbleStyle.color}-600 scale-110`
-            : `bg-transparent text-transparent border-${bubbleStyle.color}-700 ${
-                isInteractive ? `hover:border-${bubbleStyle.color}-500 hover:scale-105` : ""
-              }`
-        }`}
-      >
-        {/* Checkmark when selected */}
-        {bubble.marked && (
-          bubbleStyle.icon
-        )}
-      </div>}
+      {bubbleStyle.color !== "transparent" && (
+        <div
+          className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+            bubble.marked
+              ? `${colorClass.bg} ${colorClass.border} scale-110`
+              : `bg-transparent text-transparent ${colorClass.border700} ${
+                  isInteractive
+                    ? `${colorClass.borderHover} hover:scale-105`
+                    : ""
+                }`
+          }`}
+        >
+          {/* Checkmark when selected */}
+          {bubble.marked && bubbleStyle.icon}
+        </div>
+      )}
 
       {/* Debug info - remove in production */}
       {process.env.NODE_ENV === "development" && (
@@ -54,6 +69,6 @@ const AnswerSheetBubble = ({ bubble, bubbleStyle, questionIndex, optionIndex, is
       )}
     </div>
   );
-}
+};
 
-export default AnswerSheetBubble
+export default AnswerSheetBubble;

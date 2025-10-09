@@ -10,8 +10,9 @@ from .base import BaseModel
 
 class MarkingJobStatus(PyEnum):
     """Enum for marking job status."""
-    PENDING = "pending"
+    INITIALIZED = "initialized"
     MARKING_SCHEME_CONFIGURED = "marking_scheme_configured"
+    MARKING_SCHEME_VERIFIED = "marking_scheme_verified"
     ANSWER_SHEETS_ATTACHED = "answer_sheets_attached"
     QUEUED = "queued"
     PROCESSING = "processing"
@@ -41,7 +42,7 @@ class MarkingJob(BaseModel):
     description = Column(Text, nullable=True)
 
     # Job status and priority
-    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.PENDING)
+    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.INITIALIZED)
     priority = Column(Enum(MarkingJobPriority), nullable=False, default=MarkingJobPriority.NORMAL)
 
     # File references and paths

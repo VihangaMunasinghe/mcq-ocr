@@ -11,7 +11,10 @@ import {
   ResultsData,
   StudentResult,
 } from "@/app/marking-jobs/types/types";
-import { _convertBlobToStudentResults, getMarkingSchemeBubbleData } from "../../utils";
+import {
+  _convertBlobToStudentResults,
+  getMarkingSchemeBubbleData,
+} from "../../../utils/results";
 import AnswerSheetModal from "./components/AnswerSheetModal";
 import { JobInfoSection } from "./components/JobInfoSection";
 import { ResultsTable } from "./components/ResultsTable";
@@ -57,7 +60,9 @@ const ResultsPage = () => {
 
         const results = await _convertBlobToStudentResults(resultsBlob);
 
-        const markingScheme = await getMarkingSchemeBubbleData(jobInfo.marking_config_id);
+        const markingScheme = await getMarkingSchemeBubbleData(
+          jobInfo.marking_config_id
+        );
 
         const resultsData: ResultsData = {
           job_info: jobInfo,
@@ -86,6 +91,37 @@ const ResultsPage = () => {
   const handleViewMarkedPaper = (result: StudentResult) => {
     setSelectedResult(result);
     setIsAnswerSheetModalOpen(true);
+  };
+
+  const handelUpdateResult = async (newResult: StudentResult) => {
+    const response = await fetch(
+      `${BACKEND_URL}/api/markings/${job_id}/update-result/${newResult.row_number}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ result: newResult }),
+      }
+    );
+    if (!response.ok) {
+      showToast("Failed to update result", "error");
+      return;
+    }
+    const index = resultsData?.results.findIndex(
+      (result: StudentResult) => result.row_number === newResult.row_number
+    );
+    if (index !== undefined && index !== -1) {
+      setResultsData({
+        ...resultsData!,
+        results: [
+          ...resultsData!.results.slice(0, index),
+          newResult,
+          ...resultsData!.results.slice(index + 1),
+        ],
+      });
+      setSelectedResult(newResult);
+    }
   };
 
   const handleGoBack = () => {
@@ -150,12 +186,11 @@ const ResultsPage = () => {
         <AnswerSheetModal
           isOpen={isAnswerSheetModalOpen}
           onClose={() => {
-            console.log("onClose");
             setIsAnswerSheetModalOpen(false);
             setSelectedResult(null);
           }}
           result={selectedResult}
-          updateResult={setSelectedResult}
+          updateResult={handelUpdateResult}
           markingScheme={resultsData.marking_scheme}
         />
       )}

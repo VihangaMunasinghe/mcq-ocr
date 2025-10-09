@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "../../../../components/UI/Button";
 import { AnswerSheetViewer } from "../../../../components/UI/AnswerSheetViewer";
 import { Bubble } from "../../types/types";
+import { getMarkingSchemeBubbleData } from "../../../utils/results";
 
 interface AnswersCorrectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   imageUrl: string;
-  bubbleData: Bubble[][];
+  markingConfigId: number;
   confirmText?: string;
   onConfirm?: (isUpdated: boolean, updatedBubbleData: Bubble[][]) => void;
 }
@@ -16,13 +17,51 @@ const AnswersCorrectionModal = ({
   isOpen,
   onClose,
   imageUrl,
-  bubbleData,
+  markingConfigId,
   confirmText,
   onConfirm: onConfirm,
 }: AnswersCorrectionModalProps) => {
-  const [localBubbleData, setLocalBubbleData] =
-    useState<Bubble[][]>(bubbleData);
+  const [localBubbleData, setLocalBubbleData] = useState<Bubble[][]>([]);
+  const [originalBubbleData, setOriginalBubbleData] = useState<Bubble[][]>([]);
   const [showAllBubbles, setShowAllBubbles] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load bubble data when modal opens
+  const loadBubbleData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const bubbleData = await getMarkingSchemeBubbleData(markingConfigId);
+
+      if (!Array.isArray(bubbleData) || bubbleData.length === 0) {
+        throw new Error("Failed to load marking scheme bubble data");
+      }
+
+      // Validate that bubble data has content
+      const hasValidBubbles = bubbleData.some(
+        (row) => Array.isArray(row) && row.length > 0
+      );
+
+      if (!hasValidBubbles) {
+        throw new Error("No valid bubble data found");
+      }
+
+      setOriginalBubbleData(bubbleData);
+      setLocalBubbleData(bubbleData);
+    } catch (err) {
+      console.error("Error loading bubble data:", err);
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [markingConfigId]);
+
+  useEffect(() => {
+    if (isOpen && markingConfigId) {
+      loadBubbleData();
+    }
+  }, [isOpen, markingConfigId, loadBubbleData]);
 
   const handleBubbleToggle = (questionIndex: number, optionIndex: number) => {
     const newData = [...localBubbleData];
@@ -45,7 +84,7 @@ const AnswersCorrectionModal = ({
       ) {
         if (
           localBubbleData[questionIndex][optionIndex].marked !==
-          bubbleData[questionIndex][optionIndex].marked
+          originalBubbleData[questionIndex][optionIndex].marked
         ) {
           isUpdated = true;
           break;
@@ -57,9 +96,9 @@ const AnswersCorrectionModal = ({
   };
 
   const handleCancel = useCallback(() => {
-    setLocalBubbleData(bubbleData); // Reset to original data
+    setLocalBubbleData(originalBubbleData); // Reset to original data
     onClose();
-  }, [bubbleData, onClose]);
+  }, [originalBubbleData, onClose]);
 
   // Handle ESC key press
   useEffect(() => {
@@ -94,14 +133,23 @@ const AnswersCorrectionModal = ({
   const footer = (
     <div className="flex justify-between items-center">
       <div className="text-sm text-gray-600">
-        {markedBubbles} of {totalBubbles} bubbles marked
+        {isLoading
+          ? "Loading..."
+          : error
+          ? "Error loading data"
+          : `${markedBubbles} of ${totalBubbles} bubbles marked`}
       </div>
       <div className="flex space-x-3">
-        <Button variant="outline" onClick={handleCancel}>
+        <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={handleSave}>
-          {confirmText || "Save Changes"}
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={isLoading}
+          className="bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {confirmText || "Verify"}
         </Button>
       </div>
     </div>
@@ -118,12 +166,14 @@ const AnswersCorrectionModal = ({
             <h3 className="text-lg font-medium text-gray-900">
               Correct Answer Bubbles
             </h3>
-            <button
-              onClick={() => setShowAllBubbles(!showAllBubbles)}
-              className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              {showAllBubbles ? "Hide All Bubbles" : "Show All Bubbles"}
-            </button>
+            {!isLoading && (
+              <button
+                onClick={() => setShowAllBubbles(!showAllBubbles)}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                {showAllBubbles ? "Hide All Bubbles" : "Show All Bubbles"}
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -146,16 +196,80 @@ const AnswersCorrectionModal = ({
           className="p-4 overflow-auto"
           style={{ maxHeight: "calc(100vh - 200px)" }}
         >
-          <AnswerSheetViewer
-            imageUrl={imageUrl}
-            bubbleData={localBubbleData}
-            onBubbleToggle={handleBubbleToggle}
-            showBubbles={showAllBubbles}
-            isInteractive={true}
-            width={1200}
-            height={1600}
-            isMarkingScheme={true}
-          />
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <div className="text-center">
+                <h4 className="text-lg font-medium text-gray-900">
+                  Loading Marking Scheme
+                </h4>
+                <p className="text-gray-600 mt-1">
+                  Please wait while we load the configuration...
+                </p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+              <div className="text-red-500 mb-4">
+                <svg
+                  className="h-12 w-12"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="text-center">
+                <h4 className="text-lg font-medium text-gray-900">
+                  Error Loading Data
+                </h4>
+                <p className="text-gray-600 mt-1">{error}</p>
+              </div>
+            </div>
+          ) : imageUrl && localBubbleData.length > 0 ? (
+            <AnswerSheetViewer
+              imageUrl={imageUrl}
+              bubbleData={localBubbleData}
+              onBubbleToggle={handleBubbleToggle}
+              showBubbles={showAllBubbles}
+              isInteractive={true}
+              width={1200}
+              height={1600}
+              isMarkingScheme={true}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+              <div className="text-gray-400 mb-4">
+                <svg
+                  className="h-12 w-12"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <div className="text-center">
+                <h4 className="text-lg font-medium text-gray-900">
+                  No Data Available
+                </h4>
+                <p className="text-gray-600 mt-1">
+                  No marking scheme data could be loaded.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

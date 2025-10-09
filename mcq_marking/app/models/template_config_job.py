@@ -35,7 +35,7 @@ class TemplateConfigJob:
         self.warped_img = None
         self.debug_img = None
 
-    def configure(self):
+    def configure(self, isTest=False):
         """
         Configure template by processing the image and saving results to NFS storage
         """
@@ -56,6 +56,9 @@ class TemplateConfigJob:
         self.template_config = bubble_configs
         self.warped_img = warped_img
         self.debug_img = result_img
+
+        if isTest:
+            return warped_img, result_img, bubble_configs
                 
         # Save configuration JSON to NFS storage
         save_json(
