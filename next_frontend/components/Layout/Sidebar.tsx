@@ -120,10 +120,11 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          flex flex-col bg-white shadow-lg pt-5 pb-4 transition-all duration-300 transform
+          flex flex-col bg-white shadow-lg h-screen pt-5 pb-4 transition-all duration-300 transform
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
           ${collapsed ? "w-20" : "w-64"}
+          fixed md:static z-30 md:z-auto
         `}
       >
         <div className="flex items-center justify-between px-4">
