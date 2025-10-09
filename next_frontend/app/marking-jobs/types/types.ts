@@ -3,8 +3,9 @@ import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 export type JobPriority = "normal" | "urgent";
 
 export enum MarkingJobStatus {
-  PENDING = "pending",
+  INITIALIZED = "initialized",
   MARKING_SCHEME_CONFIGURED = "marking_scheme_configured",
+  MARKING_SCHEME_VERIFIED = "marking_scheme_verified",
   ANSWER_SHEETS_ATTACHED = "answer_sheets_attached",
   QUEUED = "queued",
   PROCESSING = "processing",

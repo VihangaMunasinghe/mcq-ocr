@@ -10,8 +10,9 @@ from .base import BaseModel
 
 class MarkingJobStatus(PyEnum):
     """Enum for marking job status."""
-    PENDING = "pending"
+    INITIALIZED = "initialized"
     MARKING_SCHEME_CONFIGURED = "marking_scheme_configured"
+    MARKING_SCHEME_VERIFIED = "marking_scheme_verified"
     ANSWER_SHEETS_ATTACHED = "answer_sheets_attached"
     QUEUED = "queued"
     PROCESSING = "processing"

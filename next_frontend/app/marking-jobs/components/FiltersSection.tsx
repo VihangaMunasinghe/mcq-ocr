@@ -7,7 +7,9 @@ import { StatusFilterOption } from "../types/types";
 interface FiltersSectionProps {
   totalJobs: number;
   statusFilter: string;
+  searchQuery: string;
   onStatusFilterChange: (status: string) => void;
+  onSearchChange: (query: string) => void;
 }
 
 const statusFilterOptions: StatusFilterOption[] = [
@@ -23,7 +25,9 @@ const statusFilterOptions: StatusFilterOption[] = [
 export function FiltersSection({
   totalJobs,
   statusFilter,
+  searchQuery,
   onStatusFilterChange,
+  onSearchChange,
 }: FiltersSectionProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-100 p-6 mb-6">
@@ -34,6 +38,8 @@ export function FiltersSection({
             <input
               type="text"
               placeholder="Search marking jobs..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
               className="w-full px-4 py-2 pl-10 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3">

@@ -18,7 +18,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   switch (status) {
-    case MarkingJobStatus.PENDING:
+    case MarkingJobStatus.INITIALIZED:
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
           <FontAwesomeIcon icon={faClock} className="h-3 w-3 mr-1" />

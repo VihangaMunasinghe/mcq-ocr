@@ -17,6 +17,7 @@ export default function MarkingJobs() {
   const [selectedJob, setSelectedJob] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
@@ -26,10 +27,18 @@ export default function MarkingJobs() {
   const [markingJobs, setMarkingJobs] = useState<MarkingJobBasic[]>([]);
   const { showToast } = useToast();
 
-  const filteredJobs =
-    statusFilter === "all"
-      ? markingJobs
-      : markingJobs.filter((job) => job.status === statusFilter);
+  const filteredJobs = markingJobs.filter((job) => {
+    // Filter by status
+    const statusMatch = statusFilter === "all" || job.status === statusFilter;
+
+    // Filter by search query (search in name and template_name)
+    const searchMatch =
+      searchQuery.trim() === "" ||
+      job.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.template_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return statusMatch && searchMatch;
+  });
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
@@ -49,6 +58,11 @@ export default function MarkingJobs() {
   const handleStatusFilterChange = (status: string) => {
     setStatusFilter(status);
     setCurrentPage(1); // Reset to first page when changing filter
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
   };
 
   const handleDeleteJob = () => {
@@ -164,7 +178,9 @@ export default function MarkingJobs() {
       <FiltersSection
         totalJobs={markingJobs.length}
         statusFilter={statusFilter}
+        searchQuery={searchQuery}
         onStatusFilterChange={handleStatusFilterChange}
+        onSearchChange={handleSearchChange}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

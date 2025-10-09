@@ -23,7 +23,7 @@ export function ProgressBar({ job }: ProgressBarProps) {
     case MarkingJobStatus.FAILED:
       percentage = 100;
       break;
-    case MarkingJobStatus.PENDING:
+    case MarkingJobStatus.INITIALIZED:
       percentage = 0;
       break;
     case MarkingJobStatus.CANCELLED:
@@ -46,7 +46,7 @@ export function ProgressBar({ job }: ProgressBarProps) {
         return "bg-red-500";
       case MarkingJobStatus.QUEUED:
         return "bg-purple-500";
-      case MarkingJobStatus.PENDING:
+      case MarkingJobStatus.INITIALIZED:
         return "bg-gray-400";
       case MarkingJobStatus.CANCELLED:
         return "bg-gray-400";
