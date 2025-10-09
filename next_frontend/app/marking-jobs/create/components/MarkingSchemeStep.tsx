@@ -8,10 +8,7 @@ import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
 import { Bubble, MarkingJob, MarkingJobStatus } from "../../types/types";
 import AnswersCorrectionModal from "@/app/marking-jobs/create/components/MarkingSchemeCorrectionModal";
-import {
-  convertBubbleDataToMarkingSchemeConfig,
-  getMarkingSchemeBubbleData,
-} from "../../../utils/results";
+import { convertBubbleDataToMarkingSchemeConfig } from "../../../utils/results";
 
 interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
@@ -30,13 +27,14 @@ export function MarkingSchemeStep({
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [isAnswersCorrectionModalOpen, setIsAnswersCorrectionModalOpen] =
     useState(false);
-  const [answersCorrectionModalData, setAnswersCorrectionModalData] = useState<{
-    imageUrl: string;
-    bubbleData: Bubble[][];
-  }>({
-    imageUrl: "",
-    bubbleData: [],
-  });
+  const [answersCorrectionModalConfig, setAnswersCorrectionModalConfig] =
+    useState<{
+      imageUrl: string;
+      markingConfigId: number;
+    }>({
+      imageUrl: "",
+      markingConfigId: 0,
+    });
 
   const BACKEND_URL =
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -190,29 +188,23 @@ export function MarkingSchemeStep({
       showToast("Missing marking config ID or marking scheme ID", "error");
       return;
     }
+
     const markingSchemeImageUrl = markingJob.marking_scheme_id
       ? `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingJob.marking_scheme_id}`
-      : null;
+      : "";
+
     if (!markingSchemeImageUrl) {
       showToast("Missing marking scheme image URL", "error");
       return;
     }
-    const bubbleData = await getMarkingSchemeBubbleData(
-      markingJob.marking_config_id
-    );
-    if (!Array.isArray(bubbleData)) {
-      showToast("Failed to load marking scheme bubble data", "error");
-      return;
-    }
 
-    // Small delay to ensure the modal is opened
-    setTimeout(() => {
-      setAnswersCorrectionModalData({
-        imageUrl: markingSchemeImageUrl,
-        bubbleData,
-      });
-      setIsAnswersCorrectionModalOpen(true);
-    }, 100);
+    // Set the URLs and open modal - let modal handle data loading
+    setAnswersCorrectionModalConfig({
+      imageUrl: markingSchemeImageUrl,
+      markingConfigId: markingJob.marking_config_id,
+    });
+
+    setIsAnswersCorrectionModalOpen(true);
   };
 
   const handleAnswersCorrectionModalConfirm = async (
@@ -221,7 +213,6 @@ export function MarkingSchemeStep({
   ) => {
     try {
       if (!isUpdated) {
-        showToast("No changes made to marking scheme configuration", "info");
         return;
       }
       // Convert bubble data back to marking scheme config format
@@ -244,7 +235,7 @@ export function MarkingSchemeStep({
         throw new Error("Failed to update marking scheme config");
       }
 
-      showToast("Marking scheme configuration updated successfully", "success");
+      console.log("Marking scheme configuration updated successfully");
     } catch (error) {
       console.error("Error updating marking scheme config:", error);
       showToast("Failed to update marking scheme configuration", "error");
@@ -492,8 +483,8 @@ export function MarkingSchemeStep({
       <AnswersCorrectionModal
         isOpen={isAnswersCorrectionModalOpen}
         onClose={() => setIsAnswersCorrectionModalOpen(false)}
-        imageUrl={answersCorrectionModalData.imageUrl}
-        bubbleData={answersCorrectionModalData.bubbleData}
+        imageUrl={answersCorrectionModalConfig.imageUrl}
+        markingConfigId={answersCorrectionModalConfig.markingConfigId}
         onConfirm={handleAnswersCorrectionModalConfirm}
       />
     </div>

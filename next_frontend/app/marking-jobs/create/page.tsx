@@ -13,8 +13,15 @@ import {
 import CreateMarkingProvider, {
   useCreateMarking,
 } from "@/hooks/useCreateMarking";
+import { useToast } from "@/hooks/useToast";
 import { useRouter } from "next/navigation";
-import { MarkingJobForm, Step, MarkingJob, JobPriority } from "../types/types";
+import {
+  MarkingJobForm,
+  Step,
+  MarkingJob,
+  JobPriority,
+  MarkingJobStatus,
+} from "../types/types";
 import { MetadataStep } from "./components/MetadataStep";
 import { MarkingSchemeStep } from "./components/MarkingSchemeStep";
 import { AnswerSheetsStep } from "./components/AnswerSheetsStep";
@@ -42,6 +49,41 @@ const steps: Step[] = [
   },
 ];
 
+// Utility function to check if a step is accessible based on job status
+const isStepAccessible = (
+  stepNumber: number,
+  jobStatus: MarkingJobStatus | null
+): boolean => {
+  if (!jobStatus) return stepNumber === 1; // Only first step accessible for new jobs
+
+  switch (stepNumber) {
+    case 1: // Metadata step - always accessible
+      return true;
+    case 2: // Marking Scheme step - accessible if job is initialized or above
+      return [
+        MarkingJobStatus.INITIALIZED,
+        MarkingJobStatus.MARKING_SCHEME_CONFIGURED,
+        MarkingJobStatus.MARKING_SCHEME_VERIFIED,
+        MarkingJobStatus.ANSWER_SHEETS_ATTACHED,
+        MarkingJobStatus.QUEUED,
+        MarkingJobStatus.PROCESSING,
+        MarkingJobStatus.COMPLETED,
+        MarkingJobStatus.FAILED,
+      ].includes(jobStatus);
+    case 3: // Answer Sheets step - accessible if marking scheme is verified or above
+      return [
+        MarkingJobStatus.MARKING_SCHEME_VERIFIED,
+        MarkingJobStatus.ANSWER_SHEETS_ATTACHED,
+        MarkingJobStatus.QUEUED,
+        MarkingJobStatus.PROCESSING,
+        MarkingJobStatus.COMPLETED,
+        MarkingJobStatus.FAILED,
+      ].includes(jobStatus);
+    default:
+      return false;
+  }
+};
+
 function CreateMarkingJobContent() {
   const searchParams = useSearchParams();
   const markingJobIdString = searchParams.get("markingJobId");
@@ -50,8 +92,9 @@ function CreateMarkingJobContent() {
     process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const router = useRouter();
+  const { showToast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
-  const [, setMarkingJob] = useCreateMarking();
+  const [markingJob, setMarkingJob] = useCreateMarking();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<MarkingJobForm>({
     name: "",
@@ -119,7 +162,20 @@ function CreateMarkingJobContent() {
   };
 
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+    const nextStepNumber = Math.min(currentStep + 1, steps.length);
+
+    // Special handling for step 1 to 2 transition - allow if job has been created/updated
+    if (currentStep === 1) {
+      setCurrentStep(nextStepNumber);
+      return;
+    }
+
+    // For other steps, check accessibility based on status
+    if (isStepAccessible(nextStepNumber, markingJob?.status || null)) {
+      setCurrentStep(nextStepNumber);
+    } else {
+      showToast("Complete the previous step before proceeding", "warning");
+    }
   };
 
   const prevStep = () => {
@@ -127,6 +183,26 @@ function CreateMarkingJobContent() {
   };
 
   const renderStepContent = () => {
+    // Check if current step is accessible based on job status
+    if (!isStepAccessible(currentStep, markingJob?.status || null)) {
+      return (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <FontAwesomeIcon icon={faFileText} className="h-12 w-12" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Step Not Available
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Complete the previous steps to access this step.
+          </p>
+          <p className="text-sm text-gray-500">
+            Current status: {markingJob?.status || "Not started"}
+          </p>
+        </div>
+      );
+    }
+
     switch (currentStep) {
       case 1:
         return (
@@ -195,7 +271,12 @@ function CreateMarkingJobContent() {
         </div>
 
         {/* Progress Steps */}
-        <ProgressSteps steps={steps} currentStep={currentStep} />
+        <ProgressSteps
+          steps={steps}
+          currentStep={currentStep}
+          jobStatus={markingJob?.status || null}
+          isStepAccessible={isStepAccessible}
+        />
 
         {/* Step Content */}
         {isLoading ? (
@@ -215,6 +296,12 @@ function CreateMarkingJobContent() {
                 onPrevStep={prevStep}
                 onNextStep={nextStep}
                 hideNext={false}
+                disableNext={
+                  !isStepAccessible(
+                    currentStep + 1,
+                    markingJob?.status || null
+                  ) && currentStep < steps.length
+                }
               />
             </div>
           </div>

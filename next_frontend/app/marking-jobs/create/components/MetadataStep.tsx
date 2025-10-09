@@ -3,7 +3,7 @@ import { Input } from "../../../../components/UI/Input";
 import { Select } from "../../../../components/UI/Select";
 import { Card } from "../../../../components/UI/Card";
 import { Template } from "@/models/template";
-import { MarkingJobForm, JobPriority, MarkingJob } from "../../types/types";
+import { MarkingJobForm, JobPriority, MarkingJob, MarkingJobStatus } from "../../types/types";
 import ImageViewWithLoarding from "@/components/UI/ImageViewWithLoarding";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
@@ -124,8 +124,14 @@ export function MetadataStep({
         }
 
         const data = await response.json();
-        setMarkingJob((prev: MarkingJob) => ({ ...prev, id: data.id }));
-        console.log("Marking job created successfully:", data);
+        console.log(data);
+        
+        // ensure the status from the API is typed as MarkingJobStatus
+        setMarkingJob((prev: MarkingJob) => ({
+          ...prev,
+          id: data.id,
+          status: data.status as MarkingJobStatus,
+        }));
         showToast("Marking job created successfully", "success");
       }
 

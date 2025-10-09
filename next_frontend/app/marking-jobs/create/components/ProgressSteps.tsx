@@ -1,7 +1,8 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
+import { MarkingJobStatus } from "../../types/types";
 
 interface Step {
   id: number;
@@ -13,9 +14,19 @@ interface Step {
 interface ProgressStepsProps {
   steps: Step[];
   currentStep: number;
+  jobStatus?: MarkingJobStatus | null;
+  isStepAccessible?: (
+    stepNumber: number,
+    status: MarkingJobStatus | null
+  ) => boolean;
 }
 
-export function ProgressSteps({ steps, currentStep }: ProgressStepsProps) {
+export function ProgressSteps({
+  steps,
+  currentStep,
+  jobStatus = null,
+  isStepAccessible = () => true,
+}: ProgressStepsProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
       <div className="mb-6">
@@ -41,6 +52,7 @@ export function ProgressSteps({ steps, currentStep }: ProgressStepsProps) {
           {steps.map((step) => {
             const isCompleted = currentStep > step.id;
             const isCurrent = currentStep === step.id;
+            const isAccessible = isStepAccessible(step.id, jobStatus);
 
             return (
               <li key={step.id} className="flex-1 relative">
@@ -52,6 +64,8 @@ export function ProgressSteps({ steps, currentStep }: ProgressStepsProps) {
                         ? "bg-blue-600 border-blue-600"
                         : isCurrent
                         ? "bg-white border-blue-600"
+                        : !isAccessible
+                        ? "bg-gray-100 border-gray-200"
                         : "bg-white border-gray-300"
                     }`}
                   >
@@ -59,6 +73,11 @@ export function ProgressSteps({ steps, currentStep }: ProgressStepsProps) {
                       <FontAwesomeIcon
                         icon={faCheck}
                         className="w-4 h-4 text-white"
+                      />
+                    ) : !isAccessible ? (
+                      <FontAwesomeIcon
+                        icon={faLock}
+                        className="w-4 h-4 text-gray-400"
                       />
                     ) : (
                       <FontAwesomeIcon
@@ -78,13 +97,19 @@ export function ProgressSteps({ steps, currentStep }: ProgressStepsProps) {
                           ? "text-blue-600"
                           : isCurrent
                           ? "text-gray-900"
+                          : !isAccessible
+                          ? "text-gray-400"
                           : "text-gray-500"
                       }`}
                     >
                       {step.title}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {step.description}
+                    <p
+                      className={`text-xs mt-1 ${
+                        !isAccessible ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      {!isAccessible ? "Locked" : step.description}
                     </p>
                   </div>
                 </div>

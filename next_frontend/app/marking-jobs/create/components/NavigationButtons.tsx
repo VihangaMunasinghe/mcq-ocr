@@ -9,6 +9,7 @@ interface NavigationButtonsProps {
   onPrevStep: () => void;
   onNextStep: () => void;
   hideNext?: boolean;
+  disableNext?: boolean;
 }
 
 export function NavigationButtons({
@@ -17,6 +18,7 @@ export function NavigationButtons({
   onPrevStep,
   onNextStep,
   hideNext = false,
+  disableNext = false,
 }: NavigationButtonsProps) {
   return (
     <div className="flex justify-between">
@@ -38,9 +40,10 @@ export function NavigationButtons({
           <Button
             variant="primary"
             onClick={onNextStep}
+            disabled={disableNext}
             icon={<FontAwesomeIcon icon={faArrowRight} className="h-4 w-4" />}
             iconPosition="right"
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Next
           </Button>
