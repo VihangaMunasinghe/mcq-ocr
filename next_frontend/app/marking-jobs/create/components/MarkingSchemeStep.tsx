@@ -59,9 +59,9 @@ export function MarkingSchemeStep({
 
     setIsConfiguring(true);
     try {
-      // Upload marking scheme file
       let marking_file_id = markingJob.marking_scheme_id;
       if (markingSchemeFile) {
+        // Upload marking scheme file
         const marking_file_formData = new FormData();
         marking_file_formData.append("file", markingSchemeFile);
         marking_file_formData.append("file_type", "marking_scheme");
@@ -80,7 +80,7 @@ export function MarkingSchemeStep({
           ...prev,
           marking_scheme_id: uploadData.id,
         }));
-        marking_file_id = uploadData.id;
+        marking_file_id = uploadData.file_id;
         console.log("Marking scheme file uploaded successfully:", uploadData);
         showToast("Marking scheme file uploaded successfully", "success");
       }
