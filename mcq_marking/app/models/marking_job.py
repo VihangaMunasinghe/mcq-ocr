@@ -81,7 +81,7 @@ class MarkingJob:
         self.connect()
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
             template_img = read_enhanced_image(self.template_path, 1.5, resize=False)
-            marking_img = read_enhanced_image(self.marking_path, 1)
+            marking_img = read_enhanced_image(self.marking_path, 1.8)
             template_config = read_json(self.template_config_path)
             marking_scheme_config = read_json(self.marking_scheme_config_path)
             config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
