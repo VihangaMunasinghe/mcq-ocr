@@ -17,6 +17,12 @@ export const colorClasses = {
     borderHover: "hover:border-amber-500",
     border700: "border-amber-700",
   },
+  blue: {
+    bg: "bg-blue-600",
+    border: "border-blue-600",
+    borderHover: "hover:border-blue-500",
+    border700: "border-blue-700",
+  },
   gray: {
     bg: "bg-gray-600",
     border: "border-gray-600",

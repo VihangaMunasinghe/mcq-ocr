@@ -20,7 +20,12 @@ export const _convertBlobToStudentResults = async (
     const results: StudentResult[] = [];
 
     // Convert worksheet to JSON array, skipping header row
-    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (
+      | string
+      | number
+      | boolean
+      | undefined
+    )[][];
     rows.forEach((row, rowNumber) => {
       if (rowNumber === 0) return; // Skip header (first row)
       if (row && row[1]) {
@@ -34,31 +39,33 @@ export const _convertBlobToStudentResults = async (
         };
 
         try {
-          const labeledPoints : Bubble[][] = row[10] ? JSON.parse(String(row[10])) : [];
+          const labeledPoints: Bubble[][] = row[10]
+            ? JSON.parse(String(row[10]))
+            : [];
 
           results.push({
             row_number: rowNumber,
             index_number: String(row[0] || ""),
             correct: String(row[1] || "")
               .split(",")
-              .filter(s => s.trim() !== "" && s.trim() !== "-")
-              .map(s => Number(s.trim()))
-              .filter(n => !isNaN(n)),
+              .filter((s) => s.trim() !== "" && s.trim() !== "-")
+              .map((s) => Number(s.trim()))
+              .filter((n) => !isNaN(n)),
             incorrect: String(row[2] || "")
               .split(",")
-              .filter(s => s.trim() !== "" && s.trim() !== "-")
-              .map(s => Number(s.trim()))
-              .filter(n => !isNaN(n)),
+              .filter((s) => s.trim() !== "" && s.trim() !== "-")
+              .map((s) => Number(s.trim()))
+              .filter((n) => !isNaN(n)),
             more_than_one_marked: String(row[3] || "")
               .split(",")
-              .filter(s => s.trim() !== "" && s.trim() !== "-")
-              .map(s => Number(s.trim()))
-              .filter(n => !isNaN(n)),
+              .filter((s) => s.trim() !== "" && s.trim() !== "-")
+              .map((s) => Number(s.trim()))
+              .filter((n) => !isNaN(n)),
             not_marked: String(row[4] || "")
               .split(",")
-              .filter(s => s.trim() !== "" && s.trim() !== "-")
-              .map(s => Number(s.trim()))
-              .filter(n => !isNaN(n)),
+              .filter((s) => s.trim() !== "" && s.trim() !== "-")
+              .map((s) => Number(s.trim()))
+              .filter((n) => !isNaN(n)),
             columnwise_total: parseNumberArray(String(row[5] || "")),
             score: Number(row[6]) || 0,
             flag: Boolean(row[7] || false),
@@ -78,7 +85,6 @@ export const _convertBlobToStudentResults = async (
     throw error;
   }
 };
-
 
 export const getMarkingSchemeBubbleData = async (markingConfigId: number) => {
   const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
@@ -117,7 +123,9 @@ export const getMarkingSchemeBubbleData = async (markingConfigId: number) => {
   return bubbleData;
 };
 
-export const convertBubbleDataToMarkingSchemeConfig = (bubbleData: Bubble[][]) => {
+export const convertBubbleDataToMarkingSchemeConfig = (
+  bubbleData: Bubble[][]
+) => {
   const answersWithCoordinates: [boolean, [number, number]][] = [];
 
   // Flatten the 2D bubble data back to the original format
@@ -250,24 +258,48 @@ export const _getBubbleStyle = (
     };
   }
 
-  // Not marked or correct but not selected - blue
+  // Handle unmarked questions - show all options as blue when no answer is marked
+  if (markedCount === 0) {
+    return {
+      color: "blue",
+      icon: null,
+    };
+  }
+
+  // Not marked or correct but not selected - default case
   return { color: isEditing ? "green" : "transparent", icon: null };
 };
 
-export const _updateCounts = (newResult: StudentResult, questionIndex: number, markingSchemeRow: Bubble[]): StudentResult => {
-  newResult.correct = newResult.correct.filter((index) => index !== questionIndex + 1);
-  newResult.incorrect = newResult.incorrect.filter((index) => index !== questionIndex + 1);
-  newResult.more_than_one_marked = newResult.more_than_one_marked.filter((index) => index !== questionIndex + 1);
-  newResult.not_marked = newResult.not_marked.filter((index) => String(index) !== String(questionIndex + 1));
+export const _updateCounts = (
+  newResult: StudentResult,
+  questionIndex: number,
+  markingSchemeRow: Bubble[]
+): StudentResult => {
+  newResult.correct = newResult.correct.filter(
+    (index) => index !== questionIndex + 1
+  );
+  newResult.incorrect = newResult.incorrect.filter(
+    (index) => index !== questionIndex + 1
+  );
+  newResult.more_than_one_marked = newResult.more_than_one_marked.filter(
+    (index) => index !== questionIndex + 1
+  );
+  newResult.not_marked = newResult.not_marked.filter(
+    (index) => String(index) !== String(questionIndex + 1)
+  );
 
-  const markedCount = newResult.labeled_points?.[questionIndex]?.filter((bubble) => bubble.marked).length || 0;
+  const markedCount =
+    newResult.labeled_points?.[questionIndex]?.filter((bubble) => bubble.marked)
+      .length || 0;
   switch (markedCount) {
     case 0:
       newResult.not_marked.push(questionIndex + 1);
       newResult.not_marked.sort((a, b) => Number(a) - Number(b));
       break;
     case 1:
-      const markedIndex = newResult.labeled_points?.[questionIndex]?.findIndex((bubble: Bubble) => bubble.marked);
+      const markedIndex = newResult.labeled_points?.[questionIndex]?.findIndex(
+        (bubble: Bubble) => bubble.marked
+      );
       if (markingSchemeRow[markedIndex!].marked) {
         newResult.correct.push(questionIndex + 1);
         newResult.correct.sort((a, b) => Number(a) - Number(b));

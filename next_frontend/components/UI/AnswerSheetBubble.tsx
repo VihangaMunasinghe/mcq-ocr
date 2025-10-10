@@ -1,5 +1,5 @@
 import { Bubble } from "@/app/marking-jobs/types/types";
-import { colorClasses } from "@/constants/ansersheet_view_color_classes";
+import { colorClasses } from "@/constants/answersheet_view_color_classes";
 import React from "react";
 
 export interface BubbleStyle {
@@ -46,7 +46,7 @@ const AnswerSheetBubble = ({
       {/* Visible circle background */}
       {bubbleStyle.color !== "transparent" && (
         <div
-          className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+          className={`w-[18px] h-[18px] rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
             bubble.marked
               ? `${colorClass.bg} ${colorClass.border} scale-110`
               : `bg-transparent text-transparent ${colorClass.border700} ${
