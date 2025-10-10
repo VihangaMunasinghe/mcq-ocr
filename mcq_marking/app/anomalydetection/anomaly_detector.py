@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-class AnswerSheetChecker:
+class AnomalyDetector:
     """
     A class for detecting anomalies in marked answer sheets by comparing them to a template.
     """
@@ -10,7 +10,7 @@ class AnswerSheetChecker:
     def __init__(
         self,
         template_image,  # Changed from template_path to template_image
-        threashold=2500,
+        threashold=1700,
         resize_dimensions=(1200, 1600),
         bilateral_d=5,
         bilateral_sigma_color=50,
