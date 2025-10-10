@@ -46,8 +46,8 @@ def get_corresponding_points(points, H):
 
 
 def check_neighbours_pixels(img, points):
-    PIXEL_THRESHOLD = 15 # number of active pixels in the search neighborhood
-    NEIGHBOURHOOD_SIZE = 5
+    PIXEL_THRESHOLD = 20 # number of active pixels in the search neighborhood
+    NEIGHBOURHOOD_SIZE = 10
 
     points = np.array(points)
     points = points.astype('int')
