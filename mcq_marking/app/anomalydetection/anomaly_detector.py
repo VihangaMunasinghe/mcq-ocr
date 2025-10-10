@@ -9,7 +9,7 @@ class AnswerSheetChecker:
 
     def __init__(
         self,
-        template_path,
+        template_image,  # Changed from template_path to template_image
         threashold=2500,
         resize_dimensions=(1200, 1600),
         bilateral_d=5,
@@ -38,8 +38,8 @@ class AnswerSheetChecker:
 
         Parameters:
         -----------
-        template_path : str
-            Path to the template answer sheet image
+        template_image : PIL.Image or str
+            Template answer sheet image (PIL Image object or path to image file)
         threashold : int
             Threshold for binary mask
         resize_dimensions : tuple
@@ -109,9 +109,9 @@ class AnswerSheetChecker:
         self.circle_padding = circle_padding
 
         # Load and preprocess template
-        self.template = cv2.imread(template_path, 0)
+        self.template = self._load_image(template_image)
         if self.template is None:
-            raise ValueError(f"Could not load template image from {template_path}")
+            raise ValueError(f"Could not load template image")
 
         # Resize template
         self.template = cv2.resize(self.template, self.resize_dimensions)
@@ -122,6 +122,34 @@ class AnswerSheetChecker:
 
         # Initialize matcher
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+
+    def _load_image(self, image_input):
+        """
+        Load image from PIL Image object or file path.
+        
+        Parameters:
+        -----------
+        image_input : PIL.Image or str
+            PIL Image object or path to image file
+            
+        Returns:
+        --------
+        numpy.ndarray
+            Grayscale OpenCV image
+        """
+        try:
+            from PIL import Image
+            if isinstance(image_input, Image.Image):
+                # Convert PIL image to OpenCV format
+                if image_input.mode != 'L':
+                    image_input = image_input.convert('L')
+                return np.array(image_input)
+            else:
+                # Assume it's a file path
+                return cv2.imread(image_input, 0)
+        except ImportError:
+            # PIL not available, assume it's a file path
+            return cv2.imread(image_input, 0)
 
     def _preprocess_image(self, image):
         """Apply preprocessing steps to enhance image quality."""
@@ -226,24 +254,24 @@ class AnswerSheetChecker:
 
         return detected_circles, index_rectangle
 
-    def check(self, marked_image_path):
+    def check(self, marked_image):
         """
         Check a marked answer sheet against the template.
 
         Parameters:
         -----------
-        marked_image_path : str
-            Path to the marked answer sheet image
+        marked_image : PIL.Image or str
+            Marked answer sheet image (PIL Image object or path to image file)
 
         Returns:
         --------
-        cleaned_mask : numpy.ndarray
-            Binary mask showing anomalies (differences) with circles and index removed
+        tuple
+            (anomaly_detected: bool, non_zero_count: int)
         """
         # Load marked image
-        marked = cv2.imread(marked_image_path, 0)
+        marked = self._load_image(marked_image)
         if marked is None:
-            raise ValueError(f"Could not load marked image from {marked_image_path}")
+            raise ValueError(f"Could not load marked image")
 
         # Resize marked image
         marked = cv2.resize(marked, self.resize_dimensions)
@@ -293,6 +321,6 @@ class AnswerSheetChecker:
         # Invert removal mask and apply to clean mask
         circle_mask_inv = cv2.bitwise_not(removing_mask)
         cleaned_mask = cv2.bitwise_and(mask, mask, mask=circle_mask_inv)
-
+        cv2.imwrite("result_mask.jpg", cleaned_mask)
         non_zeros = np.count_nonzero(cleaned_mask)
         return ( non_zeros > self.threashold, non_zeros)
