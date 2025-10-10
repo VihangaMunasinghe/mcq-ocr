@@ -48,21 +48,27 @@ def save_image_using_folder_and_filename(folder_path, filename, image):
     """Save image using folder and filename with NFS support"""
     save_image(os.path.join(folder_path, filename), image)
 
-def read_image(path, convert_to_grayscale=False):
+def read_image(path, convert_to_grayscale=False, test=False):
     """
-    Read image from NFS storage
+    Read image from NFS storage or local file system
     
     Args:
-        path: Relative path within the file_type directory
+        path: Relative path within the file_type directory (for NFS) or absolute/relative path (for local)
         convert_to_grayscale: Whether to convert to grayscale
+        test: If True, read from local file system instead of NFS
         
     Returns:
         PIL Image object
     """
-    nfs = NFSStorage()
-    image_bytes = nfs.get_file(path)
+    if test:
+        # Read from local file system
+        image = Image.open(path)
+    else:
+        # Read from NFS storage
+        nfs = NFSStorage()
+        image_bytes = nfs.get_file(path)
+        image = Image.open(BytesIO(image_bytes))
     
-    image = Image.open(BytesIO(image_bytes))
     if convert_to_grayscale:
         return image.convert('L')
     return image
