@@ -5,11 +5,12 @@ from typing import Callable
 import pika
 import os
 import logging
-from app.autograder.utils.image_processing import read_enhanced_image
+from app.autograder.utils.image_processing import enhance_image, read_enhanced_image, read_resize_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template, TemplateConfigType
 from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
+from app.anomalydetection.anomaly_detector import AnomalyDetector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 
 class MarkingJob:
-    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[int,int]=None):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[[int,int], None]=None):
         """
         Initialize a MarkingJob instance.
 
@@ -55,6 +56,7 @@ class MarkingJob:
 
         self.connection = None
         self.channel = None
+        self.anomaly_detector = None
         self.template = None
         self.marking_scheme = None
         self.answer_sheets = []
@@ -80,7 +82,12 @@ class MarkingJob:
     def setup(self, force_recalculate=False):
         self.connect()
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
-            template_img = read_enhanced_image(self.template_path, 1.5, resize=False)
+            template_img = read_resize_image(self.template_path, resize=False)
+
+            # Create the AnomalyDetector
+            self.anomaly_detector = AnomalyDetector(template_img, threashold=1700) # Adjust threshold as needed
+
+            template_img = enhance_image(template_img,1.5)
             marking_img = read_enhanced_image(self.marking_path, 1.8)
             template_config = read_json(self.template_config_path)
             marking_scheme_config = read_json(self.marking_scheme_config_path)
@@ -102,10 +109,20 @@ class MarkingJob:
         for i, answer_sheet_path in enumerate(self.answer_sheets):
             try:
                 logger.info(f"Processing answer sheet: {answer_sheet_path}")
-                answer_sheet_img = read_enhanced_image(answer_sheet_path, 1.5)
+                answer_sheet_img = read_resize_image(answer_sheet_path)
+
+                #Detect Anomalies
+                if self.anomaly_detector:
+                    anomalies_detected, count = self.anomaly_detector.check(answer_sheet_img)
+
+                answer_sheet_img = enhance_image(answer_sheet_img, 1.5)
                 answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
                 results = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
                 results['answer_sheet_path'] = answer_sheet_path
+                # Anomaly flags
+                if anomalies_detected:
+                    results['flag'] = anomalies_detected
+                    results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] =='') else f'{results['flag_reason']}, ') + 'Unussual marks detected'
                 self.add_to_spreadsheet(results)
                 if self.save_intermediate_results:
                     save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
