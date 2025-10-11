@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from PIL import Image
+
 
 
 class AnomalyDetector:
@@ -138,7 +140,6 @@ class AnomalyDetector:
             Grayscale OpenCV image
         """
         try:
-            from PIL import Image
             if isinstance(image_input, Image.Image):
                 # Convert PIL image to OpenCV format
                 if image_input.mode != 'L':
