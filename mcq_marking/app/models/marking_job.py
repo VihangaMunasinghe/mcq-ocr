@@ -121,8 +121,8 @@ class MarkingJob:
                 results['answer_sheet_path'] = answer_sheet_path
                 # Anomaly flags
                 if anomalies_detected:
-                    result['flag'] = anomalies_detected
-                    result['flag_reason'] = '' if (result['flag_reason'] or result['flag_reason'] =='') else ', ' + 'Unussual marks detected'
+                    results['flag'] = anomalies_detected
+                    results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] =='') else f'{results['flag_reason']}, ') + 'Unussual marks detected'
                 self.add_to_spreadsheet(results)
                 if self.save_intermediate_results:
                     save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)

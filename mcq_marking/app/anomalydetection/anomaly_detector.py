@@ -321,6 +321,6 @@ class AnomalyDetector:
         # Invert removal mask and apply to clean mask
         circle_mask_inv = cv2.bitwise_not(removing_mask)
         cleaned_mask = cv2.bitwise_and(mask, mask, mask=circle_mask_inv)
-        cv2.imwrite("result_mask.jpg", cleaned_mask)
+        
         non_zeros = np.count_nonzero(cleaned_mask)
         return ( non_zeros > self.threashold, non_zeros)
