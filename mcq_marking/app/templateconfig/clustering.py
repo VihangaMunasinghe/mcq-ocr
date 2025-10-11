@@ -1,7 +1,7 @@
 import cv2
 #import pyautogui
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans,AgglomerativeClustering
 from app.storage.nfs_storage import NFSStorage
 from app.templateconfig.common import prepare_image
 
@@ -86,16 +86,16 @@ def get_clustering(img_path,Num_of_columns,Num_of_rows_per_column,Num_of_options
 
     # First pass: keep only circles (not rectangles)
     for contour, area in zip(circles, bubble_areas):
-        epsilon = 0.01 * cv2.arcLength(contour, True)
+        epsilon = 0.02 * cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon, True)
         if len(approx) != 4:  # skip rectangles
             filtered_circles.append(contour)
             filtered_areas.append(area)
             
     # Now filter by area
-    mean_area = np.mean(filtered_areas)
-    lower_threshold = mean_area * 0.5
-    upper_threshold = mean_area * 1.5
+    median_area = np.median(filtered_areas)
+    lower_threshold = median_area * 0.7
+    upper_threshold = median_area * 1.3
 
     final_circles = []
 
@@ -520,13 +520,13 @@ def get_clustering(img_path,Num_of_columns,Num_of_rows_per_column,Num_of_options
 
     result_img = None
     
-    final_bubbles = [[[] for _ in range(num_of_rows_per_column)] for _ in range(num_of_columns)]
+    final_bubbles = [[[] for _ in range(num_of_rows_per_column[col])] for col in range(num_of_columns)]
 
     y_offset = (line_y + 1) if line_y is not None else 0
 
     for i in range(num_of_columns):
-        for row_idx in range(num_of_rows_per_column):
-             adjusted_row = [(x, y + y_offset) for (x, y) in bubbles[i][row_idx]]
+        for row_idx in range(num_of_rows_per_column[i]):
+             adjusted_row = [(float(x), float(y + y_offset)) for (x, y) in bubbles[i][row_idx]]
              final_bubbles[i][row_idx] = adjusted_row
 
     # Now final_bubbles contains all coordinates in resized_img reference
@@ -536,24 +536,22 @@ def get_clustering(img_path,Num_of_columns,Num_of_rows_per_column,Num_of_options
     # In another file
     #import numpy as np
     #final_bubbles = np.load("final_bubbles.npy", allow_pickle=True)
+
+    num_questions = sum(
+        num_of_rows_per_column[i]
+        for i in range(num_of_columns)
+    )
+
     
     bubble_data = {
     "metadata": {
-        "num_columns": num_of_columns,
-        "column_row_distribution": num_of_rows_per_column,
-        "num_options_per_question": num_of_options_per_question,
-        "num_questions": num_of_options_per_question*num_of_rows_per_column*num_of_columns
+        "num_columns": int(num_of_columns),
+        "column_row_distribution": [int(x) for x in num_of_rows_per_column],
+        "num_of_options_per_question": int(num_of_options_per_question),
+        "num_questions": int(num_questions)
         
     },
-    "bubbles": {
-        str(col_idx + 1): {
-            str(row_idx + 1): [
-                {"x": int(x), "y": int(y)} for (x, y) in row
-            ]
-            for row_idx, row in enumerate(col_rows)
-        }
-        for col_idx, col_rows in enumerate(final_bubbles)
-    }
+    "bubbles": final_bubbles
     }
 
     # Show the result

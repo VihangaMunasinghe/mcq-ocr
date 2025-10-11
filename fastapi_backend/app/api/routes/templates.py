@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends, status, WebSocket,WebSocketDisconnect
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
@@ -9,23 +9,22 @@ from app.schemas.template import TemplateResponse, TemplateCreate
 from app.models import Template, TemplateConfigJob
 from app.models.template import TemplateConfigStatus, TemplateConfigType
 from app.models.template_config_job import TemplateConfigJobPriority
-from typing import Optional
 from app.database import get_async_db
 from app.queue import submit_template_config_job
 from app.models.file import FileOrFolder
+from app.websocket import WebSocketManager
+from app.api.deps import get_websocket_manager
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
 
-@router.post("/", response_model=TemplateResponse)
+@router.post("/")
 async def create_template(
     template: TemplateCreate,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """
-    Create a new template and submit configuration job to queue
-    """
-    user_id = 1 # TODO: Get from authentication
+    """Create a new template and return job_id for configuration"""
+    user_id = 1  # TODO: Get from authentication
     try:
         # Step 1: Add details to template table
         template_record = Template(
@@ -34,8 +33,10 @@ async def create_template(
             config_type=template.config_type,
             status=TemplateConfigStatus.QUEUED,
             num_questions=0,  # Will be updated after configuration
-            options_per_question=0,  # Default, will be updated after configuration
-            template_file_id=None,
+            num_of_options_per_question=template.num_of_options_per_question or 0,
+            num_of_columns=template.num_of_columns,
+            num_of_rows_per_column=template.num_of_rows_per_column,
+            template_file_id=None, # Will be set after processing
             configuration_file_id=None,  # Will be set after processing
             created_by=user_id
         )
@@ -44,12 +45,13 @@ async def create_template(
         await db.commit()
         await db.refresh(template_record)
 
+        # Generate paths for configuration
         random_id = str(uuid.uuid4())[:8]
-        
         template_config_path = f"templates/{user_id}/{template_record.id}_{random_id}_config.json"
         output_image_path = f"templates/{user_id}/{template_record.id}_{random_id}_template.jpg"
         result_image_path = f"intermediate/templates/{user_id}/{template_record.id}_{random_id}_result.jpg" if template.save_intermediate_results else None
 
+        # Verify template file exists
         template_file = await db.get(FileOrFolder, template.template_file_id)
         if not template_file:
             raise HTTPException(
@@ -57,7 +59,7 @@ async def create_template(
                 detail=f"Template file with id {template.template_file_id} not found"
             )
         
-        # Step 3: Add details to job table
+        # Create configuration job
         config_job = TemplateConfigJob(
             name=f"Config for {template.name}",
             description=f"Template configuration for {template.name}",
@@ -77,40 +79,17 @@ async def create_template(
         db.add(config_job)
         await db.commit()
         await db.refresh(config_job)
-        
-        # Step 4: Put the message to queue (submit directly to avoid async context issues)
-        try:
-            logger.info(f"Submitting template config job {config_job.id} to queue")
-            await submit_template_config_job(config_job.id)
-            logger.info(f"Successfully submitted template config job {config_job.id} to queue")
-        except Exception as e:
-            logger.error(f"Failed to submit template config job {config_job.id} to queue: {e}")
-            # Update job status to failed
-            try:
-                config_job.status = TemplateConfigStatus.FAILED
-                await db.commit()
-                logger.info(f"Updated job {config_job.id} status to failed")
-            except Exception as commit_error:
-                logger.error(f"Failed to update job status to failed: {commit_error}")
-        
-        # Step 5: Return the response
-        return TemplateResponse(
-            id=template_record.id,
-            name=template_record.name,
-            status=template_record.status,
-            description=template_record.description,
-            config_type=template_record.config_type,
-            configuration_file_id=template_record.configuration_file_id,
-            template_file_id=template_record.template_file_id,
-            num_questions=template_record.num_questions,
-            options_per_question=template_record.options_per_question,
-            created_at=template_record.created_at,
-            updated_at=template_record.updated_at,
-            created_by=template_record.created_by
-        )
-        
+
+        # Return response with job_id
+        return {
+            "job_id": config_job.id
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
+        logger.error(f"Failed to create template: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create template: {str(e)}"
@@ -149,7 +128,7 @@ async def list_templates(
                 configuration_file_id=template.configuration_file_id,
                 template_file_id=template.template_file_id,
                 num_questions=template.num_questions,
-                options_per_question=template.options_per_question,
+                num_of_options_per_question=template.num_of_options_per_question,
                 created_at=template.created_at,
                 updated_at=template.updated_at,
                 created_by=template.created_by
@@ -189,7 +168,7 @@ async def get_template(
             configuration_file_id=template.configuration_file_id,
             template_file_id=template.template_file_id,
             num_questions=template.num_questions,
-            options_per_question=template.options_per_question,
+            num_of_options_per_question=template.num_of_options_per_question,
             created_at=template.created_at,
             updated_at=template.updated_at,
             created_by=template.created_by
@@ -239,7 +218,7 @@ async def update_template(
             configuration_file_id=template.configuration_file_id,
             template_file_id=template.template_file_id,
             num_questions=template.num_questions,
-            options_per_question=template.options_per_question,
+            num_of_options_per_question=template.num_of_options_per_question,
             created_at=template.created_at,
             updated_at=template.updated_at,
             created_by=template.created_by
@@ -284,5 +263,88 @@ async def delete_template(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete template: {str(e)}"
         )
+
+@router.websocket("/{job_id}/configure")
+async def configure_template_websocket(
+    job_id: int,
+    websocket: WebSocket,
+    db: AsyncSession = Depends(get_async_db),
+    websocket_manager: WebSocketManager = Depends(get_websocket_manager)
+):
+    """Configure template via WebSocket"""
+    user_id = 1  # TODO: Get from authentication
+    logger.info(f"WebSocket endpoint called for template config job {job_id}")
+    
+    try:
+        # Connect to WebSocket manager
+        await websocket_manager.connect_template_config(str(job_id), websocket)
+        logger.info(f"WebSocket connection established for template config job {job_id}")
+
+        # Get the config job
+        result = await db.execute(
+            select(TemplateConfigJob).where(
+                TemplateConfigJob.id == job_id,
+                TemplateConfigJob.created_by == user_id
+            )
+        )
+        config_job = result.scalar_one_or_none()
+
+        if not config_job:
+            await websocket.send_json({
+                "status": "error",
+                "message": "Template configuration job not found"
+            })
+            await websocket_manager.disconnect_template_config(str(job_id), websocket)
+            return
+
+        # Submit job to queue
+        try:
+            logger.info(f"Submitting template config job {job_id} to queue")
+            await submit_template_config_job(job_id)
+            
+            # Send queued status
+            await websocket.send_json({
+                "status": "queued",
+                "message": "Template configuration job queued successfully"
+            })
+            
+            # Keep connection alive - wait for disconnection
+            try:
+                while True:
+                    try:
+                        await websocket.receive_text()
+                    except WebSocketDisconnect:
+                        logger.info(f"WebSocket connection closed by client for job {job_id}")
+                        break
+                    except Exception as e:
+                        logger.error(f"Error receiving WebSocket message for job {job_id}: {e}")
+                        break
+            finally:
+                # Ensure we disconnect from the WebSocket manager
+                await websocket_manager.disconnect_template_config(str(job_id), websocket)
+                logger.info(f"Cleaned up WebSocket connection for job {job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to submit template config job {job_id} to queue: {e}")
+            await websocket.send_json({
+                "status": "error",
+                "message": f"Failed to submit configuration job: {str(e)}"
+            })
+            await websocket_manager.disconnect_template_config(str(job_id), websocket)
+            return
+
+    except Exception as e:
+        logger.error(f"Failed to configure template job {job_id}: {str(e)}")
+        try:
+            await websocket.send_json({
+                "status": "error",
+                "message": f"Failed to configure template: {str(e)}"
+            })
+        except Exception as send_error:
+            logger.error(f"Failed to send error message: {send_error}")
+        try:
+            await websocket_manager.disconnect_template_config(str(job_id), websocket)
+        except Exception as disconnect_error:
+            logger.error(f"Failed to disconnect WebSocket: {disconnect_error}")
 
 
