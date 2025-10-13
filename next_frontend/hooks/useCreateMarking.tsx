@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext } from "react";
-import { MarkingJob } from "@/app/marking-jobs/create/components/types";
+import { MarkingJob } from "@/app/marking-jobs/types/types";
 import { useState } from "react";
 
 const CreateMarkingContext = createContext<

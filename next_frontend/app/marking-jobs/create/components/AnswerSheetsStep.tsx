@@ -5,6 +5,7 @@ import { FileUpload } from "../../../../components/UI/FileUpload";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
 import { useRouter } from "next/navigation";
+import { MarkingJob } from "../../types/types";
 
 interface AnswerSheetsStepProps {
   answerSheetsFile: File | null;
@@ -53,7 +54,10 @@ export function AnswerSheetsStep({
       }
 
       const uploadData = await uploadResponse.json();
-      setMarkingJob((prev) => ({ ...prev, answer_sheets_folder_id: uploadData.file_id }));
+      setMarkingJob((prev: MarkingJob) => ({
+        ...prev,
+        answer_sheets_folder_id: uploadData.file_id,
+      }));
 
       // Attach answer sheets to marking job
       const attachResponse = await fetch(
@@ -100,19 +104,22 @@ export function AnswerSheetsStep({
     }
   };
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Answer Sheets
         </h3>
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600">
           Upload a ZIP file containing all the answer sheets you want to mark
           automatically.
         </p>
       </div>
 
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
+          <h4 className="text-base font-semibold text-gray-900 mb-4">
+            Upload Answer Sheets
+          </h4>
           <FileUpload
             label="Upload Answer Sheets *"
             hint="Upload a ZIP file containing all answer sheets to be marked"
@@ -138,9 +145,9 @@ export function AnswerSheetsStep({
                   Ready to Start Marking
                 </h3>
                 <p className="mt-2 text-sm text-green-700">
-                  File &quot;{answerSheetsFile.name}&quot; has been uploaded. All files
-                  are ready - click &quot;Start Marking&quot; to begin the automatic
-                  grading process.
+                  File &quot;{answerSheetsFile.name}&quot; has been uploaded.
+                  All files are ready - click &quot;Start Marking&quot; to begin
+                  the automatic grading process.
                 </p>
               </div>
             </div>

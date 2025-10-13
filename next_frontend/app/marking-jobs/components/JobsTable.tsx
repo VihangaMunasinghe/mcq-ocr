@@ -1,6 +1,6 @@
 import React from "react";
 import { Table, TableColumn } from "../../../components/UI/Table";
-import { MarkingJobBasic } from "./types";
+import { MarkingJobBasic } from "../types/types";
 import { StatusBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
 import { JobActions } from "./JobActions";

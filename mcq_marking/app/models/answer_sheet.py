@@ -69,8 +69,7 @@ class AnswerSheet:
             self.columnwise_total,
             self.points,
             self.labeled_points,
-        ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution) # TODO: add facility_index
-        logger.info(f"Calculated score")
+        ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution)
         # Flagging
         if len(self.more_than_one_marked) > 0:
             self.flag = True

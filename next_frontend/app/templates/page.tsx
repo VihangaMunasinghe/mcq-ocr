@@ -8,12 +8,92 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { Template } from "@/models/template";
 import TemplateCard from "./components/template_card";
-import ViewTemplateModal from "./components/view-template-modal";
+import { EditTemplateModal } from "./components/EditTemplateModal";
+import ViewTemplateModal from "./components/ViewTemplateModal";
+
+
+//import ViewTemplateModal from "./components/view-template-modal";
 import { useRouter } from "next/navigation";
+//import { FormUploadModal } from "@/components/Modals/FormUploadModal";
+
+//const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+
+const selectFormConfig = [
+  {
+    name: "config_type",
+    label: "Config Type",
+    options: [
+      { value: "grid_based", label: "Grid Based" },
+      { value: "clustering_based", label: "Cluster Based" },
+    ],
+    defaultValue: "grid_based",
+  },
+  {
+    name: "save_intermediate_results",
+    label: "Save Intermediate Results",
+    options: [
+      { value: "true", label: "Yes" },
+      { value: "false", label: "No" },
+    ],
+    defaultValue: "false",
+  },
+];
+
+const inputFormConfig = [
+  {
+    name: "name",
+    label: "Name",
+    type: "text",
+    placeholder: "Enter name",
+    required: true,
+    defaultValue: "",
+  },
+  {
+    name: "description",
+    label: "Description",
+    type: "text",
+    placeholder: "Enter description",
+    defaultValue: "",
+  },
+  {
+    name: "num_of_columns",
+    label: "Number of Columns",
+    type: "number",
+    placeholder: "3",
+    defaultValue: "3",
+  },
+  {
+    name: "num_of_rows_per_column",
+    label: "Rows per Column",
+    type: "number",
+    placeholder: "30",
+    defaultValue: "30",
+  },
+  {
+    name: "num_of_options_per_question",
+    label: "Options per Question",
+    type: "number",
+    placeholder: "5",
+    defaultValue: "5",
+  },
+];
+
+const fileFormConfig = [
+  {
+    name: "template_image", // required
+    label: "Upload your template image",
+    accept: ".jpg,.jpeg,.png", // correct key
+    maxSize: 10 * 1024 * 1024, // correct key
+    maxFiles: 1,
+    required: true,
+    fullWidth: true,
+  },
+];
 
 export default function Templates() {
   const router = useRouter();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null);
@@ -63,15 +143,68 @@ export default function Templates() {
     fetchTemplates();
   }, []);
 
-  const handleDeleteTemplate = () => {
-    // In a real app, this would make an API call to delete the template
-    console.log(`Deleting template with ID: ${selectedTemplate}`);
-    showToast("Template deleted successfully", "success");
-    setIsDeleteModalOpen(false);
-    setSelectedTemplate(null);
-    // Refresh the templates list after deletion
-    fetchTemplates();
+  const handleDeleteTemplate = async() => {
+      if (!selectedTemplate) return;
+
+      try {
+      const response = await fetch(`${BACKEND_URL}/api/templates/${selectedTemplate}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete template: ${response.statusText}`);
+      }
+
+      showToast("Template deleted successfully", "success");
+
+      // Refresh template list
+      await fetchTemplates();
+    } catch (err) {
+      console.error("Error deleting template:", err);
+      showToast("Failed to delete template", "error");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setSelectedTemplate(null);
+    }
   };
+
+const handleEditTemplateSave = async (name: string, description: string) => {
+  if (!selectedTemplate) return;
+
+  try {
+    const payload = { 
+          name: name,
+          description: description
+        };
+    console.log('Sending payload:', payload);
+    const response = await fetch(`${BACKEND_URL}/api/templates/edit/${selectedTemplate}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+          payload
+       ),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error details:', errorData);
+      throw new Error(`Failed to update template: ${response.statusText}`);
+    }
+
+    showToast("Template updated successfully", "success");
+    console.log(response)
+    await fetchTemplates(); // refresh templates
+    setIsEditModalOpen(false);
+    setSelectedTemplate(null);
+  } catch (err) {
+    console.error("Error updating template:", err);
+    showToast("Failed to update template", "error");
+  }
+};
+
+
 
   const viewTemplate = (template: Template) => {
     setViewingTemplate(template);
@@ -82,7 +215,11 @@ export default function Templates() {
     setSelectedTemplate(id);
     setIsDeleteModalOpen(true);
   };
-
+ 
+  const editTemplate = (id: number) => {
+    setSelectedTemplate(id);
+    setIsEditModalOpen(true);
+  };
   return (
     <>
       <div className="flex justify-between items-center">
@@ -130,6 +267,7 @@ export default function Templates() {
                 template={template}
                 viewTemplate={viewTemplate}
                 confirmDelete={confirmDelete}
+                editTemplate={editTemplate}
               />
             ))
           ) : (
@@ -158,14 +296,26 @@ export default function Templates() {
         type="warning"
       />
 
+      <EditTemplateModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleEditTemplateSave}
+        existingName={
+          templates.find((t) => t.id === selectedTemplate)?.name || ""
+        }
+        existingDescription={
+          templates.find((t) => t.id === selectedTemplate)?.description || ""
+        }
+      />
       {/* View Template Modal */}
-      {viewingTemplate && (
-        <ViewTemplateModal
-          isViewModalOpen={isViewModalOpen}
-          setIsViewModalOpen={setIsViewModalOpen}
-          viewingTemplate={viewingTemplate}
-        />
-      )}
+      <ViewTemplateModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        template={viewingTemplate}
+        
+      />
+
+
     </>
   );
 }

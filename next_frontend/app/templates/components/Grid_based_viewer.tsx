@@ -1,4 +1,3 @@
-// Grid_based_viewer.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "../../../hooks/useToast";
@@ -27,12 +26,20 @@ interface GridBasedViewerProps {
   templateImage: string | null;
   configData: GridConfigData | null;
   configId: string | null;
+  jobId: number | null;
+  onClose: () => void;
+}
+
+interface ConfigJobResponse {
+  template_id: number;
 }
 
 const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   templateImage,
   configData,
   configId,
+  jobId,
+  onClose
 }) => {
   const router = useRouter();
   const { showToast } = useToast();
@@ -49,6 +56,12 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  const DOUBLE_CLICK_THRESHOLD = 300; // milliseconds
+  const DRAG_THRESHOLD = 5; // pixels
   const originalConfigString = JSON.stringify(configData);
 
   // === Utility functions ===
@@ -61,7 +74,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   };
 
   const hitTest = (x: number, y: number) => {
-    const hitRadius = 15; // larger for easier detection
+    const hitRadius = 15;
     for (const key of Object.keys(columns)) {
       const s = columns[key];
       const dist = Math.hypot(s.starting_x - x, s.starting_y - y);
@@ -93,21 +106,23 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     xOff: number,
     yOff: number
   ) => {
+    // Horizontal line (solid red, thicker)
     ctx.beginPath();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#3b82f6";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ff0000";
+    ctx.setLineDash([]);
     ctx.moveTo(sx * scale, sy * scale);
     ctx.lineTo((sx + xOff) * scale, sy * scale);
     ctx.stroke();
 
+    // Vertical line (solid red, thicker)
     ctx.beginPath();
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "#06b6d4";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ff0000";
+    ctx.setLineDash([]);
     ctx.moveTo(sx * scale, sy * scale);
     ctx.lineTo(sx * scale, (sy + yOff) * scale);
     ctx.stroke();
-    ctx.setLineDash([]);
   };
 
   // === Mouse / Drag logic ===
@@ -126,8 +141,27 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!activeColumnKey) return; // only allow dragging active one
-    setIsDragging(true);
+    const pt = getCanvasCoords(e);
+    if (!pt) return;
+
+    const now = Date.now();
+    const timeSinceLastClick = now - lastClickTime;
+
+    // Check if this is a double-click
+    if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD) {
+      // This is the second click of a double-click
+      // Don't start dragging, let handleDoubleClick handle it
+      setLastClickTime(0); // Reset to prevent triple-click issues
+      return;
+    }
+
+    setLastClickTime(now);
+
+    const hit = hitTest(pt.x, pt.y);
+    if (!hit || hit !== activeColumnKey) return;
+
+    // Only allow dragging the active column
+    setDragStartPos(pt);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -138,6 +172,15 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     const hit = hitTest(pt.x, pt.y);
     setHoverColumnKey(hit);
 
+    // Check if we should start dragging
+    if (dragStartPos && !isDragging && activeColumnKey) {
+      const dist = Math.hypot(pt.x - dragStartPos.x, pt.y - dragStartPos.y);
+      if (dist > DRAG_THRESHOLD) {
+        setIsDragging(true);
+      }
+    }
+
+    // Update position while dragging
     if (isDragging && activeColumnKey) {
       setColumns((prev) => {
         const next = { ...prev };
@@ -151,7 +194,15 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   };
 
   const handleMouseUp = () => {
+    // When user releases, finalize the position and deactivate
+    if (isDragging && activeColumnKey) {
+      // Keep the bubble in its current position
+      // Deactivate it (turn it back to green)
+      setActiveColumnKey(null);
+    }
+    
     setIsDragging(false);
+    setDragStartPos(null);
   };
 
   // === Save logic ===
@@ -181,6 +232,8 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     };
 
     const newConfigString = JSON.stringify(newConfigObj);
+    console.log("Original Config:", originalConfigString);
+    console.log("new configs",newConfigString)
     if (originalConfigString === newConfigString) {
       showToast("No changes detected. Redirecting...", "info");
       router.push("/templates");
@@ -189,8 +242,6 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
     setIsSaving(true);
     try {
-      const BACKEND_URL =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
       const formData = new FormData();
       formData.append("file_id", configId);
       formData.append("config_data", JSON.stringify(newConfigObj));
@@ -211,12 +262,48 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     }
   };
 
-  const handleCancel = () => router.push("/templates");
+  const handleOk = () => router.push("/templates");
+
+  const handleEdit = async () => {
+    if (!jobId) return;
+    
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/templates/config-job/${jobId}`, {
+        method: "GET"
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get template record ID: ${response.statusText}`);
+      }
+      
+      const uploadData: ConfigJobResponse = await response.json();
+      const TemRecordId = uploadData.template_id;
+      const result = await fetch(`${BACKEND_URL}/api/templates/${TemRecordId}`, {
+        method: "DELETE",
+      });
+
+      if (!result.ok) {
+        throw new Error(`Failed to delete template: ${result.statusText}`);
+      }
+      
+      showToast("You can re-enter again!", "success");
+      onClose();
+      
+      setTimeout(() => {
+        router.push("/templates/create?reset=true");
+      }, 100);
+      
+    } catch (error) {
+      console.error("Error while getting configJob record ID or deleting template:", error);
+      showToast("Failed to remove entered template", "error");
+    }
+  };
 
   const handleXOffsetChange = (v: string) => {
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setXOffset(num);
   };
+  
   const handleYOffsetChange = (v: string) => {
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setYOffset(num);
@@ -265,7 +352,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
           const s = columns[k];
           drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
           const isHover = hoverColumnKey === k;
-          const color = k === activeColumnKey ? "#ff3333" : "#2BFA0B";
+          const color = k === activeColumnKey ? "#0000ff" : "#2BFA0B";
           drawTopBubble(ctx, s.starting_x, s.starting_y, color, isHover);
         });
       };
@@ -286,7 +373,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     <div className="relative w-full h-full flex">
       {/* Sidebar */}
       <div className="w-72 p-4 border-r border-gray-200">
-        <h3 className="font-semibold text-lg mb-3">Grid Weaver — Metadata</h3>
+        <h3 className="font-semibold text-lg mb-3">Grid Based — Metadata</h3>
 
         {configData?.metadata && (
           <div className="space-y-3 text-sm">
@@ -334,8 +421,8 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
             />
           </div>
           <div className="text-xs text-gray-500">
-            Double-click a green bubble to activate (it turns red). Then drag to
-            move it — blue lines move together.
+            Double-click a green bubble to activate (it turns blue). Then drag to
+            move it. Release the mouse to finalize the position (it turns green again).
           </div>
         </div>
 
@@ -351,12 +438,17 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
           >
             {isSaving ? "Saving..." : "Save Changes"}
           </button>
-
           <button
-            onClick={handleCancel}
+            onClick={handleEdit}
+            className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-red-600 hover:bg-red-800 text-white"
+          >
+            Edit
+          </button>
+          <button
+            onClick={handleOk}
             className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-white"
           >
-            Cancel
+            Ok
           </button>
         </div>
       </div>

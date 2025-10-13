@@ -19,6 +19,7 @@ interface TemplateCardProps {
   template: Template;
   viewTemplate: (template: Template) => void;
   confirmDelete: (id: number) => void;
+  editTemplate: (id: number) => void;
 }
 
 const getConfigIcon = (configType: ConfigType) => {
@@ -30,7 +31,7 @@ const getConfigIcon = (configType: ConfigType) => {
           className="h-6 w-6 text-blue-600"
         />
       );
-    case "clustering_based":
+    case "cluster_based":
       return (
         <FontAwesomeIcon 
           icon={faProjectDiagram} 
@@ -67,7 +68,7 @@ const formatDate = (isoString: string) => {
   });
 };
 
-const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardProps) => {
+const TemplateCard = ({ template, viewTemplate, editTemplate,confirmDelete }: TemplateCardProps) => {
   return (
     <Card key={template.id} className="hover:shadow-md transition-shadow">
       <div className="flex justify-between">
@@ -119,7 +120,7 @@ const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardPro
         </div>
         <div className="flex items-center text-sm text-gray-500">
           <FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4 mr-2" />
-          Options per Q: {template.options_per_question}
+          Options per Q: {template.num_of_options_per_question}
         </div>
         <div className="flex items-center text-sm text-gray-500">
           <FontAwesomeIcon icon={faUser} className="h-4 w-4 mr-2" />
@@ -147,7 +148,7 @@ const TemplateCard = ({ template, viewTemplate, confirmDelete }: TemplateCardPro
           variant="outline"
           size="sm"
           icon={<FontAwesomeIcon icon={faEdit} className="h-4 w-4" />}
-        >
+          onClick={() => editTemplate(template.id)}>
           Edit
         </Button>
         <Button

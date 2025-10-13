@@ -14,6 +14,7 @@ class MarkingResponse(BaseModel):
     marking_scheme_id: Optional[int] = None
     marking_config_id: Optional[int] = None
     answer_sheets_folder_id: Optional[int] = None
+    result_sheet_file_id: Optional[int] = None
     save_intermediate_results: bool
     total_answer_sheets: Optional[int] = None
     processed_answer_sheets: Optional[int] = None
@@ -33,9 +34,18 @@ class MarkingResponseBasic(BaseModel):
     status: MarkingJobStatus
     priority: MarkingJobPriority
     template_name: str
+    total_answer_sheets: Optional[int] = None
+    processed_answer_sheets: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     created_by: int
+
+class ResultsData(MarkingResponseBasic):
+    marking_config_id: int
+    result_sheet_file_id: int
+    processing_started_at: datetime
+    processing_completed_at: datetime
+
 
 class MarkingCreateMetadata(BaseModel):
     name: str
@@ -59,4 +69,36 @@ class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
 
 class UpdateMarkingSchemeConfigRequest(BaseModel):
-    marking_scheme_config: dict[str, Any]
+    isUpdated: bool
+    marking_scheme_config: Optional[dict[str, Any]] = None
+
+class Bubble(BaseModel):
+    marked: bool
+    coordinates: list[float]  # [x, y] coordinates
+
+class StudentResult(BaseModel):
+    row_number: int
+    index_number: str
+    correct: list[int]
+    incorrect: list[int]
+    more_than_one_marked: list[int]
+    not_marked: list[int]
+    columnwise_total: list[int]
+    score: int
+    flag: bool
+    flag_reason: str
+    answer_sheet_path: str
+    labeled_points: list[list[Bubble]]
+
+class UpdateResultRequest(BaseModel):
+    result: StudentResult
+
+
+class ProgressRequest(BaseModel):
+    marking_job_ids: list[int]
+
+class ProgressResponse(BaseModel):
+    marking_job_id: int
+    progress: float
+
+

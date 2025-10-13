@@ -25,7 +25,13 @@ class TemplateResponse(BaseModel):
     configuration_file_id: Optional[int] = None
     template_file_id: Optional[int] = None
     num_questions: int
+    num_of_columns: Optional[int] = None
+    num_of_rows_per_column: Optional[List[int]] = None
     num_of_options_per_question: int
     created_at: datetime
     updated_at: datetime
     created_by: int
+
+class TemplateUpdate(BaseModel):
+    name: str
+    description: Optional[str] = None

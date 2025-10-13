@@ -1,10 +1,15 @@
 import json
 import logging
 from datetime import datetime
+from typing import Dict, Any, Optional, Union
 import pika
-from app.models.template_config_job import TemplateConfigJob
-from app.models.marking_job import MarkingJob
-from app.models.marking_scheme_config_job import MarkingSchemeConfigJob
+from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import Basic, BasicProperties
+
+from app.markingworker.processors.job_processor_interface import JobProcessorInterface
+from app.markingworker.processors.template_config_processor import TemplateConfigProcessor
+from app.markingworker.processors.marking_scheme_config_processor import MarkingSchemeConfigProcessor
+from app.markingworker.processors.marking_job_processor import MarkingJobProcessor
 
 
 # Configure logging
@@ -12,18 +17,27 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MCQMarkingWorker:
-    def __init__(self, rabbitmq_url: str, template_config_queue: str, marking_job_queue: str, marking_scheme_config_queue: str, marking_job_results_queue: str, template_config_results_queue: str, marking_scheme_config_results_queue: str):
-        self.rabbitmq_url = rabbitmq_url
-        self.template_config_queue = template_config_queue
-        self.marking_job_queue = marking_job_queue
-        self.marking_scheme_config_queue = marking_scheme_config_queue
-        self.marking_job_results_queue = marking_job_results_queue
-        self.template_config_results_queue = template_config_results_queue
-        self.marking_scheme_config_results_queue = marking_scheme_config_results_queue
-        self.connection = None
-        self.channel = None
+    def __init__(
+        self, 
+        rabbitmq_url: str, 
+        template_config_queue: str, 
+        marking_job_queue: str, 
+        marking_scheme_config_queue: str, 
+        marking_job_results_queue: str, 
+        template_config_results_queue: str, 
+        marking_scheme_config_results_queue: str
+    ) -> None:
+        self.rabbitmq_url: str = rabbitmq_url
+        self.template_config_queue: str = template_config_queue
+        self.marking_job_queue: str = marking_job_queue
+        self.marking_scheme_config_queue: str = marking_scheme_config_queue
+        self.marking_job_results_queue: str = marking_job_results_queue
+        self.template_config_results_queue: str = template_config_results_queue
+        self.marking_scheme_config_results_queue: str = marking_scheme_config_results_queue
+        self.connection: Optional[pika.BlockingConnection] = None
+        self.channel: Optional[BlockingChannel] = None
         
-    def connect(self):
+    def connect(self) -> None:
         """Establish connection to RabbitMQ"""
         try:
             self.connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
@@ -39,7 +53,13 @@ class MCQMarkingWorker:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             raise
 
-    def publish_result(self, ch, properties, queue, reply_data):
+    def _publish_result(
+        self, 
+        ch: BlockingChannel, 
+        properties: Optional[BasicProperties], 
+        queue: str, 
+        reply_data: Dict[str, Any]
+    ) -> None:
         """Generic method to publish results to any queue"""
         ch.basic_publish(
             exchange='',
@@ -51,7 +71,12 @@ class MCQMarkingWorker:
             )
         )
 
-    def create_reply_data(self, job_id, status, result):
+    def _create_reply_data(
+        self, 
+        job_id: Union[int, str], 
+        status: str, 
+        result: Union[Dict[str, Any], str, bool]
+    ) -> Dict[str, Any]:
         """Generic method to create reply data structure"""
         return {
             'job_id': job_id,
@@ -60,120 +85,149 @@ class MCQMarkingWorker:
             'timestamp': datetime.now().isoformat()
         }
 
-    def validate_job_id(self, job_data):
-        """Validate job ID and return job_id or None if invalid"""
-        job_id = job_data.get('id', 'unknown')
-        if job_id == 'unknown':
-            logger.error("Job ID is unknown")
-            return None
-        return job_id
+    def _send_progress_to_backend(
+        self, 
+        ch: BlockingChannel, 
+        properties: Optional[BasicProperties], 
+        job_id: Union[int, str], 
+        completed: int, 
+        total: int,
+        queue: str
+    ) -> None:
+        """Send progress to backend"""
+        reply_data = self._create_reply_data(job_id, 'processing', {
+            'completed': completed,
+            'total': total
+        })
+        self._publish_result(ch, properties, queue, reply_data)
 
-    def process_job_with_error_handling(self, ch, method, properties, body, job_type, reply_queue, job_processor):
-        """Generic method to process jobs with error handling"""
+    def process_job_with_error_handling(
+        self, 
+        ch: BlockingChannel, 
+        method: Basic.Deliver, 
+        properties: BasicProperties, 
+        body: bytes, 
+        reply_queue: str, 
+        processor: JobProcessorInterface
+    ) -> None:
+        """
+        Generic method to process jobs with error handling using a processor object.
+        
+        Args:
+            ch: RabbitMQ channel
+            method: Delivery method
+            properties: Message properties
+            body: Message body
+            reply_queue: Queue to send results to
+            processor: Job processor object implementing JobProcessorInterface
+        """
         try:
-            job_data = json.loads(body)
-            job_id = self.validate_job_id(job_data)
+            job_data: Dict[str, Any] = json.loads(body)
+            job_id = processor.job_id
+            job_type = processor.__class__.__name__.replace('Processor', '')
             
-            if job_id is None:
-                reply_data = self.create_reply_data('unknown', 'failed', 'Job ID is unknown')
-                self.publish_result(ch, properties, reply_queue, reply_data)
+            # Validate job ID
+            if job_id == 'unknown':
+                reply_data = self._create_reply_data('unknown', 'failed', 'Job ID is unknown')
+                self._publish_result(ch, properties, reply_queue, reply_data)
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 logger.error(f"{job_type} Job ID is unknown")
                 return
             
             logger.info(f"Processing {job_type} job: {job_id}")
             
-            # Execute the job-specific processing
-            result = job_processor(job_data)
+            
+            # Validate the job data
+            if not processor.validate():
+                reply_data = self._create_reply_data(job_id, 'failed', 'Job validation failed')
+                self._publish_result(ch, properties, reply_queue, reply_data)
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                logger.error(f"{job_type} job validation failed: {job_id}")
+                return
+            
+            # Execute the job-specific processing using the processor
+            result = processor.process()
 
             if result is False:
-                reply_data = self.create_reply_data(job_id, 'failed', 'Job failed')
-                self.publish_result(ch, properties, reply_queue, reply_data)
+                reply_data = self._create_reply_data(job_id, 'failed', 'Job processing failed')
+                self._publish_result(ch, properties, reply_queue, reply_data)
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
                 logger.error(f"{job_type} job failed: {job_id}")
                 return
             
             logger.info(f"{job_type} job completed: {job_id}")
             
-            reply_data = self.create_reply_data(job_id, 'completed', result)
-            self.publish_result(ch, properties, reply_queue, reply_data)
+            reply_data = self._create_reply_data(job_id, 'completed', result)
+            self._publish_result(ch, properties, reply_queue, reply_data)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             
         except Exception as e:
-            logger.error(f"Error processing {job_type} job: {e}")
-            job_id = job_data.get('id', 'unknown') if 'job_data' in locals() else 'unknown'
-            reply_data = self.create_reply_data(job_id, 'failed', str(e))
-            self.publish_result(ch, properties, reply_queue, reply_data)
+            logger.error(f"Error processing job: {e}")
+            job_id = processor.job_id if 'processor' in locals() else 'unknown'
+            reply_data = self._create_reply_data(job_id, 'failed', str(e))
+            self._publish_result(ch, properties, reply_queue, reply_data)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
     
-    def _process_template_config(self, job_data):
-        """Process template configuration job and return result"""
-        template_config_job = TemplateConfigJob(job_data)
-        success = template_config_job.configure()
-        
-        if success:
-            return {
-                'template_config_path': template_config_job.template_config_path,
-                'output_image_path': template_config_job.output_image_path,
-                'debug_image_path': template_config_job.debug_image_path,
-                'bubble_config': template_config_job.template_config
-            }
-        else:
-            return False
-
-    def _process_marking_scheme_config(self, job_data):
-        """Process marking configuration job and return result"""
-        marking_scheme_config_job = MarkingSchemeConfigJob(job_data)
-        success = marking_scheme_config_job.configure()
-        
-        if success:
-            return {
-                'marking_scheme_path': marking_scheme_config_job.marking_scheme_path,
-                'marking_scheme_config_path': marking_scheme_config_job.marking_scheme_config_path,
-            }
-        else:
-            return False
-
-    def process_template_config_job(self, ch, method, properties, body):
+    def process_template_config_job(
+        self, 
+        ch: BlockingChannel, 
+        method: Basic.Deliver, 
+        properties: BasicProperties, 
+        body: bytes
+    ) -> None:
         """Process template configuration job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+        processor = TemplateConfigProcessor(job_data, progress_callback=None)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'template config',
             self.template_config_results_queue,
-            self._process_template_config
+            processor
         )
 
-    def process_marking_scheme_config_job(self, ch, method, properties, body):
-        """Process marking configuration job from RabbitMQ"""
+    def process_marking_scheme_config_job(
+        self, 
+        ch: BlockingChannel, 
+        method: Basic.Deliver, 
+        properties: BasicProperties, 
+        body: bytes
+    ) -> None:
+        """Process marking scheme configuration job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+        processor = MarkingSchemeConfigProcessor(job_data, progress_callback=None)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'marking scheme config',
             self.marking_scheme_config_results_queue,
-            self._process_marking_scheme_config
+            processor
         )
     
-    def _process_marking_job(self, job_data):
-        """Process marking job and return result"""
-        marking_job = MarkingJob(job_data, rabbitmq_url=self.rabbitmq_url)
-        result = marking_job.mark_answers()
-        if result:
-            return result
-        else:
-            logger.error(f"Marking job failed: {job_data['id']}")
-            return False
 
-    def process_marking_job(self, ch, method, properties, body):
+    def process_marking_job(
+        self, 
+        ch: BlockingChannel, 
+        method: Basic.Deliver, 
+        properties: BasicProperties, 
+        body: bytes
+    ) -> None:
         """Process marking job from RabbitMQ"""
+        job_data: Dict[str, Any] = json.loads(body)
+
+        def progress_callback(completed: int, total:int):
+            job_id = job_data.get('id', 'unknown')
+            self._send_progress_to_backend(ch, properties, job_id, completed, total, self.marking_job_results_queue)
+            
+        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url)
         self.process_job_with_error_handling(
             ch, method, properties, body,
-            'marking',
             self.marking_job_results_queue,
-            self._process_marking_job
+            processor
         )
     
-    def start_consuming(self):
+    def start_consuming(self) -> None:
         """Start consuming messages from RabbitMQ queues"""
         try:
+            if not self.channel:
+                raise RuntimeError("Channel not initialized. Call connect() first.")
+            
             # Set up consumers
             self.channel.basic_qos(prefetch_count=1)  # Process one message at a time
             
@@ -200,13 +254,15 @@ class MCQMarkingWorker:
             
         except KeyboardInterrupt:
             logger.info("Stopping consumer...")
-            self.channel.stop_consuming()
-            self.connection.close()
+            if self.channel:
+                self.channel.stop_consuming()
+            if self.connection:
+                self.connection.close()
         except Exception as e:
             logger.error(f"Error in consumer: {e}")
             raise
     
-    def run(self):
+    def run(self) -> None:
         """Main run method"""
         self.connect()
         self.start_consuming()

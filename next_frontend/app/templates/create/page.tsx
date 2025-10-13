@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect,useLayoutEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft, faUpload, faImage } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faImage } from "@fortawesome/free-solid-svg-icons";
 import Image from "next/image";
 import { useToast } from "../../../hooks/useToast";
 import TemplateBubbleViewer from "../view/TemplateBubbleViewer";
@@ -23,15 +23,10 @@ interface UploadResponse {
   file_id: number;
 }
 
-interface WebSocketMessage {
-  status: string;
-  message?: string;
-  data?: any;
-}
-
 export default function CreateTemplate() {
   const router = useRouter();
   const { showToast } = useToast();
+
   const [formData, setFormData] = useState<TemplateForm>({
     name: "",
     description: "",
@@ -40,12 +35,25 @@ export default function CreateTemplate() {
   });
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof TemplateForm, string>>>({});
-
   const [showViewer, setShowViewer] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [configId, setConfigId] = useState<string | null>(null);
   const [configtype, setConfigType] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<number | null>(null);
 
+  const searchParams = useSearchParams();
+  useLayoutEffect(() => {
+  // Reset to default values on component mount
+  if (searchParams.get('reset') === 'true') {
+      setShowViewer(false);
+      setErrors({});
+      setTemplateId(null);
+      setConfigId(null);
+      setConfigType(null);
+      setJobId(null);
+      }
+      router.replace('/templates/create');
+  }, [searchParams,router]);
   // Handle image preview
   useEffect(() => {
     if (formData.templateImage) {
@@ -55,7 +63,19 @@ export default function CreateTemplate() {
     }
   }, [formData.templateImage]);
 
-  // Update the handleInputChange function type definition
+  // Reset cluster-based fields when configType changes
+  useEffect(() => {
+    if (formData.configType === "grid_based") {
+      setFormData((prev) => ({
+        ...prev,
+        numColumns: undefined,
+        rowsPerColumn: [],
+        optionsPerQuestion: undefined,
+      }));
+    }
+  }, [formData.configType]);
+
+
   const handleInputChange = (
     field: keyof TemplateForm,
     value: string | File | number | number[] | null
@@ -64,8 +84,6 @@ export default function CreateTemplate() {
       ...prev,
       [field]: value,
     }));
-
-    // Clear error when user changes input
     if (errors[field]) {
       setErrors((prev) => ({
         ...prev,
@@ -81,127 +99,69 @@ export default function CreateTemplate() {
     }
   };
 
-  // The handleRowsPerColumnChange can remain the same
   const handleRowsPerColumnChange = (columnIndex: number, value: string) => {
     const newRows = [...(formData.rowsPerColumn || [])];
     newRows[columnIndex] = parseInt(value) || 0;
     handleInputChange("rowsPerColumn", newRows);
   };
 
-  // First, move the configureTemplateViaWebSocket function outside of handleUpload
-  const configureTemplateViaWebSocket = (jobId: number): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-      const wsProtocol = BACKEND_URL.startsWith("https") ? "wss" : "ws";
-      const host = BACKEND_URL.replace(/^https?:\/\//, "");
-      const wsUrl = `${wsProtocol}://${host}/api/templates/${jobId}/configure`;
+  // Validation logic
+  const validateForm = (): boolean => {
+    const newErrors: Partial<Record<keyof TemplateForm, string>> = {};
 
-      console.log("Connecting to WebSocket:", wsUrl);
+    if (!formData.name) newErrors.name = "Template name is required.";
+    if (!formData.description) newErrors.description = "Description is required.";
+    if (!formData.templateImage) newErrors.templateImage = "Template image is required.";
+
+    if (formData.configType === "cluster_based") {
+      if (!formData.numColumns || formData.numColumns <= 0)
+        newErrors.numColumns = "Number of columns is required.";
+      if (!formData.rowsPerColumn || formData.rowsPerColumn.length !== formData.numColumns)
+        newErrors.rowsPerColumn = "Please fill all row counts for each column.";
+      if (!formData.optionsPerQuestion || formData.optionsPerQuestion <= 0)
+        newErrors.optionsPerQuestion = "Options per question is required.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // WebSocket logic remains same (trimmed for brevity)
+  const configureTemplateViaWebSocket = async (jobId: number) => {
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    const wsProtocol = BACKEND_URL.startsWith("https") ? "wss" : "ws";
+    const host = BACKEND_URL.replace(/^https?:\/\//, "");
+    const wsUrl = `${wsProtocol}://${host}/api/templates/${jobId}/configure`;
+
+    return new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(wsUrl);
-
-      // Add connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
-          console.error("WebSocket connection timeout");
-          ws.close();
-          reject(new Error("Failed to connect to WebSocket server"));
-        }
-      }, 5000); // 5 second connection timeout
-
-      ws.onopen = () => {
-        console.log("WebSocket connected for template configuration");
-        clearTimeout(connectionTimeout);
-      };
-
       ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", JSON.stringify(data, null, 2));
-
-          if (data.status === "connected") {
-            console.log("WebSocket connection established");
-            showToast("Template configuration started", "success");
-            return;
-          }
-
-          if (data.status === "queued") {
-            console.log("Template configuration job queued");
-            showToast("Template configuration job queued", "success");
-            return;
-          } else if (data.status === "error") {
-            const errorMessage = data.message || "Unknown configuration error";
-            console.error("WebSocket error message:", errorMessage);
-            ws.close();
-            showToast(`Configuration failed: ${errorMessage}`, "error");
-            reject(new Error(`Configuration failed: ${errorMessage}`));
-          } else if (data.status === "completed") {
-            if (!data.data) {
-              console.warn("Completed status received but no data provided");
-            }
-            console.log("Template configuration completed", data.data);
-            showToast("Template configuration completed successfully", "success");
-            ws.close();
-            resolve();
-            setTemplateId(String(data.data.template_file_id));
-            setConfigId(String(data.data.configuration_file_id));
-            setConfigType(String(data.data.config_type));
-            setShowViewer(true);
-            //router.push('/templates');
-          } else {
-            console.warn("Unknown WebSocket message status:", data.status);
-          }
-        } catch (err) {
-          console.error("Error parsing WebSocket message:", err);
-          ws.close();
-          reject(new Error("Invalid WebSocket message format"));
+        const data = JSON.parse(event.data);
+        if (data.status === "completed") {
+          setTemplateId(String(data.data.template_file_id));
+          setConfigId(String(data.data.configuration_file_id));
+          setConfigType(String(data.data.config_type));
+          setShowViewer(true);
+          resolve();
+        } else if (data.status === "error") {
+          reject(new Error(data.message || "Configuration failed"));
         }
       };
-
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        clearTimeout(connectionTimeout);
-        showToast("WebSocket connection failed", "error");
-        ws.close();
-        reject(new Error("WebSocket connection failed"));
-      };
-
-      ws.onclose = (event) => {
-        clearTimeout(connectionTimeout);
-        console.log(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
-        if (event.code !== 1000 && event.code !== 1001) {
-          reject(
-            new Error(
-              `WebSocket closed unexpectedly: ${event.reason || "Unknown reason"}`
-            )
-          );
-        }
-      };
-
-      // Set a timeout to prevent hanging
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log("WebSocket timeout reached, closing connection");
-          ws.close();
-          reject(new Error("Template configuration timeout"));
-          showToast("Configuration timeout - please try again", "error");
-        }
-      }, 90000); // 90 second timeout
+      ws.onerror = (e) => reject(e as unknown as Error);
     });
   };
 
   const handleUpload = async () => {
-    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-    
-    try {
-      // First validate the form
-      if (!formData.name || !formData.templateImage) {
-        showToast("Please fill all required fields", "error");
-        return;
-      }
+    if (!validateForm()) {
+      showToast("Please fill in all required fields.", "error");
+      return;
+    }
 
-      // Step 1: Upload the template image
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+    try {
       const uploadFormData = new FormData();
-      uploadFormData.append("file", formData.templateImage);
+      uploadFormData.append("file", formData.templateImage!);
       uploadFormData.append("file_type", "template");
 
       const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
@@ -209,13 +169,10 @@ export default function CreateTemplate() {
         body: uploadFormData,
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload template image");
-      }
+      if (!uploadResponse.ok) throw new Error("Failed to upload template image");
 
       const uploadData: UploadResponse = await uploadResponse.json();
 
-      // Step 2: Create template
       const templatePayload: any = {
         name: formData.name,
         description: formData.description,
@@ -223,7 +180,6 @@ export default function CreateTemplate() {
         template_file_id: uploadData.file_id,
       };
 
-      // Add cluster-based specific fields if applicable
       if (formData.configType === "cluster_based") {
         templatePayload.num_of_columns = formData.numColumns;
         templatePayload.num_of_rows_per_column = formData.rowsPerColumn;
@@ -232,35 +188,31 @@ export default function CreateTemplate() {
 
       const createResponse = await fetch(`${BACKEND_URL}/api/templates/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(templatePayload),
       });
 
-      if (!createResponse.ok) {
-        const errText = await createResponse.text();
-        console.error("Backend error:", errText);
-        throw new Error("Failed to create template");
-      }
-
+      if (!createResponse.ok) throw new Error("Failed to create template");
       const { job_id } = await createResponse.json();
-
-      // Step 3: Configure template using WebSocket
-      await configureTemplateViaWebSocket(job_id);
-
+      if (typeof job_id === 'number') {
+          setJobId(job_id);
+        } else if (typeof job_id === 'string') {
+          // Convert if it comes as string
+          setJobId(parseInt(job_id, 10));
+        } else {
+          throw new Error('Invalid job_id format received');
+        }
+      // Start WebSocket configuration
+      await configureTemplateViaWebSocket(Number(job_id));
+      showToast("Template uploaded successfully!", "success");
     } catch (error) {
-      console.error("Error during upload process:", error);
-      showToast(
-        error instanceof Error ? error.message : "Failed to process template",
-        "error"
-      );
+      console.error(error);
+      showToast("Failed to upload template.", "error");
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center mb-6">
         <Button
           variant="ghost"
@@ -275,12 +227,10 @@ export default function CreateTemplate() {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-6">Create New Template</h2>
 
-        {/* Basic Information */}
+        {/* Basic Info */}
         <div className="space-y-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Template Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
             <input
               type="text"
               value={formData.name}
@@ -288,12 +238,11 @@ export default function CreateTemplate() {
               className="w-full px-3 py-2 border rounded-md"
               placeholder="Enter template name"
             />
+            {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
@@ -301,12 +250,11 @@ export default function CreateTemplate() {
               rows={3}
               placeholder="Enter template description"
             />
+            {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Configuration Type
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Configuration Type</label>
             <select
               value={formData.configType}
               onChange={(e) => handleInputChange("configType", e.target.value)}
@@ -318,33 +266,31 @@ export default function CreateTemplate() {
           </div>
         </div>
 
-        {/* Conditional Fields Based on Config Type */}
         {formData.configType === "cluster_based" && (
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Number of Columns
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Number of Columns</label>
               <input
                 type="number"
                 min={1}
+                onWheel={(e) => e.currentTarget.blur()}
                 value={formData.numColumns || ""}
                 onChange={(e) => handleInputChange("numColumns", parseInt(e.target.value))}
                 className="w-full px-3 py-2 border rounded-md"
               />
+              {errors.numColumns && <p className="text-sm text-red-500 mt-1">{errors.numColumns}</p>}
             </div>
 
             {formData.numColumns && formData.numColumns > 0 && (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Rows per Column
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Rows per Column</label>
                 <div className="grid grid-cols-3 gap-4">
                   {Array.from({ length: formData.numColumns }).map((_, index) => (
                     <input
                       key={index}
                       type="number"
                       min={1}
+                      onWheel={(e) => e.currentTarget.blur()}
                       value={formData.rowsPerColumn?.[index] || ""}
                       onChange={(e) => handleRowsPerColumnChange(index, e.target.value)}
                       className="px-3 py-2 border rounded-md"
@@ -352,91 +298,80 @@ export default function CreateTemplate() {
                     />
                   ))}
                 </div>
+                {errors.rowsPerColumn && (
+                  <p className="text-sm text-red-500 mt-1">{errors.rowsPerColumn}</p>
+                )}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Options per Question
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Options per Question</label>
               <input
                 type="number"
                 min={1}
+                onWheel={(e) => e.currentTarget.blur()}
                 value={formData.optionsPerQuestion || ""}
                 onChange={(e) => handleInputChange("optionsPerQuestion", parseInt(e.target.value))}
                 className="w-full px-3 py-2 border rounded-md"
               />
+              {errors.optionsPerQuestion && (
+                <p className="text-sm text-red-500 mt-1">{errors.optionsPerQuestion}</p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Template Image Upload */}
+        {/* Image Upload */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Template Image
+          <label className="block text-sm font-medium text-gray-700 mb-2">Template Image</label>
+          <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <FontAwesomeIcon icon={faImage} className="h-12 w-12 text-gray-400 mb-3" />
+              <p className="mb-2 text-sm text-gray-500">
+                <span className="font-semibold">Click to upload</span> or drag and drop
+              </p>
+              <p className="text-xs text-gray-500">PNG, JPG, JPEG</p>
+            </div>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={handleImageUpload}
+            />
           </label>
-          <div className="flex items-center justify-center w-full">
-            <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <FontAwesomeIcon icon={faImage} className="h-12 w-12 text-gray-400 mb-3" />
-                <p className="mb-2 text-sm text-gray-500">
-                  <span className="font-semibold">Click to upload</span> or drag and drop
-                </p>
-                <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 800x400px)</p>
-              </div>
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
-            </label>
-          </div>
+          {errors.templateImage && (
+            <p className="text-sm text-red-500 mt-1">{errors.templateImage}</p>
+          )}
         </div>
 
-        {/* Image Preview */}
         {previewUrl && (
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preview
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Preview</label>
             <div className="relative h-64 w-full border rounded-lg overflow-hidden">
-              <Image
-                src={previewUrl}
-                alt="Template preview"
-                fill
-                style={{ objectFit: "contain" }}
-              />
+              <Image src={previewUrl} alt="Template preview" fill style={{ objectFit: "contain" }} />
             </div>
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex justify-end space-x-4">
-          <Button
-            variant="secondary"
-            onClick={() => router.push("/templates")}
-          >
+          <Button variant="secondary" onClick={() => router.push("/templates")}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={handleUpload}
-            disabled={!formData.name || !formData.templateImage}
-          >
+          <Button variant="primary" onClick={handleUpload}>
             Upload
           </Button>
         </div>
       </div>
-       {showViewer && templateId && (
+
+      {showViewer && templateId && configId && configtype && (
         <TemplateBubbleViewer
           configId={configId}
           templateId={templateId}
           configtype={configtype}
+          jobId={jobId}
           onClose={() => setShowViewer(false)}
         />
       )}
     </div>
   );
 }
-

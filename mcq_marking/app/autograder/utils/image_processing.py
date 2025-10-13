@@ -1,19 +1,25 @@
-from PIL import Image, ImageEnhance
+from PIL import ImageEnhance
 import cv2
 import numpy as np
 
 from app.utils.file_handelling import read_image
 
-
-def read_enhanced_image(path, enhance_contrast_val, resize = True):
-    img = read_image(path, convert_to_grayscale=True)
+def read_resize_image(path, resize = True, test=False):
+    img = read_image(path, convert_to_grayscale=True, test=test)
     if resize:
         img = img.resize((1200, 1600))
+    return img
+
+def enhance_image(img, enhance_contrast_val):
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(enhance_contrast_val)
     color = ImageEnhance.Color(img)
     img = color.enhance(0.0)
     return img
+
+def read_enhanced_image(path, enhance_contrast_val, resize = True, test=False):
+    img = read_resize_image(path, resize=resize, test=test)
+    return enhance_image(img, enhance_contrast_val)
 
 
 def get_homography(img1, img2):

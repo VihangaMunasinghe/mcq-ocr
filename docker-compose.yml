@@ -30,7 +30,7 @@ services:
       - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
     volumes:
       - ./fastapi_backend:/app
-      - nfs_storage:/shared
+      - nfs_storage:/shared:rw
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,9 +92,12 @@ services:
         mkdir -p /shared/uploads /shared/templates /shared/results /shared/reports /shared/temp /shared/backups &&
         mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
         mkdir -p /shared/templates/configs /shared/templates/processed &&
+        mkdir -p /shared/results/markings &&
         chmod -R 777 /shared &&
         chown -R 1000:1000 /shared &&
         echo 'Shared storage ready' &&
+        echo 'Current permissions:' &&
+        ls -la /shared &&
         tail -f /dev/null
       "
     restart: unless-stopped
@@ -106,7 +109,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./mcq_marking:/app
-      - nfs_storage:/shared # Mount NFS storage
+      - nfs_storage:/shared:rw # Mount NFS storage with read-write
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -123,6 +126,7 @@ services:
       - TEMPLATE_CONFIG_RESULTS_QUEUE=template_config_results
       - MARKING_CONFIG_RESULTS_QUEUE=marking_scheme_config_results
     restart: unless-stopped
+    user: "1000:1000" # Add user permissions for shared storage
 
   # index-recognizer:
   #   build:

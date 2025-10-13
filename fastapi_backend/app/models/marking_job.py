@@ -10,8 +10,9 @@ from .base import BaseModel
 
 class MarkingJobStatus(PyEnum):
     """Enum for marking job status."""
-    PENDING = "pending"
+    INITIALIZED = "initialized"
     MARKING_SCHEME_CONFIGURED = "marking_scheme_configured"
+    MARKING_SCHEME_VERIFIED = "marking_scheme_verified"
     ANSWER_SHEETS_ATTACHED = "answer_sheets_attached"
     QUEUED = "queued"
     PROCESSING = "processing"
@@ -41,7 +42,7 @@ class MarkingJob(BaseModel):
     description = Column(Text, nullable=True)
 
     # Job status and priority
-    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.PENDING)
+    status = Column(Enum(MarkingJobStatus), nullable=False, default=MarkingJobStatus.INITIALIZED)
     priority = Column(Enum(MarkingJobPriority), nullable=False, default=MarkingJobPriority.NORMAL)
 
     # File references and paths
@@ -86,6 +87,7 @@ class MarkingJob(BaseModel):
     marking_scheme = relationship("FileOrFolder", foreign_keys=[marking_scheme_id])
     marking_config = relationship("FileOrFolder", foreign_keys=[marking_config_id])
     answer_sheets_folder = relationship("FileOrFolder", foreign_keys=[answer_sheets_folder_id])
+    result_sheet_file = relationship("FileOrFolder", foreign_keys=[result_sheet_file_id])
     def __repr__(self):
         return f"<MarkingJob(id={self.id}, name='{self.name}', status='{self.status}')>"
     

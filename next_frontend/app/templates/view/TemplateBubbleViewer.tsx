@@ -8,6 +8,7 @@ interface TemplateBubbleViewerProps {
   templateId: string | null;
   configId: string | null;
   configtype: string | null;
+  jobId:number|null;
   onClose: () => void;
 }
 
@@ -15,6 +16,7 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
   templateId, 
   configId, 
   configtype, 
+  jobId,
   onClose 
 }) => {
   const { showToast } = useToast();
@@ -65,13 +67,8 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded-lg w-full max-w-6xl h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Template Viewer</h2>
-          <button 
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Close
-          </button>
+          <h2 className="text-xl font-semibold">Template Configuration Viewer</h2>
+          
         </div>
 
         {loading ? (
@@ -84,12 +81,17 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
               templateImage={templateImage}
               configData={configData}
               configId={configId}
+              jobId={jobId}
+              onClose={onClose}
+              
             />
           ) : (
             <Cluster_based_viewer
               templateImage={templateImage}
               configData={configData}
               configId={configId}
+              jobId={jobId}
+              onClose={onClose}
             />
           )
         )}

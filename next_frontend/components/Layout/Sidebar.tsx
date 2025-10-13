@@ -13,7 +13,7 @@ import {
   faChartBar,
   faBars,
   faTimes,
-  faPlusCircle
+  faPlusCircle,
 } from "@fortawesome/free-solid-svg-icons";
 
 interface SidebarItem {
@@ -120,10 +120,11 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          flex flex-col bg-white border-r border-gray-200 pt-5 pb-4 transition-all duration-300 transform
+          flex flex-col bg-white shadow-lg h-screen pt-5 pb-4 transition-all duration-300 transform
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
           ${collapsed ? "w-20" : "w-64"}
+          fixed md:static z-30 md:z-auto
         `}
       >
         <div className="flex items-center justify-between px-4">
@@ -132,7 +133,7 @@ export function Sidebar() {
               collapsed ? "justify-center w-full" : ""
             }`}
           >
-            <div className="bg-blue-600 text-white p-2 rounded-md">
+            <div className="bg-blue-600 text-white p-2 rounded-lg">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-6 w-6"
@@ -150,7 +151,7 @@ export function Sidebar() {
             </div>
             {!collapsed && (
               <span className="ml-3 text-xl font-bold text-gray-900">
-                MarkApp
+                MCQ Grader.
               </span>
             )}
           </div>
@@ -182,9 +183,12 @@ export function Sidebar() {
           </button>
         </div>
         <div className="mt-8 flex-1 flex flex-col overflow-y-auto">
-          <nav className="flex-1 px-2 space-y-1">
+          <nav className="flex-1 px-2 space-y-2">
             {sidebarItems.map((item) => {
-              const isActive = item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
+              const isActive =
+                item.path === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.path);
               return (
                 <Link
                   key={item.name}
@@ -192,13 +196,13 @@ export function Sidebar() {
                   className={`
                     ${
                       isActive
-                        ? "bg-gray-100 text-blue-600"
+                        ? "bg-blue-50 text-blue-600 border-r-4 border-blue-600"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
-                    group flex items-center px-2 py-2 text-base font-medium rounded-md
+                    group flex items-center px-3 py-3 text-sm font-medium rounded-l-lg transition-colors duration-200
                   `}
                 >
-                  <div className={`${collapsed ? "mx-auto" : "mr-4"}`}>
+                  <div className={`${collapsed ? "mx-auto" : "mr-3"} text-lg`}>
                     {item.icon}
                   </div>
                   {!collapsed && <span>{item.name}</span>}
