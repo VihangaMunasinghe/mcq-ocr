@@ -370,26 +370,27 @@ class TemplateConfigResultConsumer:
                 result_data = json.loads(message.body.decode())
                 job_id = result_data.get('job_id')
                 
-                if not job_id :
+                if not job_id:
                     logger.error("No job_id in template config result message")
                     return
                 
                 # Get database session
                 async for db in get_async_db():
                     try:
-                        # Get job from database with Template eagerly loaded to avoid async lazy-load
+                        # Get job from database with Template eagerly loaded
                         sel = (
                             select(TemplateConfigJob)
                             .options(selectinload(TemplateConfigJob.template))
                             .where(TemplateConfigJob.id == job_id)
                         )
                         job_result = await db.execute(sel)
-                        job_result = job_result.scalar_one_or_none()
-                        if not job_result:
+                        job = job_result.scalar_one_or_none()
+                        
+                        if not job:
                             logger.error(f"TemplateConfigJob {job_id} not found")
                             return
-                        
-                        job = job_result
+
+                        ws = get_websocket_manager()
                         
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
@@ -466,7 +467,7 @@ class TemplateConfigResultConsumer:
                                     if 'num_questions' in metadata:
                                         job.template.num_questions = metadata['num_questions']
                                     if 'options_per_question' in metadata:
-                                        job.template.options_per_question = metadata['options_per_question']
+                                        job.template.num_of_options_per_question = metadata['options_per_question']
                                 
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
@@ -480,26 +481,46 @@ class TemplateConfigResultConsumer:
                             
                             logger.info(f"Template config job {job_id} completed successfully")
                             
+                            # Send WebSocket message with template information
+                            await ws.send_message_to_template_config(str(job_id), {
+                                "status": "completed",
+                                "data": {
+                                    "config_type": job.template.config_type.value,
+                                    "template_file_id": job.template.template_file_id,
+                                    "configuration_file_id": job.template.configuration_file_id
+                            }
+                            })
+                            
                         else:
-                            job.status = TemplateConfigStatus.FAILED
-                            # Try to get error message from either 'error_message' or 'result' field
-                            error_message = result_data.get('error_message') or result_data.get('result', 'Unknown error')
-                            if isinstance(error_message, dict):
-                                error_message = str(error_message)
-                            job.error_message = error_message
+
+                            job.template.status = TemplateConfigStatus.FAILED
+                            error_message = result_data.get('error_message', 'Unknown error')
                             
                             logger.error(f"Template config job {job_id} failed: {error_message}")
-                            logger.error(f"Full result data: {result_data}")
+                            await ws.send_message_to_template_config(str(job_id), {
+                                "status": "error",
+                                "message": error_message
+                            })
+
                         
                         await db.commit()
                         
                     except Exception as e:
                         logger.error(f"Error processing template config result for job {job_id}: {e}")
                         await db.rollback()
+                        # Try to send error message via WebSocket
+                        try:
+                            ws = get_websocket_manager()
+                            await ws.send_message_to_template_config(str(job_id), {
+                                "status": "error",
+                                "message": f"Internal server error: {str(e)}"
+                            })
+                        except Exception as ws_error:
+                            logger.error(f"Failed to send error message via WebSocket: {ws_error}")
                     finally:
                         await db.close()
                         break
-                        
+                    
             except Exception as e:
                 logger.error(f"Error parsing template config result message: {e}")
     

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class TemplateConfigType(Enum):
     GRID_BASED = "grid_based"
-    CLUSTERING_BASED = "clustering_based"
+    CLUSTER_BASED = "cluster_based"
 
 class Template:
     def __init__(self, id : int, name: str, template_img : Image, template_config : dict, config_type : TemplateConfigType):
@@ -30,9 +30,10 @@ class Template:
             logger.info(f"Getting bubble coordinates. Config type: {self.config_type}")
             if self.config_type == TemplateConfigType.GRID_BASED:
                 self.bubble_coordinates = get_coordinates_of_bubbles_grid(self.template_config)
-            elif self.config_type == TemplateConfigType.CLUSTERING_BASED:
+            elif self.config_type == TemplateConfigType.CLUSTER_BASED:
                 # Flatten the 3D structure from reconstruct_bubbles
-                nested_coords = reconstruct_bubbles(self.template_config)
+                #nested_coords = reconstruct_bubbles(self.template_config)
+                nested_coords = self.template_config["metadata"]["bubbles"]
                 self.bubble_coordinates = []
                 for column in nested_coords:
                     for row in column:

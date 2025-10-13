@@ -2,7 +2,7 @@
 Template model for MCQ templates.
 """
 
-from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum
+from sqlalchemy import Column, String, Text, Integer, ForeignKey, Enum ,JSON
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 from .base import BaseModel
@@ -10,7 +10,7 @@ from .base import BaseModel
 class TemplateConfigType(PyEnum):
     """Enum for template configuration type."""
     GRID_BASED = "grid_based"
-    CLUSTERING_BASED = "clustering_based"
+    CLUSTERING_BASED = "cluster_based"
 
 class TemplateConfigStatus(PyEnum):
     """Enum for template configuration job status."""
@@ -33,8 +33,9 @@ class Template(BaseModel):
     
     # Template configuration
     num_questions = Column(Integer, nullable=False, default=0)
-    options_per_question = Column(Integer, nullable=False, default=5)
-    
+    num_of_options_per_question = Column(Integer, nullable=False, default=5)
+    num_of_columns = Column(Integer, nullable=True)
+    num_of_rows_per_column = Column(JSON, nullable=True)
     # Template configuration as JSON
     configuration_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
     

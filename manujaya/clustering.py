@@ -4,11 +4,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 
-img = cv2.imread("../samples/templates/1.9.jpg")
+img = cv2.imread("../samples/templates/V1.jpg")
 
 #change accordingly
 num_of_options_per_question= 5
-num_of_rows_per_column=[30,30,30]
+num_of_rows_per_column=[30,30,20]
 num_of_columns=3
 
 screen_width, screen_height = pyautogui.size()
@@ -79,16 +79,18 @@ filtered_areas = []
 
 # First pass: keep only circles (not rectangles)
 for contour, area in zip(circles, bubble_areas):
-    epsilon = 0.01 * cv2.arcLength(contour, True)
+    epsilon = 0.02 * cv2.arcLength(contour, True)
     approx = cv2.approxPolyDP(contour, epsilon, True)
+    
+    
     if len(approx) != 4:  # skip rectangles
         filtered_circles.append(contour)
         filtered_areas.append(area)
         
 # Now filter by area
 mean_area = np.mean(filtered_areas)
-lower_threshold = mean_area * 0.5
-upper_threshold = mean_area * 1.5
+lower_threshold = mean_area * 0.7
+upper_threshold = mean_area * 1.3
 
 final_circles = []
 
@@ -147,6 +149,35 @@ for point, label in zip(points, col_labels):
 col_centers_x = [np.mean([p[0] for p in col]) for col in columns]
 sorted_indices = np.argsort(col_centers_x)
 columns = [columns[i] for i in sorted_indices]
+
+
+# Make a copy so we don't overwrite original
+output_img = img_below.copy()
+
+# Define colors for each column (BGR format)
+colors = [(0, 0, 255),   # Red
+          (0, 255, 0),   # Green
+          (255, 0, 0)]   # Blue
+
+# Draw circles on the image
+for col_idx, col_points in enumerate(columns):
+    color = colors[col_idx % len(colors)]  # cycle if more than 3 cols
+    for (cx, cy) in col_points:
+        cv2.circle(output_img, (cx, cy), int(mean_radius), color, 2)
+        cv2.circle(output_img, (cx, cy), 2, (0, 0, 0), -1)  # small center dot
+
+# Show the image
+cv2.imshow("Detected Bubbles", output_img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# If you want to save the image as well
+#cv2.imwrite("bubbles_detected.jpg", output_img)
+
+
+
+
+
 
 # topmost y (None if column empty)
 topmost_y_per_col = [min(col, key=lambda p: p[1])[1] if col else None for col in columns]

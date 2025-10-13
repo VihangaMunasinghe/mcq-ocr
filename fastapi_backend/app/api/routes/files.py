@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.schemas.file import DownloadType, FileResponse, FileResponse
 from app.storage.shared_storage import SharedStorage
 import logging
+import json
 
 from app.models.file import FileOrFolder, FileOrFolderStatus, FileOrFolderType
 from app.database import get_async_db
@@ -489,3 +490,61 @@ async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
 
 
+@router.put("/update-config")
+async def update_config_file(
+    file_id: int = Form(..., description="File ID of the configuration file to update"),
+    config_data: str = Form(..., description="Updated configuration data as JSON string"),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Update an existing configuration JSON file in shared storage.
+    """
+    user_id = 1  # TODO: Replace with actual user ID from token
+
+    try:
+        # 1️⃣ Fetch file record
+        result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        file = result.scalar_one_or_none()
+
+        if not file:
+            raise HTTPException(status_code=404, detail="Configuration file not found")
+        
+        logger.info(f"File details: ID={file.id}, path={file.path}, extension={file.extension}")
+
+        # 2️⃣ Validate file type
+        if not file.path.lower().endswith(".json"):
+           raise HTTPException(status_code=400, detail="The selected file is not a JSON configuration file")
+        # 3️⃣ Parse and validate JSON content
+        try:
+            json_data = json.loads(config_data)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format in config_data")
+
+        # 4️⃣ Save updated JSON content back to shared storage
+        shared_storage = SharedStorage()
+        file_path = file.path
+
+        if not shared_storage.file_exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found in shared storage")
+
+        await shared_storage.save_file(json.dumps(json_data, indent=2).encode('utf-8'), file_path)
+
+        logger.info(f"Configuration file (ID: {file_id}) updated successfully at {file_path}")
+
+        return {
+            "message": "Configuration updated successfully",
+            "file_id": file_id,
+            "path": file_path
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update configuration file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update configuration file")

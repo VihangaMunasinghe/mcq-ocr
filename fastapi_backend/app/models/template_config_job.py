@@ -2,7 +2,7 @@
 TemplateConfigJob model for handling template configuration operations.
 """
 
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, Enum,JSON
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
@@ -44,7 +44,7 @@ class TemplateConfigJob(BaseModel):
 
     # Clustering-based configuration parameters
     num_of_columns = Column(Integer, nullable=True)
-    num_of_rows_per_column = Column(Integer, nullable=True)
+    num_of_rows_per_column = Column(JSON, nullable=True)
     num_of_options_per_question = Column(Integer, nullable=True)
 
     # Processing settings
