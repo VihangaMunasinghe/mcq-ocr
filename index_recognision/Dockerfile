@@ -8,8 +8,14 @@ RUN apt-get update && apt-get install -y \
 RUN pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY cacheLoader.py .
 
-RUN python -c "import Recognizer"
+RUN python cacheLoader.py
+
+# Remove cacheLoader.py after execution
+RUN rm cacheLoader.py
+
+# Now copy the rest of the application code
+COPY . .
 
 CMD ["python", "main.py"]

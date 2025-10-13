@@ -25,7 +25,9 @@ class MCQMarkingWorker:
         marking_scheme_config_queue: str, 
         marking_job_results_queue: str, 
         template_config_results_queue: str, 
-        marking_scheme_config_results_queue: str
+        marking_scheme_config_results_queue: str,
+        event_registery: Any = None,
+        temp_data_store: Any = None
     ) -> None:
         self.rabbitmq_url: str = rabbitmq_url
         self.template_config_queue: str = template_config_queue
