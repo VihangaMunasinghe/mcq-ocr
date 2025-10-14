@@ -53,7 +53,7 @@ class MarkingConfigJob:
             logger.info(f"Template config loaded from {self.template_config_path}")
             
             # Create template object
-            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
+            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTER_BASED
             self.template = Template(self.id, f'{self.name} Template', template_img, template_config, config_type)
             
             # Create marking scheme object
