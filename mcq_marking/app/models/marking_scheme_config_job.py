@@ -52,7 +52,7 @@ class MarkingSchemeConfigJob:
             logger.info(f"Marking scheme image loaded from {self.marking_scheme_path}")
 
             # Create template object
-            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
+            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTER_BASED
             self.template = Template(self.id, f'{self.name} Template', template_img, template_config, config_type)
 
             # Create marking scheme object
@@ -68,7 +68,7 @@ class MarkingSchemeConfigJob:
                 'template_config_type': self.config_type,
                 'answers_with_coordinates': answers_with_coordinates,
                 'num_questions': template_config['metadata']['num_questions'],
-                'options_per_question': template_config['metadata']['options_per_question'],
+                'options_per_question': template_config['metadata']['num_of_options_per_question'],
                 'processed_at': datetime.now().isoformat()
             }
 
