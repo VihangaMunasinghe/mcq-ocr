@@ -2,7 +2,7 @@ from doctr.models import recognition_predictor
 import numpy as np
 
 class DoctrRecognizer:
-    def __init__(self, model_name: str = "master"):
+    def __init__(self, model_name: str = "crnn_vgg16_bn"):
         # Initialize the Doctr recognition model
         self.model = recognition_predictor(model_name,pretrained=True)
 

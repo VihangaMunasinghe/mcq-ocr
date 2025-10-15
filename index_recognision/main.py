@@ -1,68 +1,65 @@
 ################################ Imports ##########################
-import Detector
-import Recognizer
-import numpy as np
 import cv2
 import os,sys
 import json
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout  # ← Use stream parameter instead of handlers
+)
+import Detector
+import Recognizer
+import numpy as np
 from task_queue.rabbitMQ import send_message, start_consuming
+from storage.nfs_storage import NFSStorage
 
 ################################ Configurations ###################
 INCOMING_QUEUE = os.getenv('RABBITMQ_INCOMING_QUEUE', 'rabbitmq_incoming_queue')
 OUTGOING_QUEUE = os.getenv('RABBITMQ_OUTGOING_QUEUE', 'rabbitmq_outgoing_queue')
+nfs = NFSStorage()
+logger = logging.getLogger(__name__)
 
 ################################ Functions ##########################
 def preprocess(file_path) -> np.ndarray:
-    # Check if file exists
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    image = cv2.imread(file_path)
+    absolute_path = nfs.get_absolute_path(file_path)
+    if not nfs.file_exists(absolute_path):
+        raise FileNotFoundError(f"File not found: {absolute_path}")
+    image = cv2.imread(absolute_path)
     return image
 
-def postprocess(data):
-    # Generate the flag based on confidence score
-    if data['confidence'] < 0.8:
-        data['flag'] = 'low_confidence'
-    else:
-        data['flag'] = 'ok'
-    return data
-
 def callback(ch, method, properties, body):
-    print(" [x] Received task")
+    logger.info(" [x] Received %r" % body)
     task = json.loads(body)
     file_path = task['file_path']
-    task_id = task['task_id']
     
     ## Detect the index section from the input image
     try:
         image = preprocess(file_path)
     except FileNotFoundError as e:
-        print(e)
+        logger.error(e)
         return
     index_image = Detector.get_index_section(image)
-    print(f"Index section extracted.")
+    logger.info(" [x] Index section detected")
     data = Recognizer.recognize_student_index(index_image)
-    data = postprocess(data)
-    print(f"data: {data}")
+    logger.info(" [x] Index recognized")
 
-    ## Send the result to the outgoing queue
-    result = {
-        'file_path': file_path,
-        'data': data,
-        'task_id': task_id
-    }
+    ## Make result with incoming task + data
+    result = task
+    result.update(data)
     send_message(OUTGOING_QUEUE, result)
-    print(" [x] Task completed and result sent")
+    logger.info(" [x] Sent result to outgoing queue")
 
 ################################ Main Code ##########################
 def main():
+    logger.info("Waiting for tasks...")
     start_consuming(INCOMING_QUEUE, callback)
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("Interrupted")
+        logger.info("Interrupted")
         try:
             sys.exit(0)
         except SystemExit:
