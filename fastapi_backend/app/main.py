@@ -3,7 +3,7 @@ import logging
 import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import files_router, templates_router, users_router, marking_router, generator_router, auth_router
+from app.api.routes import files_router, templates_router, users_router, marking_router, generator_router, auth_router, faculties_router
 from app.database import init_db, close_db, test_database_connection
 from app.config import get_settings
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
@@ -141,6 +141,7 @@ async def debug_queue():
 # Include routers
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(faculties_router)
 app.include_router(files_router)
 app.include_router(templates_router)
 app.include_router(marking_router)
