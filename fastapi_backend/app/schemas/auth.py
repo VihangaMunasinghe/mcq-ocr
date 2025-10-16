@@ -2,10 +2,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-class Token(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
+class TokenResponse(BaseModel):
+    message: str
 
 
 class TokenData(BaseModel):
@@ -18,7 +16,3 @@ class TokenData(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
-
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str

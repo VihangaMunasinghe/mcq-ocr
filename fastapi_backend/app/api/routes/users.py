@@ -5,10 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from app.schemas.user import UserCreate, UserResponse, UserRoleUpdate, UserUpdate
+from app.schemas.user import UserResponse, UserRoleUpdate, UserUpdate
 from app.database import get_async_db
-from app.models.user import User
-from app.utils.security import get_password_hash
+from app.models.user import User, VerifyStatus
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -41,42 +40,6 @@ async def get_user(
 
     return UserResponse.from_orm(user)
 
-@router.post("/", response_model=UserResponse)
-async def create_user(
-    user_data: UserCreate,
-    db: AsyncSession = Depends(get_async_db)
-):
-    """Create a new user"""
-    try:
-        # Check if user already exists
-        result = await db.execute(select(User).where(User.email == user_data.email))
-        if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="User already exists")
-
-        # Hash the password
-        hashed_password = get_password_hash(user_data.password)
-
-        new_user = User(
-            email=user_data.email,
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-            hashed_password=hashed_password,
-            role=user_data.role,
-            faculty_id=user_data.faculty_id,
-            last_login=None
-        )
-        
-        db.add(new_user)
-        await db.commit()
-        await db.refresh(new_user)
-        
-        return UserResponse.from_orm(new_user)
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Failed to create user: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create user")
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
@@ -109,7 +72,32 @@ async def update_user(
         logger.error(f"Failed to update user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to update user")
     
-@router.put("/{user_id}/update-role", response_model=UserResponse)
+@router.patch("/{user_id}/verify", response_model=UserResponse)
+async def verify_user(
+    user_id: int, 
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Verify a user by setting their verify status to admin verified"""
+    try:
+        user = await db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update verify status to admin verified
+        user.verify_status = VerifyStatus.ADMINVERIFIED
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        return UserResponse.from_orm(user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to verify user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to verify user")
+
+@router.patch("/{user_id}/update-role", response_model=UserResponse)
 async def update_role(
     user_id: int, 
     user_role_update: UserRoleUpdate, 

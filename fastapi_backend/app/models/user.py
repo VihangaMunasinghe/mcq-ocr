@@ -1,12 +1,17 @@
-from enum import Enum
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey
+from enum import Enum as PyEnum
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
-class UserRoles(Enum):
+class UserRoles(PyEnum):
     SUPERADMIN = 'Super User'
     FACULTYADMIN = 'Faculty Admin'
     BASIC = 'Basic User'
+
+class VerifyStatus(PyEnum):
+    NONE = 'none'
+    EMAILVERIFIED = 'email_verified'
+    ADMINVERIFIED = 'admin_verified'
 
 class User(BaseModel):
     """User model for authentication and user management."""
@@ -16,9 +21,10 @@ class User(BaseModel):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(UserRoles, nullable=False)
+    role = Column(Enum(UserRoles), nullable=False)
     faculty_id = Column(Integer, ForeignKey("faculties.id"), nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
+    verify_status = Column(Enum(VerifyStatus), nullable=False)
     
     # Relationships
     faculty = relationship("Faculty", back_populates="users")

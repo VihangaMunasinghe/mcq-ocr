@@ -95,12 +95,6 @@ class AppSettings(BaseSettings):
         env="ENVIRONMENT"
     )
     
-    # API settings
-    api_prefix: str = Field(
-        default="/api/v1",
-        env="API_PREFIX"
-    )
-    
     # CORS settings
     allowed_hosts: list = Field(
         default=["*"],
@@ -123,6 +117,8 @@ class AppSettings(BaseSettings):
         default="/shared",
         env="NFS_SHARED_PATH"
     )
+
+
 
     class Config:
         env_file = ".env"
@@ -161,6 +157,81 @@ class RabbitMQSettings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+class AuthSettings(BaseSettings):
+    """Authentication settings."""
+    
+    secret_key: str = Field(
+        default="your-secret-key-change-this-in-production",
+        env="SECRET_KEY",
+        description="Secret key for JWT token signing"
+    )
+    
+    algorithm: str = Field(
+        default="HS256",
+        env="JWT_ALGORITHM",
+        description="JWT signing algorithm"
+    )
+    
+    access_token_expire_minutes: int = Field(
+        default=30,
+        env="ACCESS_TOKEN_EXPIRE_MINUTES",
+        description="Access token expiration time in minutes"
+    )
+    
+    refresh_token_expire_days: int = Field(
+        default=7,
+        env="REFRESH_TOKEN_EXPIRE_DAYS",
+        description="Refresh token expiration time in days"
+    )
+    
+    # Super user settings
+    super_user_email: str = Field(
+        default="superadmin@uom.lk",
+        env="SUPER_USER_EMAIL",
+        description="Super user email for initial admin access"
+    )
+    
+    super_user_password_hashed: str = Field(
+        default="$2b$12$default_hashed_password_change_this",
+        env="SUPER_USER_PASSWORD_HASHED",
+        description="Super user hashed password"
+    )
+    
+    # Cookie settings
+    cookie_secure: bool = Field(
+        default=True,
+        env="COOKIE_SECURE",
+        description="Use secure cookies (HTTPS only)"
+    )
+    
+    cookie_samesite: str = Field(
+        default="strict",
+        env="COOKIE_SAMESITE",
+        description="SameSite cookie policy"
+    )
+    
+    cookie_httponly: bool = Field(
+        default=True,
+        env="COOKIE_HTTPONLY",
+        description="Use HttpOnly cookies"
+    )
+
+    super_user_email: str = Field(
+        default="superuser@uom.lk",
+        env="SUPER_USER_EMAIL",
+        description="Super user email"
+    )
+
+    super_user_password_hashed: str = Field(
+        default="$2a$12$qAMxLPnimk9bnf8zEINXD.2wWdMJmtHTUmKINN2bjc8pDtr9/T4Ne",
+        env="SUPER_USER_EMAIL",
+        description="Super user hashed password"
+    )
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+    
 
 class Settings(BaseSettings):
     """Main settings class combining all configuration."""
@@ -169,6 +240,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
     app: AppSettings = AppSettings()
     rabbitmq: RabbitMQSettings = RabbitMQSettings()
+    auth: AuthSettings = AuthSettings()
     
     class Config:
         env_file = ".env"
@@ -205,3 +277,10 @@ def get_async_database_url() -> str:
         f"{settings.database.database_port}/"
         f"{settings.database.database_name}"
     )
+
+def get_super_user_creds() -> dict:
+    """Return super user email and password"""
+    return ({
+        "email": settings.auth.super_user_email,
+        "super_user_password_hashed": settings.auth.super_user_password_hashed
+    })

@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
-from app.models.user import UserRoles
+from app.models.user import UserRoles, VerifyStatus
 
 
 class UserCreate(BaseModel):
@@ -23,13 +23,14 @@ class UserRoleUpdate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    first_name: Optional[str]
-    last_name: Optional[str]
+    first_name: str
+    last_name: str
     role: UserRoles
-    faculty_id: int
+    verify_status: VerifyStatus
+    faculty_id: Optional[int]  # Made optional to support super user
     last_login: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime]  # Made optional to support super user
+    updated_at: Optional[datetime]  # Made optional to support super user
     
     class Config:
         from_attributes = True
