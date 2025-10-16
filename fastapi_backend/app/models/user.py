@@ -1,11 +1,12 @@
-"""
-User model for authentication and user management.
-"""
-
-from sqlalchemy import Column, String, Boolean, DateTime
+from enum import Enum
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
+class UserRoles(Enum):
+    SUPERADMIN = 'Super User'
+    FACULTYADMIN = 'Faculty Admin'
+    BASIC = 'Basic User'
 
 class User(BaseModel):
     """User model for authentication and user management."""
@@ -15,11 +16,12 @@ class User(BaseModel):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     hashed_password = Column(String(255), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_superuser = Column(Boolean, default=False, nullable=False)
+    role = Column(UserRoles, nullable=False)
+    faculty_id = Column(Integer, ForeignKey("faculties.id"), nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
+    faculty = relationship("Faculty", back_populates="users")
     templates = relationship("Template", back_populates="created_by_user")
     files = relationship("FileOrFolder", back_populates="created_by_user")
     marking_jobs = relationship("MarkingJob", back_populates="created_by_user")
