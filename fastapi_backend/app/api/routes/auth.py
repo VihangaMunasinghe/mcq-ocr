@@ -222,6 +222,41 @@ def get_user_verify_status_from_token(request: Request) -> str:
             headers={"WWW-Authenticate": "Cookie"},
         )
 
+
+def get_user_from_token(request: Request) -> Dict[str, Any]:
+    """Extract all user information from JWT token without database call."""
+    try:
+        token = get_token_from_cookie(request)
+        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        
+        user_id: int = payload.get("user_id")
+        email: str = payload.get("sub")
+        role: str = payload.get("role")
+        faculty_id: Optional[int] = payload.get("faculty_id")
+        verify_status: str = payload.get("verify_status")
+        token_type: str = payload.get("type")
+        
+        if user_id is None or token_type != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Cookie"},
+            )
+            
+        return {
+            "id": user_id,
+            "email": email,
+            "role": role,
+            "faculty_id": faculty_id,
+            "verify_status": verify_status
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Cookie"},
+        )
+
 @router.post("/register", response_model=UserResponse, status_code=201)
 async def register(
     user_data: UserRegister,
