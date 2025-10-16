@@ -72,7 +72,7 @@ class MarkingJob:
             self.channel = self.connection.channel()
             
             # Declare queues
-            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=False)
+            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=True)
             
             logger.info("Marking Job Connected to RabbitMQ")
         except Exception as e:
