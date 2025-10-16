@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ import logging
 from app.schemas.faculty import FacultyCreate, FacultyResponse, FacultyUpdate
 from app.database import get_async_db
 from app.models.faculty import Faculty
+from app.middleware.authorization import require_basic_or_higher, require_superadmin
 
 router = APIRouter(prefix="/api/faculties", tags=["faculties"])
 
@@ -15,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=List[FacultyResponse])
+@require_basic_or_higher(require_admin_verified=True)
 async def list_faculties(
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """List all faculties"""
@@ -29,8 +32,10 @@ async def list_faculties(
 
 
 @router.get("/{faculty_id}", response_model=FacultyResponse)
+@require_basic_or_higher(require_admin_verified=True)
 async def get_faculty(
     faculty_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get faculty details by ID"""
@@ -44,8 +49,10 @@ async def get_faculty(
 
 
 @router.post("/", response_model=FacultyResponse, status_code=201)
+@require_superadmin(require_admin_verified=True)
 async def create_faculty(
     faculty_data: FacultyCreate,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new faculty"""
@@ -73,9 +80,11 @@ async def create_faculty(
 
 
 @router.put("/{faculty_id}", response_model=FacultyResponse)
+@require_superadmin(require_admin_verified=True)
 async def update_faculty(
     faculty_id: int, 
     faculty_update: FacultyUpdate, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Update a faculty by ID"""
@@ -111,8 +120,10 @@ async def update_faculty(
 
 
 @router.delete("/{faculty_id}", response_model=FacultyResponse)
+@require_superadmin(require_admin_verified=True)
 async def delete_faculty(
     faculty_id: int, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Delete a faculty by ID"""
