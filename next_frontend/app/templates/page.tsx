@@ -24,7 +24,7 @@ const selectFormConfig = [
     label: "Config Type",
     options: [
       { value: "grid_based", label: "Grid Based" },
-      { value: "clustering_based", label: "Cluster Based" },
+      { value: "cluster_based", label: "Cluster Based" },
     ],
     defaultValue: "grid_based",
   },
