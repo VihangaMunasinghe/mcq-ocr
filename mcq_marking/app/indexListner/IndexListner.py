@@ -74,8 +74,8 @@ class IndexListner:
             # Store in thread-safe dict
             self.temp_data_store.set(task_id, task)
             
-            # Trigger event if needed
-            # self.event_registery.trigger(task_id)
+            # Trigger event
+            self.event_registery.set_event(task_id)
             
         except Exception as e:
             logger.error(f"Error processing message: {e}")

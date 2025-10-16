@@ -219,7 +219,7 @@ class MCQMarkingWorker:
             job_id = job_data.get('id', 'unknown')
             self._send_progress_to_backend(ch, properties, job_id, completed, total, self.marking_job_results_queue)
             
-        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url)
+        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url, event_registery=self.event_registery, temp_data_store=self.temp_data_store)
         self.process_job_with_error_handling(
             ch, method, properties, body,
             self.marking_job_results_queue,

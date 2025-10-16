@@ -5,12 +5,15 @@ from typing import Callable
 import pika
 import os
 import logging
+import threading
 from app.autograder.utils.image_processing import enhance_image, read_enhanced_image, read_resize_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template, TemplateConfigType
 from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 from app.anomalydetection.anomaly_detector import AnomalyDetector
+from app.utils.EventRegistery import EventRegistery
+from app.utils.ThreadSafeDict import ThreadSafeDict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +23,8 @@ INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 
 class MarkingJob:
-    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[[int,int], None]=None):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[[int,int], None]=None,
+                 event_registery: EventRegistery = None, temp_data_store: ThreadSafeDict = None):
         """
         Initialize a MarkingJob instance.
 
@@ -65,6 +69,10 @@ class MarkingJob:
         self.total_answer_sheets = 0
         self.processed_answer_sheets = 0
         self.failed_answer_sheets = 0
+
+        self.event_registery = event_registery
+        self.temp_data_store = temp_data_store
+
     def connect(self):
         """Establish connection to RabbitMQ"""
         try:
@@ -117,7 +125,19 @@ class MarkingJob:
 
                 answer_sheet_img = enhance_image(answer_sheet_img, 1.5)
                 answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
+                
+                # set up the event for index retrieval
+                event = None
+                if self.event_registery and self.temp_data_store:
+                    event = self.event_registery.create_event(self.job_id) # type: threading.Event
                 results = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
+                # wait for the index number to be set by the index listener
+                if self.event_registery and self.temp_data_store:
+                    event.wait(timeout=30)  # wait for up to 30 seconds
+                    result = self.temp_data_store.get(self.job_id)
+                    logger.info(f"Index recognition result for answer sheet {answer_sheet_path}: {result}")
+                else:
+                    logger.info("Event registery or temp data store not set, skipping index recognition wait.")
                 results['answer_sheet_path'] = answer_sheet_path
                 # Anomaly flags
                 if anomalies_detected:
