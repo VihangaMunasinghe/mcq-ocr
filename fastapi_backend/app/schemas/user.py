@@ -3,15 +3,6 @@ from pydantic import BaseModel
 from typing import Optional
 from app.models.user import UserRoles, VerifyStatus
 
-
-class UserCreate(BaseModel):
-    email: str
-    first_name: str
-    last_name: str
-    password: str
-    role: UserRoles
-    faculty_id: int
-
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None

@@ -9,8 +9,8 @@ import logging
 
 from app.database import get_async_db
 from app.models.user import User, UserRoles, VerifyStatus
-from app.schemas.auth import TokenResponse, TokenData, UserLogin
-from app.schemas.user import UserResponse, UserCreate
+from app.schemas.auth import TokenResponse, TokenData, UserLogin, UserRegister
+from app.schemas.user import UserResponse
 from app.utils.security import verify_password, get_password_hash
 from app.config import get_settings
 
@@ -224,7 +224,7 @@ def get_user_verify_status_from_token(request: Request) -> str:
 
 @router.post("/register", response_model=UserResponse)
 async def register(
-    user_data: UserCreate,
+    user_data: UserRegister,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Register a new user"""
@@ -242,7 +242,7 @@ async def register(
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             hashed_password=hashed_password,
-            role=user_data.role,
+            role=UserRoles.BASIC,
             faculty_id=user_data.faculty_id,
             last_login=None,
             verify_status=VerifyStatus.NONE
