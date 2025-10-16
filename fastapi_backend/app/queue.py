@@ -467,7 +467,7 @@ class TemplateConfigResultConsumer:
                                     if 'num_questions' in metadata:
                                         job.template.num_questions = metadata['num_questions']
                                     if 'options_per_question' in metadata:
-                                        job.template.num_of_options_per_question = metadata['options_per_question']
+                                        job.template.num_of_options_per_question = metadata['num_of_options_per_question']
                                 
                             job.processing_completed_at = datetime.now(timezone.utc).isoformat()
                             
