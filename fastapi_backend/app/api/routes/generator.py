@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/custom_template", tags=["custom_template"])
 
 logger = logging.getLogger(__name__)
 
-@router.post("/generate", response_model=FileResponse)
+@router.post("/generate")
 async def generate_pdf(
     title: str = Form(...),
     questions: int = Form(...),
