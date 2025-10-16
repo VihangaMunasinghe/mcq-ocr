@@ -7,6 +7,8 @@ import logging
 from typing import Dict, Any, Optional, Callable, Union
 from app.markingworker.processors.job_processor_interface import JobProcessorInterface
 from app.models.marking_job import MarkingJob
+from app.utils.EventRegistery import EventRegistery
+from app.utils.ThreadSafeDict import ThreadSafeDict
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,9 @@ class MarkingJobProcessor(JobProcessorInterface):
         self, 
         job_data: Dict[str, Any], 
         progress_callback: Callable[[float], None],
-        rabbitmq_url: Optional[str] = None
+        rabbitmq_url: Optional[str] = None,
+        event_registery: EventRegistery = None,
+        temp_data_store: ThreadSafeDict = None
     ):
         """
         Initialize the marking job processor.
@@ -35,6 +39,8 @@ class MarkingJobProcessor(JobProcessorInterface):
         super().__init__(job_data, progress_callback)
         self.rabbitmq_url = rabbitmq_url
         self.marking_job: Optional[MarkingJob] = None
+        self.event_registery = event_registery
+        self.temp_data_store = temp_data_store
     
     def validate(self) -> bool:
         """
@@ -86,7 +92,9 @@ class MarkingJobProcessor(JobProcessorInterface):
             self.marking_job = MarkingJob(
                 self.job_data,
                 rabbitmq_url=self.rabbitmq_url,
-                progress_callback=self.progress_callback
+                progress_callback=self.progress_callback,
+                event_registery=self.event_registery,
+                temp_data_store=self.temp_data_store
             )
             result = self.marking_job.mark_answers()
             

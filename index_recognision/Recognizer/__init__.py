@@ -1,7 +1,9 @@
 import numpy as np
-from .DoctrRecognizer import DoctrRecognizer
+from .DoctrDetoctorRecognizer import DoctrDetoctorRecognizer
+from .config import Config
 
-recognizer = DoctrRecognizer()
+recognizer = DoctrDetoctorRecognizer(detect_margin_x=Config.DETECTOR_MARGIN_X,
+                                     detect_margin_y=Config.DETECTOR_MARGIN_Y)
 
 def recognize_student_index(index_image: np.ndarray) -> dict:
     """
