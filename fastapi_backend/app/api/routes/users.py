@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,51 +7,123 @@ import logging
 
 from app.schemas.user import UserResponse, UserRoleUpdate, UserUpdate
 from app.database import get_async_db
-from app.models.user import User, VerifyStatus
+from app.models.user import User, VerifyStatus, UserRoles
+from app.middleware.authorization import require_basic_or_higher, require_faculty_admin_or_higher
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 logger = logging.getLogger(__name__)
 
 @router.get("/", response_model=List[UserResponse])
+@require_faculty_admin_or_higher(require_admin_verified=True)
 async def list_users(
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """List all users"""
+    """List users based on role: SuperAdmin sees all, FacultyAdmin sees their faculty users"""
     try:
-        result = await db.execute(select(User).order_by(User.created_at.desc()))
+        user_info = request.state.current_user
+        user_role = user_info["role"]
+        user_faculty_id = user_info["faculty_id"]
+        
+        if user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can see all users
+            result = await db.execute(select(User).order_by(User.created_at.desc()))
+        elif user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only see users from their faculty
+            result = await db.execute(
+                select(User).where(User.faculty_id == user_faculty_id).order_by(User.created_at.desc())
+            )
+        else:
+            # Basic users cannot list users
+            raise HTTPException(status_code=403, detail="Insufficient permissions to list users")
+        
         users = result.scalars().all()
         return [UserResponse.from_orm(user) for user in users]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to list users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list users")
 
 @router.get("/{user_id}", response_model=UserResponse)
+@require_basic_or_higher(require_admin_verified=True)
 async def get_user(
     user_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Get user details by ID"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    """Get user details by ID with role-based access control"""
+    try:
+        user_info = request.state.current_user
+        current_user_id = user_info["id"]
+        current_user_role = user_info["role"]
+        current_user_faculty_id = user_info["faculty_id"]
+        
+        # Get the requested user
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check access permissions
+        if current_user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can see any user
+            pass
+        elif current_user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only see users from their faculty
+            if user.faculty_id != current_user_faculty_id:
+                raise HTTPException(status_code=403, detail="Access denied. User not in your faculty")
+        elif current_user_role == UserRoles.BASIC.value:
+            # Basic users can only see themselves
+            if user.id != current_user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You can only view your own profile")
+        else:
+            raise HTTPException(status_code=403, detail="Invalid user role")
 
-    return UserResponse.from_orm(user)
+        return UserResponse.from_orm(user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user")
 
 
 @router.put("/{user_id}", response_model=UserResponse)
+@require_basic_or_higher(require_admin_verified=True)
 async def update_user(
     user_id: int, 
     user_update: UserUpdate, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Update a user by ID"""
+    """Update a user by ID with role-based access control"""
     try:
+        user_info = request.state.current_user
+        current_user_id = user_info["id"]
+        current_user_role = user_info["role"]
+        current_user_faculty_id = user_info["faculty_id"]
+        
+        # Get the user to update
         user = await db.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check update permissions
+        if current_user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can update any user
+            pass
+        elif current_user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only update users from their faculty
+            if user.faculty_id != current_user_faculty_id:
+                raise HTTPException(status_code=403, detail="Access denied. User not in your faculty")
+        elif current_user_role == UserRoles.BASIC.value:
+            # Basic users can only update themselves
+            if user.id != current_user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You can only update your own profile")
+        else:
+            raise HTTPException(status_code=403, detail="Invalid user role")
         
         # Update fields if provided
         if user_update.first_name is not None:
@@ -73,15 +145,34 @@ async def update_user(
         raise HTTPException(status_code=500, detail=f"Failed to update user")
     
 @router.patch("/{user_id}/verify", response_model=UserResponse)
+@require_faculty_admin_or_higher(require_admin_verified=True)
 async def verify_user(
     user_id: int, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Verify a user by setting their verify status to admin verified"""
     try:
+        user_info = request.state.current_user
+        current_user_role = user_info["role"]
+        current_user_faculty_id = user_info["faculty_id"]
+        
+        # Get the user to verify
         user = await db.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check verification permissions
+        if current_user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can verify any user
+            pass
+        elif current_user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only verify users from their faculty
+            if user.faculty_id != current_user_faculty_id:
+                raise HTTPException(status_code=403, detail="Access denied. User not in your faculty")
+        else:
+            # Basic users cannot verify users
+            raise HTTPException(status_code=403, detail="Insufficient permissions to verify users")
         
         # Update verify status to admin verified
         user.verify_status = VerifyStatus.ADMINVERIFIED
@@ -98,16 +189,35 @@ async def verify_user(
         raise HTTPException(status_code=500, detail=f"Failed to verify user")
 
 @router.patch("/{user_id}/update-role", response_model=UserResponse)
+@require_faculty_admin_or_higher(require_admin_verified=True)
 async def update_role(
     user_id: int, 
     user_role_update: UserRoleUpdate, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Update a user's role by ID"""
+    """Update a user's role by ID with role-based access control"""
     try:
+        user_info = request.state.current_user
+        current_user_role = user_info["role"]
+        current_user_faculty_id = user_info["faculty_id"]
+        
+        # Get the user to update role
         user = await db.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check role update permissions
+        if current_user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can update any user's role
+            pass
+        elif current_user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only update roles for users in their faculty
+            if user.faculty_id != current_user_faculty_id:
+                raise HTTPException(status_code=403, detail="Access denied. User not in your faculty")
+        else:
+            # Basic users cannot update roles
+            raise HTTPException(status_code=403, detail="Insufficient permissions to update user roles")
         
         user.role = user_role_update.role
         
@@ -124,15 +234,38 @@ async def update_role(
     
 
 @router.delete("/{user_id}", response_model=UserResponse)
+@require_basic_or_higher(require_admin_verified=True)
 async def delete_user(
     user_id: int, 
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Delete a user by ID"""
+    """Delete a user by ID with role-based access control"""
     try:
+        user_info = request.state.current_user
+        current_user_id = user_info["id"]
+        current_user_role = user_info["role"]
+        current_user_faculty_id = user_info["faculty_id"]
+        
+        # Get the user to delete
         user = await db.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check deletion permissions
+        if current_user_role == UserRoles.SUPERADMIN.value:
+            # SuperAdmin can delete any user
+            pass
+        elif current_user_role == UserRoles.FACULTYADMIN.value:
+            # FacultyAdmin can only delete users from their faculty
+            if user.faculty_id != current_user_faculty_id:
+                raise HTTPException(status_code=403, detail="Access denied. User not in your faculty")
+        elif current_user_role == UserRoles.BASIC.value:
+            # Basic users can only delete themselves
+            if user.id != current_user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You can only delete your own profile")
+        else:
+            raise HTTPException(status_code=403, detail="Invalid user role")
         
         # Store user data before deletion for response
         user_response = UserResponse.from_orm(user)
