@@ -43,7 +43,7 @@ async def get_faculty(
     return FacultyResponse.from_orm(faculty)
 
 
-@router.post("/", response_model=FacultyResponse)
+@router.post("/", response_model=FacultyResponse, status_code=201)
 async def create_faculty(
     faculty_data: FacultyCreate,
     db: AsyncSession = Depends(get_async_db)

@@ -176,7 +176,7 @@ async def get_marking(
         logger.error(f"Failed to get marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get marking job")
 
-@router.post("/", response_model=MarkingResponse)
+@router.post("/", response_model=MarkingResponse, status_code=201)
 async def create_marking(
     marking: MarkingCreateMetadata,
     db: AsyncSession = Depends(get_async_db)

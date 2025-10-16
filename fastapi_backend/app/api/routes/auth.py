@@ -222,7 +222,7 @@ def get_user_verify_status_from_token(request: Request) -> str:
             headers={"WWW-Authenticate": "Cookie"},
         )
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserResponse, status_code=201)
 async def register(
     user_data: UserRegister,
     db: AsyncSession = Depends(get_async_db)

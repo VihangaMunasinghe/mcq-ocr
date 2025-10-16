@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/files", tags=["files"])
 
 logger = logging.getLogger(__name__)
 
-@router.post("/upload", response_model=FileResponse)
+@router.post("/upload", response_model=FileResponse, status_code=201)
 async def upload_file(file: UploadFile = File(...),
     file_type: str = Form(...),
     db: AsyncSession = Depends(get_async_db)):
@@ -151,7 +151,7 @@ async def upload_chunk(
             chunk_path.unlink()
         raise HTTPException(status_code=500, detail=f"Chunk upload failed: {str(e)}")
 
-@router.post("/upload/large/finalize", response_model=FileResponse)
+@router.post("/upload/large/finalize", response_model=FileResponse, status_code=201)
 async def finalize_upload(
     upload_id: str = Form(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),

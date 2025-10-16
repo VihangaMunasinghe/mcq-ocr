@@ -20,7 +20,7 @@ from app.models.file import FileOrFolder, FileOrFolderStatus
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
 
-@router.post("/")
+@router.post("/", status_code=201)
 async def create_template(
     template: TemplateCreate,
     db: AsyncSession = Depends(get_async_db)
