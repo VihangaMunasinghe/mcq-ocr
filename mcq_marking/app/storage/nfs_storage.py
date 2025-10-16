@@ -73,6 +73,8 @@ class NFSStorage:
         # Save the file
         with open(full_path, 'wb') as f:
             f.write(file_content)
+            f.flush()  # Flush to OS buffer
+            os.fsync(f.fileno())  # Force write to disk
         
         # Save metadata if provided
         if metadata:

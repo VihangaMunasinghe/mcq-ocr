@@ -18,7 +18,7 @@ def get_coordinates_of_bubbles_grid(config):
         for row in range(num_rows):  # Process each question (row) in the column
             y_row = column_y_start + row * y_offset
 
-            for choice in range(int(config['metadata']['options_per_question'])):
+            for choice in range(int(config['metadata']['num_of_options_per_question'])):
                 x = x_row + (choice * x_offset)
                 coordinates.append([int(round(x)), int(round(y_row))])
 
@@ -26,16 +26,16 @@ def get_coordinates_of_bubbles_grid(config):
 
 
 def get_choice_distribution(config):
-    options_per_question = int(config['metadata']['options_per_question'])
+    options_per_question = int(config['metadata']['num_of_options_per_question'])
     return [options_per_question for _ in range(config['metadata']['num_questions'])]
 
 def reconstruct_bubbles(template_config):
-    num_columns = int(template_config["metadata"]["num_columns"])
-    num_rows = int(template_config["metadata"]["column_row_distribution"])
-    num_options = int(template_config["metadata"]["options_per_question"])
+    num_of_columns = int(template_config["metadata"]["num_columns"])
+    num_of_rows_per_column = [int(x) for x in template_config["metadata"]["column_row_distribution"]]
+    num_of_option_per_question = int(template_config["metadata"]["num_of_options_per_question"])
 
     # initialize empty 3D list
-    coordinates = [[[] for _ in range(num_rows)] for _ in range(num_columns)]
+    coordinates = [[[] for _ in range(num_of_rows_per_column[i])] for i in range(num_of_columns)]
 
     for col_idx, (col_key, col_rows) in enumerate(template_config["bubbles"].items()):
         for row_idx, (row_key, row_points) in enumerate(col_rows.items()):

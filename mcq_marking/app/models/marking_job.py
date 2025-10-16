@@ -91,7 +91,7 @@ class MarkingJob:
             marking_img = read_enhanced_image(self.marking_path, 1.8)
             template_config = read_json(self.template_config_path)
             marking_scheme_config = read_json(self.marking_scheme_config_path)
-            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTERING_BASED
+            config_type = TemplateConfigType.GRID_BASED if self.config_type == 'grid_based' else TemplateConfigType.CLUSTER_BASED
             self.template = Template(self.job_id, f'${self.name } Template', template_img, template_config, config_type)
             self.marking_scheme = MarkingScheme(self.job_id, f'${self.name } Marking Scheme', marking_img, self.template, marking_scheme_config)
             logger.info(f"Obtaining papers from {self.answers_folder_path}")
@@ -122,7 +122,9 @@ class MarkingJob:
                 # Anomaly flags
                 if anomalies_detected:
                     results['flag'] = anomalies_detected
-                    results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] =='') else f'{results['flag_reason']}, ') + 'Unussual marks detected'
+                    #results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] =='') else f'{results['flag_reason']}, ') + 'Unussual marks detected'
+                    results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] == '') else f'{results["flag_reason"]}, ') + 'Unusual marks detected'
+
                 self.add_to_spreadsheet(results)
                 if self.save_intermediate_results:
                     save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
