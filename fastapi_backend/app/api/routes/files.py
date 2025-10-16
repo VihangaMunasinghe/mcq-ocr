@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks, Form
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks, Form, Request
 from fastapi.responses import StreamingResponse
 from typing import List, Optional
 import uuid
@@ -14,20 +14,29 @@ import json
 
 from app.models.file import FileOrFolder, FileOrFolderStatus, FileOrFolderType
 from app.database import get_async_db
+from app.middleware.authorization import require_non_super_admin
 
 router = APIRouter(prefix="/api/files", tags=["files"])
+
+# Initialize storage service
+storage_service = SharedStorage()
 
 logger = logging.getLogger(__name__)
 
 @router.post("/upload", response_model=FileResponse, status_code=201)
-async def upload_file(file: UploadFile = File(...),
+@require_non_super_admin(require_admin_verified=True)
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
     file_type: str = Form(...),
-    db: AsyncSession = Depends(get_async_db)):
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Upload a file to the system
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user ID from token
+    user_info = request.state.current_user
+    user_id = user_info["id"]
     
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
@@ -96,7 +105,9 @@ async def upload_file(file: UploadFile = File(...),
 
 # Chunked upload endpoints for very large files
 @router.post("/upload/large/chunk")
+@require_non_super_admin(require_admin_verified=True)
 async def upload_chunk(
+    request: Request,
     file: UploadFile = File(...),
     upload_id: str = Form(...),
     chunk_index: int = Form(...),
@@ -111,8 +122,12 @@ async def upload_chunk(
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
-    # Create temporary directory for chunks
-    temp_dir = Path(f"temp/uploads/{upload_id}")
+    # Get user from token for ownership tracking
+    user_id = request.state.current_user.id
+    
+    # Create temporary directory for chunks inside user's directory
+    user_temp_dir = storage_service.get_user_directory(user_id) / "temp" / "uploads"
+    temp_dir = user_temp_dir / upload_id
     temp_dir.mkdir(parents=True, exist_ok=True)
     
     # Save chunk to temporary file
@@ -152,7 +167,9 @@ async def upload_chunk(
         raise HTTPException(status_code=500, detail=f"Chunk upload failed: {str(e)}")
 
 @router.post("/upload/large/finalize", response_model=FileResponse, status_code=201)
+@require_non_super_admin(require_admin_verified=True)
 async def finalize_upload(
+    request: Request,
     upload_id: str = Form(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_async_db)
@@ -160,10 +177,11 @@ async def finalize_upload(
     """
     Finalize chunked upload by combining all chunks
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership tracking
+    user_id = request.state.current_user.id
 
-    temp_dir = Path(f"temp/uploads/{upload_id}")
+    user_temp_dir = storage_service.get_user_directory(user_id) / "temp" / "uploads"
+    temp_dir = user_temp_dir / upload_id
     
     if not temp_dir.exists():
         raise HTTPException(status_code=404, detail="Upload session not found")
@@ -248,11 +266,19 @@ async def finalize_upload(
         raise HTTPException(status_code=500, detail=f"Upload finalization failed: {str(e)}")
 
 @router.delete("/upload/cancel/{upload_id}")
-async def cancel_upload(upload_id: str):
+@require_non_super_admin(require_admin_verified=True)
+async def cancel_upload(
+    request: Request,
+    upload_id: str
+):
     """
     Cancel a chunked upload and clean up temporary files
     """
-    temp_dir = Path(f"temp/uploads/{upload_id}")
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
+    
+    user_temp_dir = storage_service.get_user_directory(user_id) / "temp" / "uploads"
+    temp_dir = user_temp_dir / upload_id
     
     if not temp_dir.exists():
         raise HTTPException(status_code=404, detail="Upload session not found")
@@ -266,7 +292,9 @@ async def cancel_upload(upload_id: str):
     return {"message": "Upload cancelled and cleaned up successfully"}
 
 @router.get("/", response_model=List[FileResponse])
+@require_non_super_admin(require_admin_verified=True)
 async def list_files(
+    request: Request,
     folder: str = Query(None),
     file_type: str = Query(None),
     db: AsyncSession = Depends(get_async_db)
@@ -274,8 +302,8 @@ async def list_files(
     """
     List all uploaded files with optional filtering by folder or file type
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership filtering
+    user_id = request.state.current_user.id
     
     try:
         # Build query
@@ -316,7 +344,9 @@ async def list_files(
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 @router.get("/download")
+@require_non_super_admin(require_admin_verified=True)
 async def download_file(
+    request: Request,
     method: DownloadType = Query(..., description="Download method: 'file_id' or 'path'"),
     file_id: Optional[int] = Query(None, description="File ID if using 'file_id' method"),
     path: Optional[str] = Query(None, description="File path if using 'path' method"),
@@ -325,8 +355,8 @@ async def download_file(
     """
     Download a file by ID
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     
     try:
         # Query for the file
@@ -403,12 +433,17 @@ async def download_file(
         raise HTTPException(status_code=500, detail=f"Failed to download file")
 
 @router.get("/{file_id}", response_model=FileResponse)
-async def get_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
+@require_non_super_admin(require_admin_verified=True)
+async def get_file(
+    request: Request,
+    file_id: int, 
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Get file details by ID
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     
     try:
         # Query for the file
@@ -443,12 +478,17 @@ async def get_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"Failed to get file: {str(e)}")
 
 @router.delete("/{file_id}")
-async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
+@require_non_super_admin(require_admin_verified=True)
+async def delete_file(
+    request: Request,
+    file_id: int, 
+    db: AsyncSession = Depends(get_async_db)
+):
     """
     Delete a file by ID (soft delete - marks as deleted)
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     
     try:
         # Query for the file
@@ -491,7 +531,9 @@ async def delete_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
 
 
 @router.put("/update-config")
+@require_non_super_admin(require_admin_verified=True)
 async def update_config_file(
+    request: Request,
     file_id: int = Form(..., description="File ID of the configuration file to update"),
     config_data: str = Form(..., description="Updated configuration data as JSON string"),
     db: AsyncSession = Depends(get_async_db)
@@ -499,7 +541,8 @@ async def update_config_file(
     """
     Update an existing configuration JSON file in shared storage.
     """
-    user_id = 1  # TODO: Replace with actual user ID from token
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
 
     try:
         # 1️⃣ Fetch file record

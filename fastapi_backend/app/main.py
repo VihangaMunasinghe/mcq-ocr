@@ -7,6 +7,7 @@ from app.api.routes import files_router, templates_router, users_router, marking
 from app.database import init_db, close_db, test_database_connection
 from app.config import get_settings
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
+from app.middleware.authorization import AuthorizationMiddleware
 
 settings = get_settings()
 
@@ -72,9 +73,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    return {"message": "MCQ Marking System API"}
+# Add authorization middleware
+app.add_middleware(AuthorizationMiddleware)
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(faculties_router)
+app.include_router(files_router)
+app.include_router(templates_router)
+app.include_router(marking_router)
+app.include_router(generator_router)
 
 @app.get("/health")
 async def health_check():
@@ -109,41 +118,4 @@ async def health_check():
         "environment": settings.app.environment
     }
 
-@app.get("/debug/queue")
-async def debug_queue():
-    """Debug endpoint to check queue system status."""
-    try:
-        connection_status = "disconnected"
-        if rabbitmq_manager.connection:
-            if rabbitmq_manager.connection.is_closed:
-                connection_status = "closed"
-            else:
-                connection_status = "connected"
-        
-        return {
-            "rabbitmq_connection": connection_status,
-            "queues_available": list(rabbitmq_manager.queues.keys()) if rabbitmq_manager.queues else [],
-            "exchange_available": rabbitmq_manager.exchange is not None,
-            "settings": {
-                "rabbitmq_url": settings.rabbitmq.rabbitmq_url,
-                "rabbitmq_host": settings.rabbitmq.rabbitmq_host,
-                "rabbitmq_port": settings.rabbitmq.rabbitmq_port
-            }
-        }
-    except Exception as e:
-        return {
-            "error": str(e),
-            "rabbitmq_connection": "error",
-            "queues_available": [],
-            "exchange_available": False
-        }
-
-# Include routers
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(faculties_router)
-app.include_router(files_router)
-app.include_router(templates_router)
-app.include_router(marking_router)
-app.include_router(generator_router)
 

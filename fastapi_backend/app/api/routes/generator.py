@@ -1,9 +1,10 @@
 import datetime
-from fastapi import APIRouter, HTTPException, Form, Response
+from fastapi import APIRouter, HTTPException, Form, Response, Request
 import uuid
 from app.schemas.file import FileResponse
 from app.storage.shared_storage import SharedStorage
 from app.template_generator import generate_template_pdf
+from app.middleware.authorization import require_non_super_admin
 import logging
 
 router = APIRouter(prefix="/api/custom_template", tags=["custom_template"])
@@ -11,7 +12,9 @@ router = APIRouter(prefix="/api/custom_template", tags=["custom_template"])
 logger = logging.getLogger(__name__)
 
 @router.post("/generate", response_model=FileResponse, status_code=201)
+@require_non_super_admin(require_admin_verified=True)
 async def generate_pdf(
+    request: Request,
     title: str = Form(...),
     questions: int = Form(...),
     options: int = Form(...),
@@ -20,8 +23,8 @@ async def generate_pdf(
     """
     Generate a PDF template and save it to storage
     """
-    # TODO: Get user ID from token
-    user_id = 1
+    # Get user from token for ownership tracking
+    user_id = request.state.current_user.id
     
     try:
         # Validate input parameters
@@ -79,11 +82,13 @@ async def generate_pdf(
     
 
 @router.get("/file")
-async def get_file(file_name: str):
+@require_non_super_admin(require_admin_verified=True)
+async def get_file(request: Request, file_name: str):
     """
     Endpoint to retrieve a generated PDF file
     """
-    user_id = 1  # TODO: Get user ID from token
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         shared_storage = SharedStorage()
         file_path = f'generated/pdfs/{user_id}/{file_name}'

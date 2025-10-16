@@ -189,6 +189,14 @@ def require_basic_or_higher(require_admin_verified: bool = True):
     )
 
 
+def require_non_super_admin(require_admin_verified: bool = True):
+    """Require BASIC or FACULTYADMIN roles (excludes SUPERADMIN)"""
+    return AuthorizationMiddleware.require_roles(
+        [UserRoles.BASIC, UserRoles.FACULTYADMIN], 
+        require_admin_verified
+    )
+
+
 # Dependency function for FastAPI Depends usage
 async def verify_authorization(
     request: Request,
