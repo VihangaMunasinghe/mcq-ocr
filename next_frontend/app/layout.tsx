@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../hooks/useAuth";
 import { ToastProvider } from "../hooks/useToast";
-import { Sidebar } from "@/components/Layout/Sidebar";
-import { Navbar } from "@/components/Layout/Navbar";
+import { ConditionalLayout } from "@/components/Layout/ConditionalLayout";
 
 export const metadata: Metadata = {
   title: "UOM MCQ Auto Grader",
@@ -20,15 +19,7 @@ export default function RootLayout({
       <body className="antialiased h-full m-0 p-0">
         <AuthProvider>
           <ToastProvider>
-            <div className="flex h-screen bg-gray-50 overflow-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col min-w-0">
-                <Navbar />
-                <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                  {children}
-                </main>
-              </div>
-            </div>
+            <ConditionalLayout>{children}</ConditionalLayout>
           </ToastProvider>
         </AuthProvider>
       </body>
