@@ -1,9 +1,8 @@
 import axios from "axios";
-import{ useRouter } from "next/router";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL,
-  withCredentials: true, // automatically include cookies
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000",
+  withCredentials: true,
 });
 
 // Response interceptor to handle token refresh
@@ -12,21 +11,15 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If access token expired and refresh token exists, try refresh once
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
 
       try {
-        // Call FastAPI refresh endpoint (it will set new access_token cookie)
-        await axiosInstance.post("/auth/refresh");
-
-        // Retry the original request
+        await axiosInstance.post("/api/auth/refresh");
         return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        console.error("Refresh failed:", refreshError);
+      } catch {
         if (typeof window !== "undefined") {
-            const router = useRouter();
-            router.push("/auth/signin");
+          window.location.href = "/auth/signin";
         }
       }
     }

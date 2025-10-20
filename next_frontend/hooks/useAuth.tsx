@@ -1,21 +1,32 @@
 "use client";
 
 import React, { useEffect, useState, createContext, useContext } from "react";
+import axiosInstance from "../utils/axiosclient";
 
+// Exact copy of backend UserResponse
 interface User {
-  id: string;
-  name: string;
+  id: number;
   email: string;
+  first_name: string;
+  last_name: string;
   role: string;
-  avatar: string;
+  verify_status: string;
+  faculty_id: number | null;
+  last_login?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signOut: () => void;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   error: string | null;
 }
 
@@ -26,13 +37,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+  const refreshUser = async () => {
+    try {
+      const response = await axiosInstance.get("/api/auth/me");
+
+      const userData = response.data as User;
+      setUser(userData);
+    } catch {
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    refreshUser();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -40,38 +59,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      // Mock API call delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await axiosInstance.post("/api/auth/login", { email, password });
 
-      // Mock validation
-      if (email === "admin@example.com" && password === "password") {
-        const user = {
-          id: "1",
-          name: "Admin User",
-          email: "admin@example.com",
-          role: "Administrator",
-          avatar:
-            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-        };
-        setUser(user);
-        localStorage.setItem("user", JSON.stringify(user));
-        setIsLoading(false);
-        return true;
-      } else {
-        setError("Invalid email or password");
-        setIsLoading(false);
-        return false;
-      }
-    } catch (error) {
-      setError("An error occurred during sign in");
+      const response = await axiosInstance.get("/api/auth/me");
+
+      const userData = response.data as User;
+      setUser(userData);
+
       setIsLoading(false);
-      return false;
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail || "Login failed";
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    try {
+      await axiosInstance.post("/api/auth/logout");
+    } catch {
+      // Continue even if logout fails
+    }
     setUser(null);
-    localStorage.removeItem("user");
+    setError(null);
   };
 
   return (
@@ -82,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         signIn,
         signOut,
+        refreshUser,
         error,
       }}
     >

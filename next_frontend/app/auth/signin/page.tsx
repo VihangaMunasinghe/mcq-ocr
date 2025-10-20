@@ -7,10 +7,10 @@ import { faEnvelope, faLock } from "@fortawesome/free-solid-svg-icons";
 import { Input } from "../../../components/UI/Input";
 import { Button } from "../../../components/UI/Button";
 import { useAuth } from "../../../hooks/useAuth";
-import { AuthLayout } from "../components";
+import { AuthLayout } from "../components/AuthLayout";
 
 export default function SignIn() {
-  const { signIn, isAuthenticated, isLoading, error } = useAuth();
+  const { signIn, isLoading, error } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [validationErrors, setValidationErrors] = useState<{
@@ -19,13 +19,6 @@ export default function SignIn() {
   }>({});
 
   const router = useRouter();
-
-  // If already authenticated, redirect to dashboard
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/");
-    }
-  }, [isAuthenticated, router]);
 
   const validateForm = () => {
     const errors: {

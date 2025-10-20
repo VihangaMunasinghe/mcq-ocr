@@ -102,9 +102,19 @@ export async function middleware(req: NextRequest) {
           const newAccess = refreshResponse.headers
             .get("set-cookie")
             ?.match(/access_token=([^;]+)/)?.[1];
-          if (newAccess) {
+          const newRefresh = refreshResponse.headers
+            .get("set-cookie")
+            ?.match(/refresh_token=([^;]+)/)?.[1];
+          if (newAccess || newRefresh) {
             const response = NextResponse.next();
-            response.cookies.set("access_token", newAccess, { httpOnly: true });
+            if (newAccess)
+              response.cookies.set("access_token", newAccess, {
+                httpOnly: true,
+              });
+            if (newRefresh)
+              response.cookies.set("refresh_token", newRefresh, {
+                httpOnly: true,
+              });
             return response;
           }
         }

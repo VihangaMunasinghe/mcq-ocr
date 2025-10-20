@@ -13,7 +13,7 @@ import {
 import { Input } from "../../../components/UI/Input";
 import { Button } from "../../../components/UI/Button";
 import { useAuth } from "../../../hooks/useAuth";
-import { AuthLayout } from "../components";
+import { AuthLayout } from "../components/AuthLayout";
 
 interface Faculty {
   id: number;
