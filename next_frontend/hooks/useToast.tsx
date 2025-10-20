@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useState, createContext, useContext } from "react";
+import React, { useCallback, useState, createContext, useContext, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Toast, ToastType } from "../components/UI/Toast";
 
 interface ToastMessage {
@@ -18,6 +19,11 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const showToast = useCallback(
     (message: string, type: ToastType, duration?: number) => {
@@ -46,19 +52,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <div className="fixed inset-0 pointer-events-none z-[9999]">
-        <div className="absolute top-4 left-4 pointer-events-auto">
-          {toasts.map((toast, idx) => (
-            <Toast
-              key={idx}
-              message={toast.message}
-              type={toast.type}
-              duration={toast.duration}
-              onClose={() => removeToast(toast.id)}
-            />
-          ))}
-        </div>
-      </div>
+      {mounted && createPortal(
+        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 999999 }}>
+          <div className="absolute top-4 left-4 pointer-events-auto">
+            {toasts.map((toast, idx) => (
+              <Toast
+                key={idx}
+                message={toast.message}
+                type={toast.type}
+                duration={toast.duration}
+                onClose={() => removeToast(toast.id)}
+              />
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
     </ToastContext.Provider>
   );
 }

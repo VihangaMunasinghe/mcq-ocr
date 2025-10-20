@@ -256,26 +256,26 @@ def get_clustering(img_path,Num_of_columns,Num_of_rows_per_column,Num_of_options
             # --- Step 1: Find reference row ---
             tolerance = 10  # pixels, adjust based on template spacing
             reference_x = None
-            for row in rows:
-                if len(row) == num_of_options_per_question:
-                    reference_x = [p[0] for p in row]  # store X only
-                    break
+            # for row in rows:
+            #     if len(row) == num_of_options_per_question:
+            #         reference_x = [p[0] for p in row]  # store X only
+            #         break
                     # --- Step 1: Find reference_x using all complete rows ---
-            #valid_rows = [row for row in rows if len(row) == num_of_options_per_question]
+            valid_rows = [row for row in rows if len(row) == num_of_options_per_question]
 
-            #if not valid_rows:
-                #print(f"No reference row found in column {i}")
-                #continue
+            if not valid_rows:
+                print(f"No reference row found in column {i}")
+                continue
 
             # Collect X values for each option position across valid rows
-            #all_x_positions = [[] for _ in range(num_of_options_per_question)]
-            #for row in valid_rows:
-                #row_sorted = sorted(row, key=lambda p: p[0])  # ensure left-to-right
-                #for idx, (x, _) in enumerate(row):
-                    #all_x_positions[idx].append(x)
+            all_x_positions = [[] for _ in range(num_of_options_per_question)]
+            for row in valid_rows:
+                row_sorted = sorted(row, key=lambda p: p[0])  # ensure left-to-right
+                for idx, (x, _) in enumerate(row_sorted):
+                    all_x_positions[idx].append(x)
 
             # Mean X for each bubble position
-            #reference_x = [int(np.mean(x_list)) for x_list in all_x_positions]
+            reference_x = [int(np.mean(x_list)) for x_list in all_x_positions]
 
             if reference_x is None:
                 print(f"No reference row found in column {i}")

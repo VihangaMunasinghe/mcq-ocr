@@ -4,11 +4,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 
-img = cv2.imread("../samples/templates/V1.jpg")
+img = cv2.imread("../samples/templates/1.3.jpg")
 
 #change accordingly
 num_of_options_per_question= 5
-num_of_rows_per_column=[30,30,20]
+num_of_rows_per_column=[30,30,30]
 num_of_columns=3
 
 screen_width, screen_height = pyautogui.size()
@@ -152,24 +152,24 @@ columns = [columns[i] for i in sorted_indices]
 
 
 # Make a copy so we don't overwrite original
-output_img = img_below.copy()
+# output_img = img_below.copy()
 
-# Define colors for each column (BGR format)
-colors = [(0, 0, 255),   # Red
-          (0, 255, 0),   # Green
-          (255, 0, 0)]   # Blue
+# # Define colors for each column (BGR format)
+# colors = [(0, 0, 255),   # Red
+#           (0, 255, 0),   # Green
+#           (255, 0, 0)]   # Blue
 
-# Draw circles on the image
-for col_idx, col_points in enumerate(columns):
-    color = colors[col_idx % len(colors)]  # cycle if more than 3 cols
-    for (cx, cy) in col_points:
-        cv2.circle(output_img, (cx, cy), int(mean_radius), color, 2)
-        cv2.circle(output_img, (cx, cy), 2, (0, 0, 0), -1)  # small center dot
+# # Draw circles on the image
+# for col_idx, col_points in enumerate(columns):
+#     color = colors[col_idx % len(colors)]  # cycle if more than 3 cols
+#     for (cx, cy) in col_points:
+#         cv2.circle(output_img, (cx, cy), int(mean_radius), color, 2)
+#         cv2.circle(output_img, (cx, cy), 2, (0, 0, 0), -1)  # small center dot
 
-# Show the image
-cv2.imshow("Detected Bubbles", output_img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# # Show the image
+# cv2.imshow("Detected Bubbles", output_img)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 # If you want to save the image as well
 #cv2.imwrite("bubbles_detected.jpg", output_img)
@@ -280,26 +280,26 @@ for i in range(num_of_columns):
         # --- Step 1: Find reference row ---
         tolerance = 10  # pixels, adjust based on template spacing
         reference_x = None
-        for row in rows:
-            if len(row) == num_of_options_per_question:
-                reference_x = [p[0] for p in row]  # store X only
-                break
+        #for row in rows:
+            #if len(row) == num_of_options_per_question:
+               # reference_x = [p[0] for p in row]  # store X only
+               # break
                 # --- Step 1: Find reference_x using all complete rows ---
-        #valid_rows = [row for row in rows if len(row) == num_of_options_per_question]
+        valid_rows = [row for row in rows if len(row) == num_of_options_per_question]
 
-        #if not valid_rows:
-            #print(f"No reference row found in column {i}")
-            #continue
+        if not valid_rows:
+            print(f"No reference row found in column {i}")
+            continue
 
         # Collect X values for each option position across valid rows
-        #all_x_positions = [[] for _ in range(num_of_options_per_question)]
-        #for row in valid_rows:
-            #row_sorted = sorted(row, key=lambda p: p[0])  # ensure left-to-right
-            #for idx, (x, _) in enumerate(row):
-                #all_x_positions[idx].append(x)
+        all_x_positions = [[] for _ in range(num_of_options_per_question)]
+        for row in valid_rows:
+            row_sorted = sorted(row, key=lambda p: p[0])  # ensure left-to-right
+            for idx, (x, _) in enumerate(row):
+                all_x_positions[idx].append(x)
 
         # Mean X for each bubble position
-        #reference_x = [int(np.mean(x_list)) for x_list in all_x_positions]
+        reference_x = [int(np.mean(x_list)) for x_list in all_x_positions]
 
         if reference_x is None:
             print(f"No reference row found in column {i}")
