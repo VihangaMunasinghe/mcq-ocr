@@ -56,7 +56,11 @@ class DoctrDetoctorRecognizer:
     def recognize_student_index(self, index_image: np.ndarray, debug:bool=False, file_id:str="temp") -> dict:
         # Perform detection using the Doctr detection model
         det_result = self.det_model([index_image])
-        detected_image = get_detected_image(index_image, det_result[0]['words'],self.detect_margin_x,self.detect_margin_y)
+        try:
+            detected_image = get_detected_image(index_image, det_result[0]['words'],self.detect_margin_x,self.detect_margin_y)
+        except Exception as e:
+            print(f"Error bounding box during detection: {e}")
+            detected_image = index_image
         if debug:
             self.__save_intermediate(detected_image, "detected", file_id)
         # Perform recognition using the Doctr recognition model
