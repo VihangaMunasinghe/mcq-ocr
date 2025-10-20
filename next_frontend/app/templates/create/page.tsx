@@ -110,14 +110,26 @@ export default function CreateTemplate() {
     const newErrors: Partial<Record<keyof TemplateForm, string>> = {};
 
     if (!formData.name) newErrors.name = "Template name is required.";
-    if (!formData.description) newErrors.description = "Description is required.";
+    // Description is now optional - removed validation
     if (!formData.templateImage) newErrors.templateImage = "Template image is required.";
 
     if (formData.configType === "cluster_based") {
       if (!formData.numColumns || formData.numColumns <= 0)
         newErrors.numColumns = "Number of columns is required.";
-      if (!formData.rowsPerColumn || formData.rowsPerColumn.length !== formData.numColumns)
+      
+      // Check if all rows per column are filled (no empty or zero values)
+      if (!formData.rowsPerColumn || formData.rowsPerColumn.length !== formData.numColumns) {
         newErrors.rowsPerColumn = "Please fill all row counts for each column.";
+      } else {
+        // Check if any value is empty, zero, or invalid
+        const hasEmptyOrInvalidRows = formData.rowsPerColumn.some(
+          (rows) => !rows || rows <= 0 || isNaN(rows)
+        );
+        if (hasEmptyOrInvalidRows) {
+          newErrors.rowsPerColumn = "All rows per column counts must be filled with valid numbers greater than 0.";
+        }
+      }
+      
       if (!formData.optionsPerQuestion || formData.optionsPerQuestion <= 0)
         newErrors.optionsPerQuestion = "Options per question is required.";
     }
@@ -242,7 +254,9 @@ export default function CreateTemplate() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
             <textarea
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}

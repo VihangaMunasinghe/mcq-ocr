@@ -34,6 +34,11 @@ interface ConfigJobResponse {
   template_id: number;
 }
 
+interface SelectedColumn {
+  key: string;
+  originalPosition: ColumnStart;
+}
+
 const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   templateImage,
   configData,
@@ -51,7 +56,8 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [yOffset, setYOffset] = useState<number>(0);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [activeColumnKey, setActiveColumnKey] = useState<string | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(null);
+  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(null);
   const [hoverColumnKey, setHoverColumnKey] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
@@ -60,7 +66,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-  const DOUBLE_CLICK_THRESHOLD = 300; // milliseconds
+  const CLICK_COOLDOWN = 300; // milliseconds
   const DRAG_THRESHOLD = 5; // pixels
   const originalConfigString = JSON.stringify(configData);
 
@@ -91,7 +97,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     color: string,
     isHovered = false
   ) => {
-    const radius = isHovered ? 8 : 6;
+    const radius = isHovered ? 10 : 8;
     ctx.beginPath();
     ctx.arc(x * scale, y * scale, radius, 0, Math.PI * 2);
     ctx.fillStyle = color;
@@ -106,7 +112,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     xOff: number,
     yOff: number
   ) => {
-    // Horizontal line (solid red, thicker)
+    // Horizontal line
     ctx.beginPath();
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#ff0000";
@@ -115,7 +121,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     ctx.lineTo((sx + xOff) * scale, sy * scale);
     ctx.stroke();
 
-    // Vertical line (solid red, thicker)
+    // Vertical line
     ctx.beginPath();
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#ff0000";
@@ -125,66 +131,69 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     ctx.stroke();
   };
 
-  // === Mouse / Drag logic ===
-  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // === Mouse / Drag logic (EXACTLY like cluster-based) ===
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+
+    // Prevent double-click issues
+    const now = Date.now();
+    if (now - lastClickTime < CLICK_COOLDOWN) {
+      return;
+    }
+    setLastClickTime(now);
+
     const pt = getCanvasCoords(e);
     if (!pt) return;
+
     const hit = hitTest(pt.x, pt.y);
     if (!hit) return;
 
-    // Toggle activation
-    if (activeColumnKey === hit) {
-      setActiveColumnKey(null); // deactivate
-    } else {
-      setActiveColumnKey(hit); // activate
-    }
-  };
+    // Find and select the column
+    const selected: SelectedColumn = {
+      key: hit,
+      originalPosition: { ...columns[hit] }
+    };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pt = getCanvasCoords(e);
-    if (!pt) return;
-
-    const now = Date.now();
-    const timeSinceLastClick = now - lastClickTime;
-
-    // Check if this is a double-click
-    if (timeSinceLastClick < DOUBLE_CLICK_THRESHOLD) {
-      // This is the second click of a double-click
-      // Don't start dragging, let handleDoubleClick handle it
-      setLastClickTime(0); // Reset to prevent triple-click issues
-      return;
-    }
-
-    setLastClickTime(now);
-
-    const hit = hitTest(pt.x, pt.y);
-    if (!hit || hit !== activeColumnKey) return;
-
-    // Only allow dragging the active column
+    setSelectedColumn(selected);
     setDragStartPos(pt);
+    // Don't set isDragging or draggedColumn yet - wait for actual movement
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
     const pt = getCanvasCoords(e);
     if (!pt) return;
-    setMousePos(pt);
-
-    const hit = hitTest(pt.x, pt.y);
-    setHoverColumnKey(hit);
 
     // Check if we should start dragging
-    if (dragStartPos && !isDragging && activeColumnKey) {
+    if (selectedColumn && dragStartPos && !isDragging) {
       const dist = Math.hypot(pt.x - dragStartPos.x, pt.y - dragStartPos.y);
       if (dist > DRAG_THRESHOLD) {
         setIsDragging(true);
+        setDraggedColumn(selectedColumn);
       }
     }
 
-    // Update position while dragging
-    if (isDragging && activeColumnKey) {
+    // Hover detection (only when not dragging) - adjusted for scale
+    if (!isDragging) {
+      let foundHover = false;
+      const hoverRadius = 10 / scale; // Convert screen pixels to image coordinates
+      for (const key of Object.keys(columns)) {
+        const s = columns[key];
+        const dist = Math.hypot(s.starting_x - pt.x, s.starting_y - pt.y);
+        if (dist < hoverRadius && !foundHover) {
+          setHoverColumnKey(key);
+          foundHover = true;
+          break;
+        }
+      }
+      if (!foundHover) setHoverColumnKey(null);
+    }
+
+    if (isDragging && selectedColumn) {
+      setMousePos(pt);
       setColumns((prev) => {
         const next = { ...prev };
-        next[activeColumnKey] = {
+        next[selectedColumn.key] = {
           starting_x: parseFloat(pt.x.toFixed(2)),
           starting_y: parseFloat(pt.y.toFixed(2)),
         };
@@ -194,14 +203,19 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   };
 
   const handleMouseUp = () => {
-    // When user releases, finalize the position and deactivate
-    if (isDragging && activeColumnKey) {
-      // Keep the bubble in its current position
-      // Deactivate it (turn it back to green)
-      setActiveColumnKey(null);
+    if (!isDragging || !selectedColumn) {
+      // Reset states if drag didn't actually happen
+      setSelectedColumn(null);
+      setDraggedColumn(null);
+      setDragStartPos(null);
+      return;
     }
-    
+
+    // Finalize the position
     setIsDragging(false);
+    setSelectedColumn(null);
+    setDraggedColumn(null);
+    setMousePos(null);
     setDragStartPos(null);
   };
 
@@ -232,8 +246,6 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     };
 
     const newConfigString = JSON.stringify(newConfigObj);
-    console.log("Original Config:", originalConfigString);
-    console.log("new configs",newConfigString)
     if (originalConfigString === newConfigString) {
       showToast("No changes detected. Redirecting...", "info");
       router.push("/templates");
@@ -350,11 +362,23 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
         Object.keys(columns).forEach((k) => {
           const s = columns[k];
+          
+          // Skip drawing the bubble being dragged at its original position
+          if (draggedColumn && k === draggedColumn.key) {
+            // Don't draw it here, we'll draw it at mouse position
+            drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
+            return;
+          }
+          
           drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
-          const isHover = hoverColumnKey === k;
-          const color = k === activeColumnKey ? "#0000ff" : "#2BFA0B";
-          drawTopBubble(ctx, s.starting_x, s.starting_y, color, isHover);
+          const isHover = hoverColumnKey === k && !isDragging;
+          drawTopBubble(ctx, s.starting_x, s.starting_y, "#2BFA0B", isHover);
         });
+
+        // Draw the dragging bubble in blue at mouse position
+        if (isDragging && mousePos && draggedColumn) {
+          drawTopBubble(ctx, mousePos.x, mousePos.y, "#0000ff", false);
+        }
       };
 
       render();
@@ -366,7 +390,9 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     xOffset,
     yOffset,
     hoverColumnKey,
-    activeColumnKey,
+    isDragging,
+    mousePos,
+    draggedColumn,
   ]);
 
   return (
@@ -421,8 +447,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
             />
           </div>
           <div className="text-xs text-gray-500">
-            Double-click a green bubble to activate (it turns blue). Then drag to
-            move it. Release the mouse to finalize the position (it turns green again).
+            Double-click a green bubble and drag (without releasing after 2nd click) to move it (turns blue). Release to finalize (turns green again).
           </div>
         </div>
 
@@ -446,7 +471,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
           </button>
           <button
             onClick={handleOk}
-            className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-white"
+            className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-white hover:bg-gray-100"
           >
             Ok
           </button>
@@ -458,14 +483,12 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
         <div className="relative">
           <canvas
             ref={canvasRef}
-            className="border border-gray-300 rounded shadow-lg"
-            onDoubleClick={handleDoubleClick}
+            className="border border-gray-300 rounded shadow-lg cursor-pointer"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             style={{
-              cursor: activeColumnKey ? "grabbing" : hoverColumnKey ? "grab" : "default",
               maxWidth: "100%",
               height: "auto",
             }}

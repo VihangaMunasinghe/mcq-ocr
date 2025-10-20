@@ -515,8 +515,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
               </div>
             </div>
             <div className="text-xs text-gray-500">
-            Double-click a green bubble to activate (it turns red). Then drag to
-            move it and release it to valid location.
+            Double-click a green bubble and drag (without releasing after 2nd click) to move it (turns blue). Release to a valid location (turns green again).
             </div>
           </div>
         )}
