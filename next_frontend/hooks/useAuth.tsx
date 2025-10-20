@@ -1,7 +1,8 @@
 "use client";
 
+import axiosInstance from "@/utils/axiosclient";
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState, createContext, useContext } from "react";
-import axiosInstance from "../utils/axiosclient";
 
 // Exact copy of backend UserResponse
 interface User {
@@ -17,10 +18,21 @@ interface User {
   updated_at?: string | null;
 }
 
+interface UserRegister {
+  email: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+  faculty_id: number;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  register: (
+    user: UserRegister
+  ) => Promise<{ success: boolean; error?: string }>;
   signIn: (
     email: string,
     password: string
@@ -32,17 +44,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
 
   const refreshUser = async () => {
     try {
       const response = await axiosInstance.get("/api/auth/me");
 
       const userData = response.data as User;
-      setUser(userData);
+      if (userData) setUser(userData);
+      else setUser(null);
     } catch {
       setUser(null);
     } finally {
@@ -60,13 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await axiosInstance.post("/api/auth/login", { email, password });
-
-      const response = await axiosInstance.get("/api/auth/me");
-
-      const userData = response.data as User;
-      setUser(userData);
-
+      refreshUser();
       setIsLoading(false);
+      router.refresh();
       return { success: true };
     } catch (error) {
       const errorMessage =
@@ -78,14 +90,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const register = async (userData: UserRegister) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await axiosInstance.post("/api/auth/register", userData);
+
+      refreshUser();
+      setIsLoading(false);
+      router.refresh();
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail || "Registration failed";
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const signOut = async () => {
     try {
       await axiosInstance.post("/api/auth/logout");
+      router.refresh();
+      setUser(null);
+      setError(null);
     } catch {
-      // Continue even if logout fails
+      setError("Failed to Sign out");
     }
-    setUser(null);
-    setError(null);
   };
 
   return (
@@ -94,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        register,
         signIn,
         signOut,
         refreshUser,

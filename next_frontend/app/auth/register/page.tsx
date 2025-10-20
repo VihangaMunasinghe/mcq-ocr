@@ -10,6 +10,9 @@ import {
   faBuilding,
   faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
+
+import axiosInstance from "@/utils/axiosclient";
+
 import { Input } from "../../../components/UI/Input";
 import { Button } from "../../../components/UI/Button";
 import { useAuth } from "../../../hooks/useAuth";
@@ -18,11 +21,10 @@ import { AuthLayout } from "../components/AuthLayout";
 interface Faculty {
   id: number;
   name: string;
-  code: string;
 }
 
 export default function Register() {
-  const { isAuthenticated } = useAuth();
+  const { register, isLoading, error } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -39,38 +41,19 @@ export default function Register() {
     lastName?: string;
     facultyId?: string;
   }>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
 
   const router = useRouter();
-
-  // If already authenticated, redirect to dashboard
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/");
-    }
-  }, [isAuthenticated, router]);
 
   // Fetch faculties on component mount
   useEffect(() => {
     const fetchFaculties = async () => {
       try {
-        const response = await fetch("/api/faculties");
-        if (response.ok) {
-          const facultiesData = await response.json();
-          setFaculties(facultiesData);
-        }
+        const response = await axiosInstance.get("/api/faculties");
+        setFaculties(response.data as Faculty[]);
       } catch (error) {
         console.error("Failed to fetch faculties:", error);
-        // Mock faculties as fallback
-        setFaculties([
-          { id: 1, name: "Faculty of Engineering", code: "ENG" },
-          { id: 2, name: "Faculty of Science", code: "SCI" },
-          { id: 3, name: "Faculty of Medicine", code: "MED" },
-          { id: 4, name: "Faculty of Business", code: "BUS" },
-        ]);
+        setFaculties([]);
       }
     };
 
@@ -130,62 +113,14 @@ export default function Register() {
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          faculty_id: parseInt(formData.facultyId),
-        }),
-      });
-
-      if (response.ok) {
-        setSuccess(true);
-        // Redirect to sign-in after 2 seconds
-        setTimeout(() => {
-          router.push("/auth/signin");
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || "Registration failed. Please try again.");
-      }
-    } catch {
-      setError("Network error. Please check your connection and try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    await register({
+      email: formData.email,
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      password: formData.password,
+      faculty_id: parseInt(formData.facultyId),
+    });
   };
-
-  if (success) {
-    return (
-      <AuthLayout
-        title="Registration Successful!"
-        subtitle="Your account has been created successfully. You will be redirected to the sign-in page shortly."
-        icon={
-          <FontAwesomeIcon
-            icon={faCheckCircle}
-            className="h-8 w-8 text-white"
-          />
-        }
-      >
-        <div className="text-center">
-          <p className="mt-4 text-sm text-gray-500">
-            Please wait for a faculty administrator to verify your account
-            before you can access the system.
-          </p>
-        </div>
-      </AuthLayout>
-    );
-  }
 
   const registerIcon = (
     <svg

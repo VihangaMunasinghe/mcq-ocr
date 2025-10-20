@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
 
-const AUTH_SECRET = process.env.SECRET_KEY as string;
+interface TokenData {
+  sub: string;
+  user_id: string;
+  role: string;
+  faculty_id: string;
+  verify_status: string;
+}
+
 
 const protectedRoutes = [
   "/dashboard",
@@ -23,7 +29,7 @@ const superAdminNotAllowedRoutes = ["/marking-jobs", "/templates"];
 
 function checkAccess(
   pathname: string,
-  payload: jwt.JwtPayload | string
+  payload: TokenData
 ): { allowed: boolean; redirect?: string } {
   // If payload is a string, we can't inspect claims; fail closed (deny)
   if (typeof payload === "string")
@@ -65,7 +71,6 @@ export async function middleware(req: NextRequest) {
   // If public route and already logged in
   if (publicRoutes.includes(pathname) && accessToken) {
     try {
-      jwt.verify(accessToken, AUTH_SECRET);
       return NextResponse.redirect(new URL("/", req.url));
     } catch {
       // token expired — still redirect to dashboard after refresh
@@ -82,7 +87,7 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      const payload = jwt.verify(accessToken, AUTH_SECRET);
+      const payload = JSON.parse(atob(accessToken.split(".")[1])) as TokenData;
       const { allowed, redirect } = checkAccess(pathname, payload);
       if (allowed) return NextResponse.next();
       return NextResponse.redirect(new URL(redirect ?? "/", req.url));

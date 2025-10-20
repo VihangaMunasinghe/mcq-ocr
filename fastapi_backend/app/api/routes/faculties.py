@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=List[FacultyResponse])
-@require_basic_or_higher(require_admin_verified=True)
 async def list_faculties(
     request: Request,
     db: AsyncSession = Depends(get_async_db)

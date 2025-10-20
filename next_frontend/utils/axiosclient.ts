@@ -11,16 +11,38 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    // Check if this is a 401 error and not already a retry attempt
+    // Also exclude auth endpoints (login, register, refresh) to prevent infinite loops
+    if (
+      error.response?.status === 401 &&
+      !originalRequest?._retry &&
+      !originalRequest?.url?.includes("/api/auth/refresh") &&
+      !originalRequest?.url?.includes("/api/auth/login") &&
+      !originalRequest?.url?.includes("/api/auth/register")
+    ) {
       originalRequest._retry = true;
 
       try {
-        await axiosInstance.post("/api/auth/refresh");
+        // Make the refresh request with a flag to prevent interceptor loops
+        await axios.post(
+          `${
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+          }/api/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+
+        // If refresh was successful, retry the original request
         return axiosInstance(originalRequest);
-      } catch {
-        if (typeof window !== "undefined") {
+      } catch (refreshError) {
+        // Refresh failed, redirect to signin
+        if (
+          typeof window !== "undefined" &&
+          !window.location.href.includes("/auth")
+        ) {
           window.location.href = "/auth/signin";
         }
+        return Promise.reject(refreshError);
       }
     }
 

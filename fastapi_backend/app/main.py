@@ -7,7 +7,6 @@ from app.api.routes import files_router, templates_router, users_router, marking
 from app.database import init_db, close_db, test_database_connection
 from app.config import get_settings
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
-from app.middleware.authorization import AuthorizationMiddleware
 
 settings = get_settings()
 
@@ -64,17 +63,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS for large file uploads
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Configure this properly for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Add authorization middleware
-app.add_middleware(AuthorizationMiddleware)
 
 # Include routers
 app.include_router(auth_router)
