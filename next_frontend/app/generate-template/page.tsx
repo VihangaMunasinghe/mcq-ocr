@@ -106,7 +106,7 @@ export default function GenerateTemplate() {
     if (!filename) return;
     const downloadUrl = `/api/custom_template/file?file_name=${encodeURIComponent(
       filename
-    )}`;
+    )}&download=true`;
     window.open(downloadUrl, "_blank");
   };
 
@@ -366,17 +366,66 @@ export default function GenerateTemplate() {
           )}
 
           {generationState === "success" && filename && (
-            <div className="flex items-center justify-center h-96">
-              <div className="text-center">
-                <div className="bg-green-50 p-8 rounded-2xl mb-4">
-                  <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto" />
+            <div className="space-y-4">
+              {/* Success Header */}
+              <div className="flex items-center justify-center bg-green-50 p-3 rounded-xl">
+                <CheckCircleIcon className="h-6 w-6 text-green-500 mr-2" />
+                <span className="text-green-700 font-medium">
+                  Template Generated Successfully!
+                </span>
+              </div>
+
+              {/* PDF Preview */}
+              <div className="border-2 border-green-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 p-3 border-b border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{title}</h4>
+                      <p className="text-sm text-gray-600">{filename}</p>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {numQuestions} questions • {numOptions} options
+                    </div>
+                  </div>
                 </div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">
-                  Template Generated!
-                </h4>
-                <p className="text-gray-500 mb-4">
-                  Your template is ready for download.
-                </p>
+
+                {/* Simple PDF Viewer */}
+                <div className="relative bg-gray-100 rounded-lg overflow-hidden">
+                  <object
+                    data={`/api/custom_template/file?file_name=${encodeURIComponent(
+                      filename
+                    )}#toolbar=0&navpanes=0&scrollbar=0`}
+                    type="application/pdf"
+                    className="w-full h-96 md:h-[500px]"
+                    title="Template Preview"
+                  >
+                    <div className="flex flex-col items-center justify-center h-96 text-center p-8">
+                      <DocumentTextIcon className="h-16 w-16 text-gray-400 mb-4" />
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">
+                        PDF Preview Not Available
+                      </h4>
+                      <p className="text-gray-500 mb-4">
+                        Your browser doesn&apos;t support PDF preview. Please
+                        download the file to view it.
+                      </p>
+                      <Button
+                        onClick={handleDownload}
+                        className="bg-blue-500 hover:bg-blue-600"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <ArrowDownTrayIcon className="h-4 w-4" />
+                          <span>Download PDF</span>
+                        </div>
+                      </Button>
+                    </div>
+                  </object>
+                </div>
+
+                <div className="bg-gray-50 p-3 border-t border-green-200 text-center">
+                  <p className="text-sm text-gray-600">
+                    Template preview • Ready for download
+                  </p>
+                </div>
               </div>
             </div>
           )}

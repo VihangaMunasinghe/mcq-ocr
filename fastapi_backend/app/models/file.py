@@ -47,7 +47,7 @@ class FileOrFolder(BaseModel):
     status = Column(Enum(FileOrFolderStatus), nullable=False, default=FileOrFolderStatus.PENDING)
     
     # File organization
-    deletion_date = Column(DateTime, nullable=False, default=datetime.now() + timedelta(days=7))
+    deletion_date = Column(DateTime, nullable=True, default=lambda: datetime.now() + timedelta(days=7))
     
     # Foreign keys
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
