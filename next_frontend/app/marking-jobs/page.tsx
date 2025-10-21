@@ -184,7 +184,7 @@ export default function MarkingJobs() {
   }, [showToast]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <PageHeader onCreateNew={() => router.push("marking-jobs/create")} />
 
       <StatsOverview jobs={markingJobs} />
