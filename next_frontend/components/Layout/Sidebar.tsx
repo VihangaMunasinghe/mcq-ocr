@@ -227,32 +227,30 @@ export function Sidebar() {
         onMouseLeave={handleMouseLeave}
       >
         {/* Header */}
-        <div
-          className={`flex items-center p-6 border-b border-gray-200/50 ${
-            collapsed ? "justify-center" : "justify-between"
-          }`}
-        >
-          <div
-            className={`flex items-center transition-all duration-300 ${
-              collapsed ? "justify-center w-full" : ""
-            }`}
-          >
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white p-3 rounded-xl shadow-lg">
-              <AcademicCapIcon className="h-7 w-7" />
+        <div className="flex items-center p-6 border-b border-gray-200/50">
+          {collapsed ? (
+            /* Collapsed state - center the icon */
+            <div className="w-full flex justify-center">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-xl shadow-lg">
+                <AcademicCapIcon className="h-7 w-7" />
+              </div>
             </div>
-            <div
-              className={`ml-4 transition-all duration-300 overflow-hidden ${
-                collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-              }`}
-            >
-              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent whitespace-nowrap">
-                MCQ Grader
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">
-                Smart Evaluation
-              </p>
+          ) : (
+            /* Expanded state - show icon and text */
+            <div className="flex items-center">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-3 rounded-xl shadow-lg">
+                <AcademicCapIcon className="h-7 w-7" />
+              </div>
+              <div className="ml-4">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent whitespace-nowrap">
+                  MCQ Grader
+                </h1>
+                <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">
+                  Smart Evaluation
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -270,18 +268,25 @@ export function Sidebar() {
                   className={`
                     ${
                       isActive
-                        ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 border-l-4 border-blue-500 shadow-sm"
+                        ? "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 shadow-sm"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
-                    group flex items-center px-4 py-3.5 text-sm font-medium rounded-r-xl transition-all duration-200 transform hover:scale-105 hover:shadow-md relative overflow-hidden
+                    group flex items-center ${
+                      collapsed ? "justify-center px-3" : "px-4"
+                    } py-3.5 text-sm font-medium rounded-xl transition-all duration-200 transform hover:scale-105 hover:shadow-md relative overflow-hidden
                   `}
                 >
+                  {/* Left border indicator for active state */}
+                  {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-blue-600 rounded-r-full" />
+                  )}
+
                   {/* Background animation */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-r-xl" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl" />
 
                   <div
                     className={`${
-                      collapsed ? "mx-auto" : "mr-4"
+                      collapsed ? "" : "mr-4"
                     } relative z-10 transition-all duration-200 ${
                       isActive ? "text-blue-600" : ""
                     }`}
@@ -300,10 +305,10 @@ export function Sidebar() {
                     {item.name}
                   </span>
 
-                  {/* Active indicator */}
+                  {/* Active indicator dot */}
                   {isActive && !collapsed && (
                     <div className="ml-auto">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-pulse" />
                     </div>
                   )}
                 </Link>
@@ -322,7 +327,7 @@ export function Sidebar() {
               }`}
             >
               <div className="flex items-center w-full">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
                   <span className="text-white font-semibold text-sm">
                     {getInitials()}
                   </span>
