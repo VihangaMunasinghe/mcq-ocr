@@ -49,7 +49,10 @@ const ResultsPage = () => {
         const backendUrl =
           process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
         const resultsResponse = await fetch(
-          `${backendUrl}/api/files/download?method=file_id&file_id=${jobInfo.result_sheet_file_id}`
+          `${backendUrl}/api/files/download?method=file_id&file_id=${jobInfo.result_sheet_file_id}`,
+          {
+            credentials: "include",
+          }
         );
         if (!resultsResponse.ok) {
           throw new Error("Failed to fetch results");

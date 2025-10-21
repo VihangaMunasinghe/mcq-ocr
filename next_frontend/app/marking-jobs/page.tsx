@@ -97,7 +97,7 @@ export default function MarkingJobs() {
           `/api/markings/progress`,
           {
             initialMessage: { marking_job_ids: markingJobIds },
-            onMessage: (event) => {
+            onMessage: (event: MessageEvent) => {
               const data = JSON.parse(event.data);
               if (data.status === "connected") {
                 console.log("WebSocket connection established");
@@ -140,7 +140,7 @@ export default function MarkingJobs() {
                 );
               }
             },
-            onError: (error) => {
+            onError: (error: Event) => {
               console.error("WebSocket error:", error);
               ws.close();
             },
@@ -150,7 +150,7 @@ export default function MarkingJobs() {
           }
         );
 
-        ws.connect().catch(console.error);
+        await ws.connect();
       } catch (error) {
         console.error("Failed to create WebSocket connection:", error);
       }

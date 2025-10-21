@@ -17,6 +17,8 @@ from fastapi import Depends
 from typing import List
 from app.api.deps import get_websocket_manager
 from app.websocket import WebSocketManager
+from app.middleware.websocket_auth import authorize_websocket
+from app.models.user import UserRoles
 
 from app.queue import submit_marking_job, submit_marking_scheme_config_job
 from app.storage.shared_storage import SharedStorage
@@ -101,16 +103,16 @@ async def progress_websocket(
     marking_job_ids = []
     
     try:
-        # Authenticate and authorize WebSocket connection during handshake
-        from app.middleware.websocket_auth import authorize_websocket
-        from app.models.user import UserRoles
+        # Accept WebSocket connection first (required before authorization can close it)
+        await websocket.accept()
+        
         user = await authorize_websocket(
             websocket,
-            allowed_roles=[UserRoles.ADMIN, UserRoles.TEACHER, UserRoles.MEMBER],
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
             require_admin_verified=True
         )
         user_id = user.id
-        
+
         # Receive the marking job IDs from the client
         data = await websocket.receive_json()
         
@@ -277,7 +279,6 @@ async def update_marking(
 
 
 @router.websocket("/{marking_job_id}/configure-marking-scheme")
-@require_non_super_admin(require_admin_verified=True)
 async def configure_marking_scheme_websocket(
     marking_job_id: int,
     websocket: WebSocket,
@@ -289,9 +290,12 @@ async def configure_marking_scheme_websocket(
     logger.info(f"WebSocket endpoint called for marking job {marking_job_id}")
     
     try:
+        # Accept WebSocket connection first (required before authorization can close it)
+        await websocket.accept()
+
         user = await authorize_websocket(
             websocket,
-            allowed_roles=[UserRoles.ADMIN, UserRoles.TEACHER, UserRoles.MEMBER],
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
             require_admin_verified=True
         )
         user_id = user.id
@@ -299,7 +303,7 @@ async def configure_marking_scheme_websocket(
         logger.info(f"WebSocket connection established for marking job {marking_job_id}")
         
         # Register with WebSocket manager after accepting connection
-        await websocket_manager.connect_marking_scheme_config(str(marking_job_id), websocket)
+        await websocket_manager.register_marking_scheme_config(str(marking_job_id), websocket)
         
         # Wait for the marking scheme data from the client
         

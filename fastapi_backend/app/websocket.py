@@ -63,6 +63,10 @@ class WebSocketManager:
     async def connect_marking_scheme_config(self, job_id: str, websocket: WebSocket):
         await self._connect(self.marking_scheme_config_connections, job_id, websocket)
 
+    async def register_marking_scheme_config(self, job_id: str, websocket: WebSocket):
+        """Register a marking scheme config websocket that's already been accepted"""
+        await self._register(self.marking_scheme_config_connections, job_id, websocket)
+
     async def disconnect_marking_scheme_config(self, job_id: str, websocket: WebSocket):
         await self._disconnect(self.marking_scheme_config_connections, job_id, websocket)
 

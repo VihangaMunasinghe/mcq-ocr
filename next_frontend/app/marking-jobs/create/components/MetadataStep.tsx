@@ -36,39 +36,39 @@ export function MetadataStep({
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
 
-  const fetchTemplates = useCallback(async () => {
-    try {
-      setLoadingTemplates(true);
-      setTemplatesError(null);
-
-      const params = new URLSearchParams({
-        skip: "0",
-        limit: "20",
-      });
-
-      const response = await axiosInstance.get(`/api/templates?${params}`);
-
-      const data = response.data as Template[];
-      setTemplates(data);
-
-      // Set default template if available
-      if (data.length > 0) {
-        onInputChange("template_id", data[0].id.toString());
-      }
-    } catch (err) {
-      console.error("Error fetching templates:", err);
-      setTemplatesError(
-        err instanceof Error ? err.message : "Failed to fetch templates"
-      );
-      showToast("Failed to load templates", "error");
-    } finally {
-      setLoadingTemplates(false);
-    }
-  }, [showToast, onInputChange]);
 
   useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoadingTemplates(true);
+        setTemplatesError(null);
+
+        const params = new URLSearchParams({
+          skip: "0",
+          limit: "20",
+        });
+
+        const response = await axiosInstance.get(`/api/templates?${params}`);
+
+        const data = response.data as Template[];
+        setTemplates(data);
+
+        // Set default template if available
+        if (data.length > 0) {
+          onInputChange("template_id", data[0].id.toString());
+        }
+      } catch (err) {
+        console.error("Error fetching templates:", err);
+        setTemplatesError(
+          err instanceof Error ? err.message : "Failed to fetch templates"
+        );
+        showToast("Failed to load templates", "error");
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
     fetchTemplates();
-  }, [fetchTemplates]);
+  }, []);
 
   const validateStep = (): boolean => {
     return formData.name.trim() !== "" && formData.template_id !== "";

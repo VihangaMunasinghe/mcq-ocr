@@ -14,7 +14,7 @@ import json
 
 from app.models.file import FileOrFolder, FileOrFolderStatus, FileOrFolderType
 from app.database import get_async_db
-from app.middleware.authorization import require_non_super_admin
+from app.middleware.authorization import require_basic_or_higher, require_non_super_admin
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -344,7 +344,7 @@ async def list_files(
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 @router.get("/download")
-@require_non_super_admin(require_admin_verified=True)
+@require_basic_or_higher(require_admin_verified=True)
 async def download_file(
     request: Request,
     method: DownloadType = Query(..., description="Download method: 'file_id' or 'path'"),
