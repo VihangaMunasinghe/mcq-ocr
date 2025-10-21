@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "../../../hooks/useToast";
 import axiosInstance from "@/utils/axiosclient";
@@ -336,20 +336,23 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   };
 
   // Draw bubble helper
-  const drawBubble = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    color = "#2BFA0B",
-    isHovered = false
-  ) => {
-    const radius = isHovered ? 7 : 5;
-    ctx.beginPath();
-    ctx.arc(x * scale, y * scale, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.closePath();
-  };
+  const drawBubble = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      color = "#2BFA0B",
+      isHovered = false
+    ) => {
+      const radius = isHovered ? 7 : 5;
+      ctx.beginPath();
+      ctx.arc(x * scale, y * scale, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.closePath();
+    },
+    [scale]
+  );
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
@@ -481,22 +484,13 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
 
       draw();
     };
-  }, [
-    templateImage,
-    configData,
-    scale,
-    bubbles,
-    isDragging,
-    mousePos,
-    hoveredBubble,
-    draggedBubble,
-  ]);
+  }, [templateImage, configData, scale, bubbles, isDragging, mousePos, hoveredBubble, draggedBubble, drawBubble]);
 
   useEffect(() => {
     if (!configData?.bubbles) return;
 
-    const initialBubbles = configData.bubbles.map((column: any[]) =>
-      column.map((row: any[]) =>
+    const initialBubbles = configData.bubbles.map((column:[]) =>
+      column.map((row: []) =>
         row.map((coord: number[]) => ({
           x: coord[0],
           y: coord[1],

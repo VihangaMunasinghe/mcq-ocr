@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useToast } from "../../../hooks/useToast";
 import TemplateBubbleViewer from "../view/TemplateBubbleViewer";
 import axiosInstance from "@/utils/axiosclient";
+import { connectWebSocketWithPromise } from "@/utils/websocketClient";
 
 interface TemplateForm {
   name: string;
@@ -145,30 +146,45 @@ export default function CreateTemplate() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // WebSocket logic remains same (trimmed for brevity)
+  // WebSocket configuration using the authenticated WebSocket utility
   const configureTemplateViaWebSocket = async (jobId: number) => {
-    const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-    const wsProtocol = backendUrl.startsWith("https") ? "wss" : "ws";
-    const host = backendUrl.replace(/^https?:\/\//, "");
-    const wsUrl = `${wsProtocol}://${host}/api/templates/${jobId}/configure`;
-
-    return new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(wsUrl);
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.status === "completed") {
-          setTemplateId(String(data.data.template_file_id));
-          setConfigId(String(data.data.configuration_file_id));
-          setConfigType(String(data.data.config_type));
-          setShowViewer(true);
-          resolve();
-        } else if (data.status === "error") {
-          reject(new Error(data.message || "Configuration failed"));
-        }
+    interface WebSocketResponse {
+      status: string;
+      message?: string;
+      data?: {
+        template_file_id: number;
+        configuration_file_id: number;
+        config_type: string;
       };
-      ws.onerror = (e) => reject(e as unknown as Error);
-    });
+    }
+
+    try {
+      const result = await connectWebSocketWithPromise<
+        WebSocketResponse["data"]
+      >(`/api/templates/${jobId}/configure`, {
+        successCondition: (data: unknown) => {
+          const response = data as WebSocketResponse;
+          return response.status === "completed";
+        },
+        errorCondition: (data: unknown) => {
+          const response = data as WebSocketResponse;
+          return response.status === "error";
+        },
+        dataExtractor: (data: unknown) => {
+          const response = data as WebSocketResponse;
+          return response.data;
+        },
+      });
+
+      if (result) {
+        setTemplateId(String(result.template_file_id));
+        setConfigId(String(result.configuration_file_id));
+        setConfigType(String(result.config_type));
+        setShowViewer(true);
+      }
+    } catch (error) {
+      throw error; // Re-throw to be handled by the calling function
+    }
   };
 
   const handleUpload = async () => {

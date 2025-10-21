@@ -9,6 +9,7 @@ import { useToast } from "../../../../hooks/useToast";
 import { Bubble, MarkingJob, MarkingJobStatus } from "../../types/types";
 import AnswersCorrectionModal from "@/app/marking-jobs/create/components/MarkingSchemeCorrectionModal";
 import { convertBubbleDataToMarkingSchemeConfig } from "../../../utils/results";
+import { connectWebSocketWithPromise } from "@/utils/websocketClient";
 import axiosInstance from "@/utils/axiosclient";
 
 interface MarkingSchemeStepProps {
@@ -89,7 +90,14 @@ export function MarkingSchemeStep({
         showToast("Marking scheme file uploaded successfully", "success");
       }
 
-      _configureMarkingSchemeViaWebSocket(markingJob.id, marking_file_id!);
+      if (marking_file_id) {
+        await configureMarkingSchemeViaWebSocket(
+          markingJob.id,
+          marking_file_id
+        );
+      } else {
+        throw new Error("No marking scheme file ID available");
+      }
     } catch (err) {
       console.error("Error uploading/configuring marking scheme:", err);
       showToast(
@@ -103,97 +111,52 @@ export function MarkingSchemeStep({
     }
   };
 
-  const _configureMarkingSchemeViaWebSocket = (
+  const configureMarkingSchemeViaWebSocket = async (
     markingJobId: number,
     markingSchemeId: number
-  ): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      // Extract host from backend URL
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-      const host = backendUrl.replace("http://", "").replace("https://", "");
-      const wsUrl = `ws://${host}/api/markings/${markingJobId}/configure-marking-scheme`;
+  ) => {
+    interface WebSocketResponse {
+      status: string;
+      message?: string;
+    }
 
-      console.log("Connecting to WebSocket:", wsUrl);
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("WebSocket connected for marking scheme configuration");
-        // Send the marking scheme configuration data
-        const message = { marking_scheme_id: markingSchemeId };
-        ws.send(JSON.stringify(message));
-        console.log("Sent marking scheme configuration data:", message);
-      };
-
-      ws.onmessage = async (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", data);
-
-          if (data.status === "connected") {
-            console.log("WebSocket connection established");
-            return;
-          }
-
-          if (data.status === "queued") {
-            console.log("Marking scheme configuration job queued");
-            showToast("Marking scheme configuration job queued", "success");
-            return;
-          } else if (data.status === "error") {
-            const errorMessage = data.message || "Configuration failed";
-            ws.close();
-            showToast(errorMessage, "error");
-            reject();
-          } else if (data.status === "completed") {
-            console.log("Marking scheme configuration job completed");
-            showToast("Marking scheme configuration job completed", "success");
-            setIsConfiguring(false);
-            ws.close();
-            resolve();
-            const markingJobResponse = await axiosInstance.get(
-              `/api/markings/${markingJobId}`
-            );
-            const markingJob = markingJobResponse.data as MarkingJob;
-            setMarkingJob(markingJob);
-          }
-          setIsConfiguring(false);
-        } catch (err) {
-          console.error("Error parsing WebSocket message:", err);
-          ws.close();
-          reject(err);
-          setIsConfiguring(false);
+    try {
+      await connectWebSocketWithPromise(
+        `/api/markings/${markingJobId}/configure-marking-scheme`,
+        {
+          initialMessage: { marking_scheme_id: markingSchemeId },
+          successCondition: (data: unknown) => {
+            const response = data as WebSocketResponse;
+            return response.status === "completed";
+          },
+          errorCondition: (data: unknown) => {
+            const response = data as WebSocketResponse;
+            return response.status === "error";
+          },
+          onOpen: () => {
+            console.log("WebSocket connected for marking scheme configuration");
+          },
         }
-      };
+      );
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        ws.close();
-        reject(new Error("WebSocket connection failed"));
-      };
+      console.log("Marking scheme configuration job completed");
+      showToast("Marking scheme configuration job completed", "success");
+      setIsConfiguring(false);
 
-      ws.onclose = (event) => {
-        console.log("WebSocket closed:", event.code, event.reason);
-        if (event.code !== 1000 && event.code !== 1001) {
-          // Not a normal closure or going away
-          reject(
-            new Error(
-              `WebSocket closed unexpectedly: ${
-                event.reason || "Unknown reason"
-              }`
-            )
-          );
-        }
-      };
-
-      // Set a timeout to prevent hanging
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log("WebSocket timeout reached, closing connection");
-          ws.close();
-          reject(new Error("WebSocket configuration timeout"));
-        }
-      }, 60000); // 60 second timeout
-    });
+      // Refresh marking job data
+      const markingJobResponse = await axiosInstance.get(
+        `/api/markings/${markingJobId}`
+      );
+      const markingJob = markingJobResponse.data as MarkingJob;
+      setMarkingJob(markingJob);
+    } catch (error) {
+      console.error("Error in marking scheme configuration:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Configuration failed";
+      showToast(errorMessage, "error");
+      setIsConfiguring(false);
+      throw error; // Re-throw to be handled by the calling function
+    }
   };
 
   const handleMarkingSchemeVerify = async () => {

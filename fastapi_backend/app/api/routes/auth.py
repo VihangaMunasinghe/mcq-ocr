@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 
 def get_token_from_cookie(request: Request) -> str:
     """Extract token from HttpOnly cookie."""
+    logger.info("Extract token from HttpOnly cookie.")
     token = request.cookies.get("access_token")
     if not token:
+        logger.error("Token not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -544,3 +546,38 @@ async def logout(response: Response):
         max_age=0
     )
     return {"message": "Successfully logged out"}
+
+
+@router.get("/websocket-token")
+async def get_websocket_token(request: Request):
+    """
+    Generate a temporary token for WebSocket authentication.
+    This endpoint is needed because HttpOnly cookies cannot be read by JavaScript,
+    so we need an alternative way to authenticate WebSocket connections.
+    """
+    try:
+        # Get user info from the HttpOnly cookie (server-side)
+        user_info = get_user_from_token(request)
+        
+        # Create a short-lived token specifically for WebSocket use
+        token_data = {
+                "sub": user_info["email"],
+                "user_id": user_info["id"],
+                "role": user_info["role"],
+                "faculty_id": user_info["faculty_id"],
+                "verify_status": user_info["verify_status"],
+            }
+        
+        # Create token with shorter expiration (5 minutes) for security
+        websocket_token = create_access_token(
+            data=token_data,
+            expires_delta=timedelta(minutes=5)
+        )
+        
+        return {"websocket_token": websocket_token}
+        
+    except HTTPException:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to get WebSocket token"
+        )

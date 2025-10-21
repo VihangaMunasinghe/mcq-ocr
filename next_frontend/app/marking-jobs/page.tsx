@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
 import axiosInstance from "@/utils/axiosclient";
+import { createAuthenticatedWebSocket } from "@/utils/websocketClient";
 
 import { MarkingJobBasic, MarkingJobStatus } from "./types/types";
 import { PageHeader } from "./components/PageHeader";
@@ -90,64 +91,69 @@ export default function MarkingJobs() {
   };
 
   useEffect(() => {
-    const progressWebsocket = (markingJobIds: number[]) => {
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-      const websocket = new WebSocket(`${backendUrl}/api/markings/progress`);
-      websocket.onopen = () => {
-        websocket.send(JSON.stringify({ marking_job_ids: markingJobIds }));
-      };
-      websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.status === "connected") {
-          console.log("WebSocket connection established");
-          return;
-        }
-        if (data.status === "error") {
-          console.error("WebSocket error:", data.message);
-          websocket.close();
-          return;
-        }
-        if (data.status === "processing") {
-          const jobId = data.marking_job_id;
-          const progress = data.progress;
-          console.log("Processing update:", data);
-          setMarkingJobs((prevJobs) =>
-            prevJobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: MarkingJobStatus.PROCESSING,
-                    processed_answer_sheets: progress.completed,
-                    total_answer_sheets: progress.total,
-                  }
-                : job
-            )
-          );
-        }
-        if (data.status === "completed") {
-          const jobId = data.marking_job_id;
-          console.log("Completed update:", data);
-          setMarkingJobs((prevJobs) =>
-            prevJobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: MarkingJobStatus.COMPLETED,
-                  }
-                : job
-            )
-          );
-        }
-      };
-      websocket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        websocket.close();
-      };
-      websocket.onclose = () => {
-        console.log("WebSocket connection closed");
-        websocket.close();
-      };
+    const progressWebsocket = async (markingJobIds: number[]) => {
+      try {
+        const ws = await createAuthenticatedWebSocket(
+          `/api/markings/progress`,
+          {
+            initialMessage: { marking_job_ids: markingJobIds },
+            onMessage: (event) => {
+              const data = JSON.parse(event.data);
+              if (data.status === "connected") {
+                console.log("WebSocket connection established");
+                return;
+              }
+              if (data.status === "error") {
+                console.error("WebSocket error:", data.message);
+                ws.close();
+                return;
+              }
+              if (data.status === "processing") {
+                const jobId = data.marking_job_id;
+                const progress = data.progress;
+                console.log("Processing update:", data);
+                setMarkingJobs((prevJobs) =>
+                  prevJobs.map((job) =>
+                    job.id === jobId
+                      ? {
+                          ...job,
+                          status: MarkingJobStatus.PROCESSING,
+                          processed_answer_sheets: progress.completed,
+                          total_answer_sheets: progress.total,
+                        }
+                      : job
+                  )
+                );
+              }
+              if (data.status === "completed") {
+                const jobId = data.marking_job_id;
+                console.log("Completed update:", data);
+                setMarkingJobs((prevJobs) =>
+                  prevJobs.map((job) =>
+                    job.id === jobId
+                      ? {
+                          ...job,
+                          status: MarkingJobStatus.COMPLETED,
+                        }
+                      : job
+                  )
+                );
+              }
+            },
+            onError: (error) => {
+              console.error("WebSocket error:", error);
+              ws.close();
+            },
+            onClose: () => {
+              console.log("WebSocket connection closed");
+            },
+          }
+        );
+
+        ws.connect().catch(console.error);
+      } catch (error) {
+        console.error("Failed to create WebSocket connection:", error);
+      }
     };
 
     const fetchMarkingJobs = async () => {

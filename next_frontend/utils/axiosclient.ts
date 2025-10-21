@@ -1,8 +1,11 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000",
+  baseURL: process.env.BACKEND_URL || "http://localhost:8000",
   withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 // Response interceptor to handle token refresh
@@ -26,10 +29,12 @@ axiosInstance.interceptors.response.use(
         // Make the refresh request with a flag to prevent interceptor loops
         await axios.post(
           `${
-            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+            process.env.BACKEND_URL || "http://localhost:8000"
           }/api/auth/refresh`,
           {},
-          { withCredentials: true }
+          {
+            withCredentials: true,
+          }
         );
 
         // If refresh was successful, retry the original request

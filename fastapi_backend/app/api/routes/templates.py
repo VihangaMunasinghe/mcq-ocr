@@ -17,6 +17,8 @@ from app.api.deps import get_websocket_manager
 from app.storage.shared_storage import SharedStorage
 from app.models.file import FileOrFolder, FileOrFolderStatus
 from app.middleware.authorization import require_non_super_admin
+from app.middleware.websocket_auth import authorize_websocket
+from app.models.user import UserRoles
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
@@ -411,10 +413,15 @@ async def configure_template_websocket(
     logger.info(f"WebSocket endpoint called for template config job {job_id}")
     
     try:
-        # Authenticate WebSocket connection using HttpOnly cookies (don't accept here, let WebSocket manager do it)
-        from app.websocket_auth import websocket_auth_required
-        user = await websocket_auth_required(websocket, db, accept_connection=False)
+        
+        # Authorize WebSocket connection after accepting
+        user = await authorize_websocket(
+            websocket,
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
+            require_admin_verified=True
+        )
         user_id = user.id
+        logger.info(f"WebSocket authorization successful for user {user_id}")
         
         # Connect to WebSocket manager
         await websocket_manager.connect_template_config(str(job_id), websocket)
@@ -473,19 +480,13 @@ async def configure_template_websocket(
             await websocket_manager.disconnect_template_config(str(job_id), websocket)
             return
 
+    except WebSocketDisconnect:
+        # WebSocket was properly closed during authorization
+        logger.info(f"WebSocket authorization failed for template config job {job_id}")
     except Exception as e:
         logger.error(f"Failed to configure template job {job_id}: {str(e)}")
-        try:
-            await websocket.send_json({
-                "status": "error",
-                "message": f"Failed to configure template: {str(e)}"
-            })
-        except Exception as send_error:
-            logger.error(f"Failed to send error message: {send_error}")
-        try:
-            await websocket_manager.disconnect_template_config(str(job_id), websocket)
-        except Exception as disconnect_error:
-            logger.error(f"Failed to disconnect WebSocket: {disconnect_error}")
+        # Don't try to send messages if WebSocket was never accepted
+        # The authorization function handles closing the connection
 
 @router.put("/edit/{template_id}")
 @require_non_super_admin(require_admin_verified=True)

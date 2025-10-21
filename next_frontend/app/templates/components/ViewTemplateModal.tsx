@@ -44,14 +44,16 @@ export default function ViewTemplateModal({
     };
 
     fetchImage();
-  }, [isOpen, template?.template_file_id]);
+  }, [isOpen, showToast, template?.template_file_id]);
 
   if (!isOpen || !template) return null;
 
   // Format rows per column nicely if it's an array or string
-  const formatRowsPerColumn = (rows: any) => {
+  const formatRowsPerColumn = (
+    rows: number[] | string | number | null | undefined
+  ) => {
     if (!rows) return "-";
-    let arr = Array.isArray(rows)
+    const arr = Array.isArray(rows)
       ? rows
       : typeof rows === "string"
       ? rows.split(",").map((n) => n.trim())

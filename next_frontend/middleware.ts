@@ -93,42 +93,42 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL(redirect ?? "/", req.url));
     } catch {
       // access token expired — try refreshing
-      if (refreshToken) {
-        const refreshResponse = await fetch(
-          `${process.env.BACKEND_URL}/api/auth/refresh`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { cookie: `refresh_token=${refreshToken}` },
-          }
-        );
+      // if (refreshToken) {
+      //   const refreshResponse = await fetch(
+      //     `${process.env.BACKEND_URL}/api/auth/refresh`,
+      //     {
+      //       method: "POST",
+      //       credentials: "include",
+      //       headers: { cookie: `refresh_token=${refreshToken}` },
+      //     }
+      //   );
 
-        if (refreshResponse.ok) {
-          const newAccess = refreshResponse.headers
-            .get("set-cookie")
-            ?.match(/access_token=([^;]+)/)?.[1];
-          const newRefresh = refreshResponse.headers
-            .get("set-cookie")
-            ?.match(/refresh_token=([^;]+)/)?.[1];
-          if (newAccess || newRefresh) {
-            const response = NextResponse.next();
-            if (newAccess)
-              response.cookies.set("access_token", newAccess, {
-                httpOnly: true,
-              });
-            if (newRefresh)
-              response.cookies.set("refresh_token", newRefresh, {
-                httpOnly: true,
-              });
-            return response;
-          }
-        }
-      }
-      // If refresh failed
-      const res = NextResponse.redirect(new URL("/auth/signin", req.url));
-      res.cookies.delete("access_token");
-      res.cookies.delete("refresh_token");
-      return res;
+      //   if (refreshResponse.ok) {
+      //     const newAccess = refreshResponse.headers
+      //       .get("set-cookie")
+      //       ?.match(/access_token=([^;]+)/)?.[1];
+      //     const newRefresh = refreshResponse.headers
+      //       .get("set-cookie")
+      //       ?.match(/refresh_token=([^;]+)/)?.[1];
+      //     if (newAccess || newRefresh) {
+      //       const response = NextResponse.next();
+      //       if (newAccess)
+      //         response.cookies.set("access_token", newAccess, {
+      //           httpOnly: true,
+      //         });
+      //       if (newRefresh)
+      //         response.cookies.set("refresh_token", newRefresh, {
+      //           httpOnly: true,
+      //         });
+      //       return response;
+      //     }
+      //   }
+      // }
+      // // If refresh failed
+      // const res = NextResponse.redirect(new URL("/auth/signin", req.url));
+      // res.cookies.delete("access_token");
+      // res.cookies.delete("refresh_token");
+      // return res;
     }
   }
 

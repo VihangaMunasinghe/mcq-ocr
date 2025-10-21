@@ -205,7 +205,7 @@ class AuthSettings(BaseSettings):
     )
     
     cookie_samesite: str = Field(
-        default="strict",
+        default="none",
         env="COOKIE_SAMESITE",
         description="SameSite cookie policy"
     )
