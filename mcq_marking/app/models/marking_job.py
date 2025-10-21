@@ -5,12 +5,16 @@ from typing import Callable
 import pika
 import os
 import logging
+import threading
 from app.autograder.utils.image_processing import enhance_image, read_enhanced_image, read_resize_image
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template, TemplateConfigType
 from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
 from app.anomalydetection.anomaly_detector import AnomalyDetector
+from app.utils.EventRegistery import EventRegistery
+from app.utils.ThreadSafeDict import ThreadSafeDict
+from app.indexListner.indexValidator import get_matching_index
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +24,8 @@ INDEX_TASK_QUEUE = os.getenv('INDEX_TASK_QUEUE', 'index_task_queue')
 
 
 class MarkingJob:
-    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[[int,int], None]=None):
+    def __init__(self, data: dict, rabbitmq_url: str = "amqp://localhost", progress_callback: Callable[[int,int], None]=None,
+                 event_registery: EventRegistery = None, temp_data_store: ThreadSafeDict = None):
         """
         Initialize a MarkingJob instance.
 
@@ -65,6 +70,10 @@ class MarkingJob:
         self.total_answer_sheets = 0
         self.processed_answer_sheets = 0
         self.failed_answer_sheets = 0
+
+        self.event_registery = event_registery
+        self.temp_data_store = temp_data_store
+
     def connect(self):
         """Establish connection to RabbitMQ"""
         try:
@@ -72,7 +81,7 @@ class MarkingJob:
             self.channel = self.connection.channel()
             
             # Declare queues
-            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=False)
+            self.channel.queue_declare(queue=INDEX_TASK_QUEUE, durable=True)
             
             logger.info("Marking Job Connected to RabbitMQ")
         except Exception as e:
@@ -117,7 +126,41 @@ class MarkingJob:
 
                 answer_sheet_img = enhance_image(answer_sheet_img, 1.5)
                 answer_sheet = AnswerSheet(self.job_id, i, answer_sheet_path, answer_sheet_img, self.marking_scheme, self.channel, INDEX_TASK_QUEUE)
+                
+                # set up the event for index retrieval
+                event = None
+                if self.event_registery and self.temp_data_store:
+                    event = self.event_registery.create_event(self.job_id) # type: threading.Event
                 results = answer_sheet.get_score(intermediate_results=self.save_intermediate_results)
+                # wait for the index number to be set by the index listener
+                index_number = "None"
+                if self.event_registery and self.temp_data_store:
+                    event.wait(timeout=30)  # wait for up to 30 seconds
+                    result = self.temp_data_store.get(self.job_id)
+                    if result and 'index_number' in result:
+                        index_number = result['index_number']
+                else:
+                    logger.info("Event registery or temp data store not set, skipping index recognition wait.")
+                # Validate index number
+                regex_str = "\\d{6}[A-Z]"
+                available_index_numbers =  [
+                "230004X", "230008M", "230012U", "230016K", "230020R",
+                "230024H", "230028A", "230032F", "230036V", "230040D",
+                "230045X", "230050H", "230054A", "230058N", "230062V",
+                "230066L", "230071X", "230075M", "230079E", "230083K",
+                "230087C", "230092L", "230095A", "230099N", "230103B",
+                "230107P", "230111X", "230114J", "230119E", "230123K",
+                "230127C"]
+                if index_number != "None":
+                    validated_index_number, is_exact_match, is_guess = get_matching_index(index_number, regex_str, available_index_numbers)
+                    if not is_exact_match:
+                        results['flag'] = True
+                        if is_guess:
+                            results['flag_reason'] += ('' if (not results['flag_reason'] or results['flag_reason'] == '') else ', ') + 'Index number ambiguous'
+                        else:
+                            results['flag_reason'] += ('' if (not results['flag_reason'] or results['flag_reason'] == '') else ', ') + 'Index number ambiguous'
+                    index_number = validated_index_number
+                results['index_number'] = index_number
                 results['answer_sheet_path'] = answer_sheet_path
                 # Anomaly flags
                 if anomalies_detected:

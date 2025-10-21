@@ -25,7 +25,9 @@ class MCQMarkingWorker:
         marking_scheme_config_queue: str, 
         marking_job_results_queue: str, 
         template_config_results_queue: str, 
-        marking_scheme_config_results_queue: str
+        marking_scheme_config_results_queue: str,
+        event_registery: Any = None,
+        temp_data_store: Any = None
     ) -> None:
         self.rabbitmq_url: str = rabbitmq_url
         self.template_config_queue: str = template_config_queue
@@ -36,6 +38,8 @@ class MCQMarkingWorker:
         self.marking_scheme_config_results_queue: str = marking_scheme_config_results_queue
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Optional[BlockingChannel] = None
+        self.event_registery = event_registery
+        self.temp_data_store = temp_data_store
         
     def connect(self) -> None:
         """Establish connection to RabbitMQ"""
@@ -215,7 +219,7 @@ class MCQMarkingWorker:
             job_id = job_data.get('id', 'unknown')
             self._send_progress_to_backend(ch, properties, job_id, completed, total, self.marking_job_results_queue)
             
-        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url)
+        processor = MarkingJobProcessor(job_data, progress_callback=progress_callback, rabbitmq_url=self.rabbitmq_url, event_registery=self.event_registery, temp_data_store=self.temp_data_store)
         self.process_job_with_error_handling(
             ch, method, properties, body,
             self.marking_job_results_queue,

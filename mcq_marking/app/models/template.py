@@ -33,7 +33,7 @@ class Template:
             elif self.config_type == TemplateConfigType.CLUSTER_BASED:
                 # Flatten the 3D structure from reconstruct_bubbles
                 #nested_coords = reconstruct_bubbles(self.template_config)
-                nested_coords = self.template_config["metadata"]["bubbles"]
+                nested_coords = self.template_config["bubbles"]
                 self.bubble_coordinates = []
                 for column in nested_coords:
                     for row in column:
