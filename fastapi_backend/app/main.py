@@ -80,6 +80,7 @@ app.include_router(files_router)
 app.include_router(templates_router)
 app.include_router(marking_router)
 app.include_router(generator_router)
+app.include_router(dashboard_router)
 
 @app.get("/health")
 async def health_check():

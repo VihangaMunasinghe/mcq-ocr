@@ -5,6 +5,7 @@ import logging
 
 from app.models.user import UserRoles, VerifyStatus
 from app.api.routes.auth import get_user_from_token
+from app.middleware.user_state import UserState
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +84,10 @@ class AuthorizationMiddleware:
             # Extract user information from token
             user_info = get_user_from_token(request)
             
+           
+            
             # Add user to request state for access in endpoints
-            request.state.current_user = user_info
+            request.state.current_user = UserState(user_info)
             
             # Extract role and verification status
             user_role_str = user_info["role"]
