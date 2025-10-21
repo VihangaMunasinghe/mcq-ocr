@@ -6,6 +6,7 @@ import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
 import { useRouter } from "next/navigation";
 import { MarkingJob } from "../../types/types";
+import axiosInstance from "@/utils/axiosclient";
 
 interface AnswerSheetsStepProps {
   answerSheetsFile: File | null;
@@ -22,9 +23,6 @@ export function AnswerSheetsStep({
   const { showToast } = useToast();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const validateStep = (): boolean => {
     return answerSheetsFile !== null;
@@ -44,49 +42,34 @@ export function AnswerSheetsStep({
       answer_sheets_formData.append("file", answerSheetsFile);
       answer_sheets_formData.append("file_type", "answer_sheet");
 
-      const uploadResponse = await fetch(`${BACKEND_URL}/api/files/upload`, {
-        method: "POST",
-        body: answer_sheets_formData,
-      });
+      const uploadResponse = await axiosInstance.post(
+        "/api/files/upload",
+        answer_sheets_formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload answer sheets file");
-      }
-
-      const uploadData = await uploadResponse.json();
+      const uploadData = uploadResponse.data as { file_id: number };
       setMarkingJob((prev: MarkingJob) => ({
         ...prev,
         answer_sheets_folder_id: uploadData.file_id,
       }));
 
       // Attach answer sheets to marking job
-      const attachResponse = await fetch(
-        `${BACKEND_URL}/api/markings/${markingJob.id}/attach-answer-sheets`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answer_sheets_folder_id: uploadData.file_id }),
-        }
+      await axiosInstance.post(
+        `/api/markings/${markingJob.id}/attach-answer-sheets`,
+        { answer_sheets_folder_id: uploadData.file_id }
       );
-
-      if (!attachResponse.ok) {
-        throw new Error("Failed to attach answer sheets");
-      }
 
       // Start the marking process
-      const startResponse = await fetch(
-        `${BACKEND_URL}/api/markings/${markingJob.id}/start-marking`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
+      const startResponse = await axiosInstance.post(
+        `/api/markings/${markingJob.id}/start-marking`
       );
 
-      if (!startResponse.ok) {
-        throw new Error("Failed to start marking process");
-      }
-
-      const startData = await startResponse.json();
+      const startData = startResponse.data;
       console.log("Marking process started successfully:", startData);
 
       showToast("Marking process started successfully", "success");

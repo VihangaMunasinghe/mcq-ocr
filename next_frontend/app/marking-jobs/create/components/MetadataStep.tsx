@@ -3,10 +3,16 @@ import { Input } from "../../../../components/UI/Input";
 import { Select } from "../../../../components/UI/Select";
 import { Card } from "../../../../components/UI/Card";
 import { Template } from "@/models/template";
-import { MarkingJobForm, JobPriority, MarkingJob, MarkingJobStatus } from "../../types/types";
+import {
+  MarkingJobForm,
+  JobPriority,
+  MarkingJob,
+  MarkingJobStatus,
+} from "../../types/types";
 import ImageViewWithLoarding from "@/components/UI/ImageViewWithLoarding";
 import { useCreateMarking } from "../../../../hooks/useCreateMarking";
 import { useToast } from "../../../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
 
 interface MetadataStepProps {
   formData: MarkingJobForm;
@@ -23,8 +29,6 @@ export function MetadataStep({
   onNext,
   isSubmitting,
 }: MetadataStepProps) {
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [markingJob, setMarkingJob] = useCreateMarking();
   const { showToast } = useToast();
 
@@ -42,18 +46,9 @@ export function MetadataStep({
         limit: "20",
       });
 
-      const response = await fetch(`${BACKEND_URL}/api/templates?${params}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await axiosInstance.get(`/api/templates?${params}`);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch templates: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = response.data as Template[];
       setTemplates(data);
 
       // Set default template if available
@@ -69,11 +64,11 @@ export function MetadataStep({
     } finally {
       setLoadingTemplates(false);
     }
-  }, [showToast, onInputChange, BACKEND_URL]);
+  }, [showToast, onInputChange]);
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const validateStep = (): boolean => {
     return formData.name.trim() !== "" && formData.template_id !== "";
@@ -95,37 +90,24 @@ export function MetadataStep({
       };
 
       if (markingJob.id) {
-        const response = await fetch(
-          `${BACKEND_URL}/api/markings/${markingJob.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(marking_job_payload),
-          }
+        const response = await axiosInstance.put(
+          `/api/markings/${markingJob.id}`,
+          marking_job_payload
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to update marking job");
-        }
-
-        const data = await response.json();
+        const data = response.data as MarkingJob;
         setMarkingJob((prev: MarkingJob) => ({ ...prev, ...data }));
         console.log("Marking job updated successfully:", data);
         showToast("Marking job updated successfully", "success");
       } else {
-        const response = await fetch(`${BACKEND_URL}/api/markings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(marking_job_payload),
-        });
+        const response = await axiosInstance.post(
+          `/api/markings`,
+          marking_job_payload
+        );
 
-        if (!response.ok) {
-          throw new Error("Failed to create marking job");
-        }
-
-        const data = await response.json();
+        const data = response.data as { id: number; status: MarkingJobStatus };
         console.log(data);
-        
+
         // ensure the status from the API is typed as MarkingJobStatus
         setMarkingJob((prev: MarkingJob) => ({
           ...prev,
@@ -331,7 +313,7 @@ export function MetadataStep({
                           <div className="flex justify-between">
                             <span className="text-gray-500">Options:</span>
                             <span className="text-gray-900 font-medium">
-                              {selectedTemplate.options_per_question}
+                              {selectedTemplate.num_of_options_per_question}
                             </span>
                           </div>
                         </div>
@@ -383,8 +365,11 @@ export function MetadataStep({
                     (t) => t.id.toString() === formData.template_id
                   );
                   if (selectedTemplate) {
+                    const backendUrl =
+                      process.env.NEXT_PUBLIC_BACKEND_URL ||
+                      "http://localhost:8000";
                     const templateImageUrl = selectedTemplate.template_file_id
-                      ? `${BACKEND_URL}/api/files/download?method=file_id&file_id=${selectedTemplate.template_file_id}`
+                      ? `${backendUrl}/api/files/download?method=file_id&file_id=${selectedTemplate.template_file_id}`
                       : null;
 
                     return (

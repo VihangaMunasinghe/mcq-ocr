@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await axiosInstance.post("/api/auth/login", { email, password });
-      refreshUser();
+      await refreshUser();
       setIsLoading(false);
       router.refresh();
       return { success: true };
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await axiosInstance.post("/api/auth/register", userData);
 
-      refreshUser();
+      await refreshUser();
       setIsLoading(false);
       router.refresh();
       return { success: true };

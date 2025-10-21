@@ -15,6 +15,7 @@ import CreateMarkingProvider, {
 } from "@/hooks/useCreateMarking";
 import { useToast } from "@/hooks/useToast";
 import { useRouter } from "next/navigation";
+import axiosInstance from "@/utils/axiosclient";
 import {
   MarkingJobForm,
   Step,
@@ -90,8 +91,6 @@ function CreateMarkingJobContent() {
   const searchParams = useSearchParams();
   const markingJobIdString = searchParams.get("markingJobId");
   const markingJobId = markingJobIdString ? parseInt(markingJobIdString) : null;
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const router = useRouter();
   const { showToast } = useToast();
@@ -112,8 +111,8 @@ function CreateMarkingJobContent() {
     async function fetchMarkingJob(jobId: number) {
       setIsLoading(true);
       try {
-        const response = await fetch(`${BACKEND_URL}/api/markings/${jobId}`);
-        const data: MarkingJob = await response.json();
+        const response = await axiosInstance.get(`/api/markings/${jobId}`);
+        const data: MarkingJob = response.data as MarkingJob;
         console.log("Fetched marking job:", data);
 
         // Map MarkingJob to MarkingJobForm

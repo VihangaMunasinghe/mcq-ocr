@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/UI/Button";
 import { Template } from "@/models/template";
 import { useToast } from "@/hooks/useToast";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import axiosInstance from "@/utils/axiosclient";
 
 interface ViewTemplateModalProps {
   isOpen: boolean;
@@ -28,12 +27,12 @@ export default function ViewTemplateModal({
     const fetchImage = async () => {
       setLoadingImage(true);
       try {
-        const response = await fetch(
-          `${BACKEND_URL}/api/files/download?method=file_id&file_id=${template.template_file_id}`
+        const response = await axiosInstance.get(
+          `/api/files/download?method=file_id&file_id=${template.template_file_id}`,
+          { responseType: "blob" }
         );
-        if (!response.ok) throw new Error("Failed to fetch template image");
 
-        const blob = await response.blob();
+        const blob = response.data as Blob;
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
       } catch (err) {

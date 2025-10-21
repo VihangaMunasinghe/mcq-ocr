@@ -3,10 +3,13 @@
 import { Input } from "@/components/UI/Input";
 import { useState } from "react";
 import { Button } from "@/components/UI/Button";
+import axiosInstance from "@/utils/axiosclient";
 
 type GenerationState = "idle" | "processing" | "success" | "error";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
+interface GenerateResponse {
+  filename: string;
+}
 
 export default function GenerateTemplate() {
   const [title, setTitle] = useState("");
@@ -58,27 +61,34 @@ export default function GenerateTemplate() {
       requestBody.append("questions", numQuestions.toString());
       requestBody.append("options", numOptions.toString());
       requestBody.append("max_qpc", maxQuestionsPerColumn.toString());
-      const endpoint = `${BACKEND_URL}/custom_template/generate`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: requestBody.toString(),
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to generate template");
-      }
-
-      const data = await response.json();
-      setFileName(data.filename);
-      setGenerationState("success");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "An unexpected error occurred"
+      const response = await axiosInstance.post(
+        "/api/custom_template/generate",
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
       );
+
+      setFileName((response.data as GenerateResponse).filename);
+      setGenerationState("success");
+    } catch (error: unknown) {
+      let errorMessage = "An unexpected error occurred";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error
+      ) {
+        const axiosError = error as {
+          response?: { data?: { message?: string } };
+        };
+        errorMessage = axiosError.response?.data?.message || errorMessage;
+      }
+      setErrorMessage(errorMessage);
       setGenerationState("error");
     }
   };
@@ -86,7 +96,7 @@ export default function GenerateTemplate() {
   const handleDownload = () => {
     if (!filename) return;
     // call the download endpoint with query param filename
-    const downloadUrl = `${BACKEND_URL}/custom_template/file?file_name=${encodeURIComponent(
+    const downloadUrl = `/api/custom_template/file?file_name=${encodeURIComponent(
       filename
     )}`;
     window.open(downloadUrl, "_blank");

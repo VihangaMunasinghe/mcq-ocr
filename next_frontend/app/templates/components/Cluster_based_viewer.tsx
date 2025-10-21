@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "../../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
 
 interface BubbleCoordinate {
   x: number;
@@ -32,7 +33,7 @@ interface ClusterBasedViewerProps {
   templateImage: string | null;
   configData: any;
   configId: string | null;
-  jobId:number|null;
+  jobId: number | null;
   onClose: () => void;
 }
 
@@ -41,7 +42,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   configData,
   configId,
   jobId,
-  onClose
+  onClose,
 }) => {
   const router = useRouter();
   const { showToast } = useToast();
@@ -49,31 +50,38 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   const [scale, setScale] = useState(1);
   const [columnBounds, setColumnBounds] = useState<ColumnBounds[]>([]);
   const [bubbles, setBubbles] = useState<BubbleCoordinate[][][]>([]);
-  const [selectedBubble, setSelectedBubble] = useState<SelectedBubble | null>(null);
-  const [draggedBubble, setDraggedBubble] = useState<SelectedBubble | null>(null);
+  const [selectedBubble, setSelectedBubble] = useState<SelectedBubble | null>(
+    null
+  );
+  const [draggedBubble, setDraggedBubble] = useState<SelectedBubble | null>(
+    null
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [mousePos, setMousePos] = useState<BubbleCoordinate | null>(null);
-  const [hoveredBubble, setHoveredBubble] = useState<BubbleCoordinate | null>(null);
+  const [hoveredBubble, setHoveredBubble] = useState<BubbleCoordinate | null>(
+    null
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState<BubbleCoordinate | null>(null);
-  
+  const [dragStartPos, setDragStartPos] = useState<BubbleCoordinate | null>(
+    null
+  );
+
   const CLICK_COOLDOWN = 300; // milliseconds
   const DRAG_THRESHOLD = 5; // pixels
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   // Calculate column bounds
   const calculateBounds = (bubbleData: BubbleCoordinate[][][]) => {
-    return bubbleData.map(column => {
-      const allXCoords = column.flat().map(b => b.x);
+    return bubbleData.map((column) => {
+      const allXCoords = column.flat().map((b) => b.x);
       const x_min = Math.min(...allXCoords) - 10;
       const x_max = Math.max(...allXCoords) + 10;
 
-      const rows = column.map(row => {
-        const yCoords = row.map(b => b.y);
+      const rows = column.map((row) => {
+        const yCoords = row.map((b) => b.y);
         return {
           y_mean: yCoords.reduce((a, b) => a + b, 0) / yCoords.length,
           y_min: Math.min(...yCoords) - 10,
-          y_max: Math.max(...yCoords) + 10
+          y_max: Math.max(...yCoords) + 10,
         };
       });
 
@@ -82,7 +90,10 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   };
 
   // Find column/row position
-  const findPosition = (x: number, y: number): { col: number, row: number, isNewRow: boolean } | null => {
+  const findPosition = (
+    x: number,
+    y: number
+  ): { col: number; row: number; isNewRow: boolean } | null => {
     let targetCol = -1;
     for (let i = 0; i < columnBounds.length; i++) {
       if (x >= columnBounds[i].x_min && x <= columnBounds[i].x_max) {
@@ -102,7 +113,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
       }
     }
 
-    const rowMeans = bounds.rows.map(r => r.y_mean);
+    const rowMeans = bounds.rows.map((r) => r.y_mean);
     rowMeans.push(y);
     rowMeans.sort((a, b) => a - b);
     const targetRow = rowMeans.indexOf(y);
@@ -119,20 +130,26 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
       return;
     }
 
-    const position = findPosition(Math.round(mousePos.x), Math.round(mousePos.y));
+    const position = findPosition(
+      Math.round(mousePos.x),
+      Math.round(mousePos.y)
+    );
 
     // Create a deep copy to avoid mutating original state directly
-    const newBubbles = bubbles.map(col => col.map(row => [...row]));
-    
+    const newBubbles = bubbles.map((col) => col.map((row) => [...row]));
+
     // Remove the original bubble first
     newBubbles[selectedBubble.colIndex][selectedBubble.rowIndex].splice(
-      selectedBubble.bubbleIndex, 
+      selectedBubble.bubbleIndex,
       1
     );
 
     if (!position) {
       // Outside valid column - restore to original position
-      showToast("The bubble must be placed within a valid column's boundaries", "error");
+      showToast(
+        "The bubble must be placed within a valid column's boundaries",
+        "error"
+      );
       newBubbles[selectedBubble.colIndex][selectedBubble.rowIndex].splice(
         selectedBubble.bubbleIndex,
         0,
@@ -149,17 +166,16 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
           x: Math.round(mousePos.x),
           y: Math.round(mousePos.y),
         };
-        
+
         const row = newBubbles[position.col][position.row];
-        const insertIndex = row.findIndex(b => b.x > newCoord.x);
-        
+        const insertIndex = row.findIndex((b) => b.x > newCoord.x);
+
         if (insertIndex === -1) {
           row.push(newCoord); // Add to end
         } else {
           row.splice(insertIndex, 0, newCoord); // Insert at correct position
         }
-      }
-      else if (position.isNewRow) {
+      } else if (position.isNewRow) {
         // New row within valid column
         newBubbles[position.col].splice(position.row, 0, [
           {
@@ -167,8 +183,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
             y: Math.round(mousePos.y),
           },
         ]);
-      }
-      else {
+      } else {
         // Move to another existing row
         const maxOptions = configData.metadata.num_of_options_per_question;
         const rowLength = newBubbles[position.col][position.row].length;
@@ -178,10 +193,10 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
             x: Math.round(mousePos.x),
             y: Math.round(mousePos.y),
           };
-          
+
           const row = newBubbles[position.col][position.row];
-          const insertIndex = row.findIndex(b => b.x > newCoord.x);
-          
+          const insertIndex = row.findIndex((b) => b.x > newCoord.x);
+
           if (insertIndex === -1) {
             row.push(newCoord);
           } else {
@@ -189,10 +204,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
           }
         } else {
           // Exceeds allowed bubbles per row
-          showToast(
-            `Maximum ${maxOptions} bubbles allowed per row`,
-            "error"
-          );
+          showToast(`Maximum ${maxOptions} bubbles allowed per row`, "error");
           // Restore bubble to original place
           newBubbles[selectedBubble.colIndex][selectedBubble.rowIndex].splice(
             selectedBubble.bubbleIndex,
@@ -219,47 +231,39 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   };
 
   // Edit handler
-  const handleEdit =async () => {
+  const handleEdit = async () => {
     if (!jobId) return;
-    
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/templates/config-job/${jobId}`,
-        {
-          method:"GET"
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to get template record ID: ${response.statusText}`);
-       }
-      const uploadData: ConfigJobResponse = await response.json();
-      const TemRecordId = uploadData.template_id;
-      const result = await fetch(`${BACKEND_URL}/api/templates/${TemRecordId}`, {
-         method: "DELETE",
-       });
 
-      if (!result.ok) {
-         throw new Error(`Failed to delete template: ${result.statusText}`);
-      }
+    try {
+      const response = await axiosInstance.get(
+        `/api/templates/config-job/${jobId}`
+      );
+      const uploadData: ConfigJobResponse = response.data as ConfigJobResponse;
+      const TemRecordId = uploadData.template_id;
+      await axiosInstance.delete(`/api/templates/${TemRecordId}`);
+
       showToast("You can re-enter again !", "success");
       // Close the viewer FIRST to unmount TemplateBubbleViewer
       onClose();
-       // Small delay to ensure cleanup, then navigate
+      // Small delay to ensure cleanup, then navigate
       setTimeout(() => {
         router.push("/templates/create?reset=true");
       }, 100);
     } catch (error) {
-      console.error("Error while getting configJob record ID or deleting  template:", error);
+      console.error(
+        "Error while getting configJob record ID or deleting  template:",
+        error
+      );
       showToast("Failed to remove entered template", "error");
     }
-
-    };
+  };
 
   // Save configuration handler
   const handleSubmit = async () => {
     if (isSaving) return; // prevent multiple calls
-    
-    const newBubbles = bubbles.map(column =>
-      column.filter(row => row.length > 0)
+
+    const newBubbles = bubbles.map((column) =>
+      column.filter((row) => row.length > 0)
     );
 
     let isValid = true;
@@ -269,7 +273,11 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
       column.forEach((row, rowIdx) => {
         if (row.length !== configData.metadata.num_of_options_per_question) {
           isValid = false;
-          errorMessage = `Column ${colIdx + 1}, Row ${rowIdx + 1} has ${row.length} bubbles. Expected ${configData.metadata.num_of_options_per_question}`;
+          errorMessage = `Column ${colIdx + 1}, Row ${rowIdx + 1} has ${
+            row.length
+          } bubbles. Expected ${
+            configData.metadata.num_of_options_per_question
+          }`;
         }
       });
     });
@@ -280,22 +288,20 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
     }
 
     // Normalize updated bubbles to same format as original ([x, y])
-    const updatedNormalized = newBubbles.map(column =>
-      column.map(row =>
-        row.map(coord => [coord.x, coord.y])
-      )
+    const updatedNormalized = newBubbles.map((column) =>
+      column.map((row) => row.map((coord) => [coord.x, coord.y]))
     );
 
     // Check if there are changes
     const original = JSON.stringify(configData.bubbles);
     const updated = JSON.stringify(updatedNormalized);
-    
+
     if (original === updated) {
       showToast("No changes detected. Redirecting...", "info");
       router.push("/templates");
       return;
     }
-  
+
     if (!configId) {
       showToast("Invalid configuration ID", "error");
       return;
@@ -309,19 +315,15 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
         "config_data",
         JSON.stringify({
           metadata: configData.metadata,
-          bubbles: updatedNormalized
+          bubbles: updatedNormalized,
         })
       );
 
-      const response = await fetch(`${BACKEND_URL}/api/files/update-config`, {
-        method: "PUT",
-        body: formData,
+      await axiosInstance.put("/api/files/update-config", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error("Failed to update configuration: " + errorText);
-      }
 
       showToast("Configuration updated successfully!", "success");
       router.push("/templates");
@@ -338,7 +340,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
-    color = '#2BFA0B',
+    color = "#2BFA0B",
     isHovered = false
   ) => {
     const radius = isHovered ? 7 : 5;
@@ -376,7 +378,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
               colIndex: colIdx,
               rowIndex: rowIdx,
               bubbleIndex: bubbleIdx,
-              originalCoord: { ...bubble }
+              originalCoord: { ...bubble },
             };
           }
         });
@@ -408,9 +410,9 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
     // Hover detection (only when not dragging)
     if (!isDragging) {
       let foundHover = false;
-      bubbles.forEach(column => {
-        column.forEach(row => {
-          row.forEach(bubble => {
+      bubbles.forEach((column) => {
+        column.forEach((row) => {
+          row.forEach((bubble) => {
             const dist = Math.hypot(bubble.x - mouseX, bubble.y - mouseY);
             if (dist < 8 && !foundHover) {
               setHoveredBubble(bubble);
@@ -431,7 +433,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
     if (!templateImage || !configData || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const image = new Image();
@@ -457,27 +459,38 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
           column.forEach((row, rowIdx) => {
             row.forEach((bubble, bubbleIdx) => {
               // Skip if this is the bubble being dragged
-              if (draggedBubble && 
-                  colIdx === draggedBubble.colIndex && 
-                  rowIdx === draggedBubble.rowIndex && 
-                  bubbleIdx === draggedBubble.bubbleIndex) {
+              if (
+                draggedBubble &&
+                colIdx === draggedBubble.colIndex &&
+                rowIdx === draggedBubble.rowIndex &&
+                bubbleIdx === draggedBubble.bubbleIndex
+              ) {
                 return;
               }
               const isHovered = hoveredBubble === bubble;
-              drawBubble(ctx, bubble.x, bubble.y, '#2BFA0B', isHovered);
+              drawBubble(ctx, bubble.x, bubble.y, "#2BFA0B", isHovered);
             });
           });
         });
 
         // Draw the dragging bubble in red
         if (isDragging && mousePos) {
-          drawBubble(ctx, mousePos.x, mousePos.y, '#F60D0D');
+          drawBubble(ctx, mousePos.x, mousePos.y, "#F60D0D");
         }
       };
 
       draw();
     };
-  }, [templateImage, configData, scale, bubbles, isDragging, mousePos, hoveredBubble, draggedBubble]);
+  }, [
+    templateImage,
+    configData,
+    scale,
+    bubbles,
+    isDragging,
+    mousePos,
+    hoveredBubble,
+    draggedBubble,
+  ]);
 
   useEffect(() => {
     if (!configData?.bubbles) return;
@@ -486,7 +499,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
       column.map((row: any[]) =>
         row.map((coord: number[]) => ({
           x: coord[0],
-          y: coord[1]
+          y: coord[1],
         }))
       )
     );
@@ -501,21 +514,29 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
         {configData?.metadata && (
           <div className="space-y-2">
             <div className="bg-gray-50 p-2 rounded">
-              <span className="font-medium">Columns:</span> {configData.metadata.num_columns}
+              <span className="font-medium">Columns:</span>{" "}
+              {configData.metadata.num_columns}
             </div>
             <div className="bg-gray-50 p-2 rounded">
-              <span className="font-medium">Options per Question:</span> {configData.metadata.num_of_options_per_question}
+              <span className="font-medium">Options per Question:</span>{" "}
+              {configData.metadata.num_of_options_per_question}
             </div>
             <div className="bg-gray-50 p-2 rounded">
               <span className="font-medium">Row Distribution:</span>
               <div className="ml-2 text-sm">
-                {configData.metadata.column_row_distribution.map((rows: number, idx: number) => (
-                  <div key={idx}>Column {idx + 1}: {rows} rows</div>
-                ))}
+                {configData.metadata.column_row_distribution.map(
+                  (rows: number, idx: number) => (
+                    <div key={idx}>
+                      Column {idx + 1}: {rows} rows
+                    </div>
+                  )
+                )}
               </div>
             </div>
             <div className="text-xs text-gray-500">
-            Double-click a green bubble and drag (without releasing after 2nd click) to move it (turns blue). Release to a valid location (turns green again).
+              Double-click a green bubble and drag (without releasing after 2nd
+              click) to move it (turns blue). Release to a valid location (turns
+              green again).
             </div>
           </div>
         )}
@@ -524,7 +545,9 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
           onClick={() => handleSubmit()}
           disabled={isSaving}
           className={`mt-6 w-full py-2 px-4 rounded-lg shadow-md text-white ${
-            isSaving ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            isSaving
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {isSaving ? "Saving..." : "Save Changes"}

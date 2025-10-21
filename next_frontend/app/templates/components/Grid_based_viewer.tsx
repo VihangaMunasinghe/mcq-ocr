@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "../../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
 
 interface ColumnStart {
   starting_x: number;
@@ -44,7 +45,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   configData,
   configId,
   jobId,
-  onClose
+  onClose,
 }) => {
   const router = useRouter();
   const { showToast } = useToast();
@@ -56,16 +57,24 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [yOffset, setYOffset] = useState<number>(0);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(null);
-  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(
+    null
+  );
+  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(
+    null
+  );
   const [hoverColumnKey, setHoverColumnKey] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const CLICK_COOLDOWN = 300; // milliseconds
   const DRAG_THRESHOLD = 5; // pixels
   const originalConfigString = JSON.stringify(configData);
@@ -151,7 +160,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     // Find and select the column
     const selected: SelectedColumn = {
       key: hit,
-      originalPosition: { ...columns[hit] }
+      originalPosition: { ...columns[hit] },
     };
 
     setSelectedColumn(selected);
@@ -258,12 +267,12 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
       formData.append("file_id", configId);
       formData.append("config_data", JSON.stringify(newConfigObj));
 
-      const res = await fetch(`${BACKEND_URL}/api/files/update-config`, {
-        method: "PUT",
-        body: formData,
+      await axiosInstance.put("/api/files/update-config", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      if (!res.ok) throw new Error(await res.text());
       showToast("Configuration updated successfully!", "success");
       router.push("/templates");
     } catch (err) {
@@ -278,35 +287,27 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
   const handleEdit = async () => {
     if (!jobId) return;
-    
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/templates/config-job/${jobId}`, {
-        method: "GET"
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to get template record ID: ${response.statusText}`);
-      }
-      
-      const uploadData: ConfigJobResponse = await response.json();
-      const TemRecordId = uploadData.template_id;
-      const result = await fetch(`${BACKEND_URL}/api/templates/${TemRecordId}`, {
-        method: "DELETE",
-      });
 
-      if (!result.ok) {
-        throw new Error(`Failed to delete template: ${result.statusText}`);
-      }
-      
+    try {
+      const response = await axiosInstance.get(
+        `/api/templates/config-job/${jobId}`
+      );
+
+      const uploadData: ConfigJobResponse = response.data as ConfigJobResponse;
+      const TemRecordId = uploadData.template_id;
+      await axiosInstance.delete(`/api/templates/${TemRecordId}`);
+
       showToast("You can re-enter again!", "success");
       onClose();
-      
+
       setTimeout(() => {
         router.push("/templates/create?reset=true");
       }, 100);
-      
     } catch (error) {
-      console.error("Error while getting configJob record ID or deleting template:", error);
+      console.error(
+        "Error while getting configJob record ID or deleting template:",
+        error
+      );
       showToast("Failed to remove entered template", "error");
     }
   };
@@ -315,7 +316,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setXOffset(num);
   };
-  
+
   const handleYOffsetChange = (v: string) => {
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setYOffset(num);
@@ -362,14 +363,14 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
         Object.keys(columns).forEach((k) => {
           const s = columns[k];
-          
+
           // Skip drawing the bubble being dragged at its original position
           if (draggedColumn && k === draggedColumn.key) {
             // Don't draw it here, we'll draw it at mouse position
             drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
             return;
           }
-          
+
           drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
           const isHover = hoverColumnKey === k && !isDragging;
           drawTopBubble(ctx, s.starting_x, s.starting_y, "#2BFA0B", isHover);
@@ -414,11 +415,13 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
             <div className="bg-gray-50 p-2 rounded">
               <span className="font-medium">Row Distribution:</span>
               <div className="ml-2 text-sm">
-                {configData.metadata.column_row_distribution.map((rows, idx) => (
-                  <div key={idx}>
-                    Column {idx + 1}: {rows} rows
-                  </div>
-                ))}
+                {configData.metadata.column_row_distribution.map(
+                  (rows, idx) => (
+                    <div key={idx}>
+                      Column {idx + 1}: {rows} rows
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </div>
@@ -447,7 +450,9 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
             />
           </div>
           <div className="text-xs text-gray-500">
-            Double-click a green bubble and drag (without releasing after 2nd click) to move it (turns blue). Release to finalize (turns green again).
+            Double-click a green bubble and drag (without releasing after 2nd
+            click) to move it (turns blue). Release to finalize (turns green
+            again).
           </div>
         </div>
 

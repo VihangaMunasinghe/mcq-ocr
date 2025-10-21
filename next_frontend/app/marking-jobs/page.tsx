@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
 
 import { MarkingJobBasic, MarkingJobStatus } from "./types/types";
 import { PageHeader } from "./components/PageHeader";
@@ -21,8 +22,6 @@ export default function MarkingJobs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [loading, setLoading] = useState(true);
   const [markingJobs, setMarkingJobs] = useState<MarkingJobBasic[]>([]);
   const { showToast } = useToast();
@@ -92,7 +91,9 @@ export default function MarkingJobs() {
 
   useEffect(() => {
     const progressWebsocket = (markingJobIds: number[]) => {
-      const websocket = new WebSocket(`${BACKEND_URL}/api/markings/progress`);
+      const backendUrl =
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      const websocket = new WebSocket(`${backendUrl}/api/markings/progress`);
       websocket.onopen = () => {
         websocket.send(JSON.stringify({ marking_job_ids: markingJobIds }));
       };
@@ -151,23 +152,30 @@ export default function MarkingJobs() {
 
     const fetchMarkingJobs = async () => {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/markings`);
-      const markingJobs: MarkingJobBasic[] = await response.json();
-      setMarkingJobs(markingJobs);
-      progressWebsocket(
-        markingJobs
-          .map((job) =>
-            job.status === MarkingJobStatus.PROCESSING ||
-            job.status === MarkingJobStatus.QUEUED
-              ? job.id
-              : null
-          )
-          .filter((id) => id !== null)
-      );
-      setLoading(false);
+      try {
+        const response = await axiosInstance.get("/api/markings");
+        const markingJobs: MarkingJobBasic[] =
+          response.data as MarkingJobBasic[];
+        setMarkingJobs(markingJobs);
+        progressWebsocket(
+          markingJobs
+            .map((job) =>
+              job.status === MarkingJobStatus.PROCESSING ||
+              job.status === MarkingJobStatus.QUEUED
+                ? job.id
+                : null
+            )
+            .filter((id) => id !== null)
+        );
+      } catch (error) {
+        console.error("Failed to fetch marking jobs:", error);
+        showToast("Failed to load marking jobs", "error");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchMarkingJobs();
-  }, [BACKEND_URL]);
+  }, [showToast]);
 
   return (
     <div className="space-y-6">

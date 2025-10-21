@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "../../../../components/UI/Button";
 import { useToast } from "../../../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
 import {
   JobInfo,
   ResultsData,
@@ -31,8 +32,6 @@ const ResultsPage = () => {
   const [isAnswerSheetModalOpen, setIsAnswerSheetModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
-
   useEffect(() => {
     const fetchResults = async () => {
       if (!job_id) return;
@@ -42,16 +41,15 @@ const ResultsPage = () => {
         setError(null);
 
         // Fetch job info
-        const jobResponse = await fetch(
-          `${BACKEND_URL}/api/markings/${job_id}/results`
+        const jobResponse = await axiosInstance.get(
+          `/api/markings/${job_id}/results`
         );
-        if (!jobResponse.ok) {
-          throw new Error("Failed to fetch job information");
-        }
-        const jobInfo: JobInfo = await jobResponse.json();
+        const jobInfo: JobInfo = jobResponse.data as JobInfo;
 
+        const backendUrl =
+          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
         const resultsResponse = await fetch(
-          `${BACKEND_URL}/api/files/download?method=file_id&file_id=${jobInfo.result_sheet_file_id}`
+          `${backendUrl}/api/files/download?method=file_id&file_id=${jobInfo.result_sheet_file_id}`
         );
         if (!resultsResponse.ok) {
           throw new Error("Failed to fetch results");
@@ -86,7 +84,7 @@ const ResultsPage = () => {
     };
 
     fetchResults();
-  }, [job_id, BACKEND_URL, showToast]);
+  }, [job_id, showToast]);
 
   const handleViewMarkedPaper = (result: StudentResult) => {
     setSelectedResult(result);
@@ -94,33 +92,28 @@ const ResultsPage = () => {
   };
 
   const handelUpdateResult = async (newResult: StudentResult) => {
-    const response = await fetch(
-      `${BACKEND_URL}/api/markings/${job_id}/update-result/${newResult.row_number}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ result: newResult }),
+    try {
+      await axiosInstance.put(
+        `/api/markings/${job_id}/update-result/${newResult.row_number}`,
+        { result: newResult }
+      );
+      const index = resultsData?.results.findIndex(
+        (result: StudentResult) => result.row_number === newResult.row_number
+      );
+      if (index !== undefined && index !== -1) {
+        setResultsData({
+          ...resultsData!,
+          results: [
+            ...resultsData!.results.slice(0, index),
+            newResult,
+            ...resultsData!.results.slice(index + 1),
+          ],
+        });
+        setSelectedResult(newResult);
       }
-    );
-    if (!response.ok) {
+    } catch (err) {
+      console.error("Error updating result:", err);
       showToast("Failed to update result", "error");
-      return;
-    }
-    const index = resultsData?.results.findIndex(
-      (result: StudentResult) => result.row_number === newResult.row_number
-    );
-    if (index !== undefined && index !== -1) {
-      setResultsData({
-        ...resultsData!,
-        results: [
-          ...resultsData!.results.slice(0, index),
-          newResult,
-          ...resultsData!.results.slice(index + 1),
-        ],
-      });
-      setSelectedResult(newResult);
     }
   };
 

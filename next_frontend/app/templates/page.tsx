@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "../../components/UI/Button";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
@@ -10,13 +10,11 @@ import { Template } from "@/models/template";
 import TemplateCard from "./components/template_card";
 import { EditTemplateModal } from "./components/EditTemplateModal";
 import ViewTemplateModal from "./components/ViewTemplateModal";
-
+import axiosInstance from "@/utils/axiosclient";
 
 //import ViewTemplateModal from "./components/view-template-modal";
 import { useRouter } from "next/navigation";
 //import { FormUploadModal } from "@/components/Modals/FormUploadModal";
-
-//const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000/api";
 
 const selectFormConfig = [
   {
@@ -101,9 +99,9 @@ export default function Templates() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
   // Fetch templates from API
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -114,19 +112,8 @@ export default function Templates() {
       });
 
       // Make sure the API endpoint matches your backend route
-      const response = await fetch(`${BACKEND_URL}/api/templates?${params}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch templates: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setTemplates(data);
+      const response = await axiosInstance.get(`/api/templates?${params}`);
+      setTemplates(response.data as Template[]);
     } catch (err) {
       console.error("Error fetching templates:", err);
       setError(
@@ -136,25 +123,18 @@ export default function Templates() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   // Fetch templates on component mount
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
-  const handleDeleteTemplate = async() => {
-      if (!selectedTemplate) return;
+  const handleDeleteTemplate = async () => {
+    if (!selectedTemplate) return;
 
-      try {
-      const response = await fetch(`${BACKEND_URL}/api/templates/${selectedTemplate}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete template: ${response.statusText}`);
-      }
-
+    try {
+      await axiosInstance.delete(`/api/templates/${selectedTemplate}`);
       showToast("Template deleted successfully", "success");
 
       // Refresh template list
@@ -168,43 +148,30 @@ export default function Templates() {
     }
   };
 
-const handleEditTemplateSave = async (name: string, description: string) => {
-  if (!selectedTemplate) return;
+  const handleEditTemplateSave = async (name: string, description: string) => {
+    if (!selectedTemplate) return;
 
-  try {
-    const payload = { 
-          name: name,
-          description: description
-        };
-    console.log('Sending payload:', payload);
-    const response = await fetch(`${BACKEND_URL}/api/templates/edit/${selectedTemplate}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(
-          payload
-       ),
-    });
+    try {
+      const payload = {
+        name: name,
+        description: description,
+      };
+      console.log("Sending payload:", payload);
+      const response = await axiosInstance.put(
+        `/api/templates/edit/${selectedTemplate}`,
+        payload
+      );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Error details:', errorData);
-      throw new Error(`Failed to update template: ${response.statusText}`);
+      showToast("Template updated successfully", "success");
+      console.log(response);
+      await fetchTemplates(); // refresh templates
+      setIsEditModalOpen(false);
+      setSelectedTemplate(null);
+    } catch (err) {
+      console.error("Error updating template:", err);
+      showToast("Failed to update template", "error");
     }
-
-    showToast("Template updated successfully", "success");
-    console.log(response)
-    await fetchTemplates(); // refresh templates
-    setIsEditModalOpen(false);
-    setSelectedTemplate(null);
-  } catch (err) {
-    console.error("Error updating template:", err);
-    showToast("Failed to update template", "error");
-  }
-};
-
-
+  };
 
   const viewTemplate = (template: Template) => {
     setViewingTemplate(template);
@@ -215,7 +182,7 @@ const handleEditTemplateSave = async (name: string, description: string) => {
     setSelectedTemplate(id);
     setIsDeleteModalOpen(true);
   };
- 
+
   const editTemplate = (id: number) => {
     setSelectedTemplate(id);
     setIsEditModalOpen(true);
@@ -227,7 +194,7 @@ const handleEditTemplateSave = async (name: string, description: string) => {
         <Button
           variant="primary"
           icon={<FontAwesomeIcon icon={faPlus} className="h-4 w-4" />}
-          onClick={() => router.push('/templates/create')}
+          onClick={() => router.push("/templates/create")}
         >
           New Template
         </Button>
@@ -275,7 +242,7 @@ const handleEditTemplateSave = async (name: string, description: string) => {
               <div className="text-gray-500">No templates found</div>
               <Button
                 variant="primary"
-                onClick={() => router.push('/templates/create')}
+                onClick={() => router.push("/templates/create")}
                 className="mt-4"
               >
                 Create Your First Template
@@ -312,10 +279,7 @@ const handleEditTemplateSave = async (name: string, description: string) => {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         template={viewingTemplate}
-        
       />
-
-
     </>
   );
 }
