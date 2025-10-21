@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import logging
 
 from app.schemas.user import UserResponse, UserRoleUpdate, UserUpdate
@@ -28,11 +29,13 @@ async def list_users(
         
         if user_role == UserRoles.SUPERADMIN.value:
             # SuperAdmin can see all users
-            result = await db.execute(select(User).order_by(User.created_at.desc()))
+            result = await db.execute(
+                select(User).options(selectinload(User.faculty)).order_by(User.created_at.desc())
+            )
         elif user_role == UserRoles.FACULTYADMIN.value:
             # FacultyAdmin can only see users from their faculty
             result = await db.execute(
-                select(User).where(User.faculty_id == user_faculty_id).order_by(User.created_at.desc())
+                select(User).options(selectinload(User.faculty)).where(User.faculty_id == user_faculty_id).order_by(User.created_at.desc())
             )
         else:
             # Basic users cannot list users
@@ -61,7 +64,9 @@ async def get_user(
         current_user_faculty_id = user_info["faculty_id"]
         
         # Get the requested user
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
         user = result.scalar_one_or_none()
         
         if not user:
@@ -106,7 +111,10 @@ async def update_user(
         current_user_faculty_id = user_info["faculty_id"]
         
         # Get the user to update
-        user = await db.get(User, user_id)
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -134,9 +142,14 @@ async def update_user(
             user.faculty_id = user_update.faculty_id
             
         await db.commit()
-        await db.refresh(user)
         
-        return UserResponse.from_orm(user)
+        # Re-query the user with faculty relationship to avoid greenlet issues
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        updated_user = result.scalar_one()
+        
+        return UserResponse.from_orm(updated_user)
     except HTTPException:
         raise
     except Exception as e:
@@ -158,7 +171,10 @@ async def verify_user(
         current_user_faculty_id = user_info["faculty_id"]
         
         # Get the user to verify
-        user = await db.get(User, user_id)
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -178,9 +194,14 @@ async def verify_user(
         user.verify_status = VerifyStatus.ADMINVERIFIED
         
         await db.commit()
-        await db.refresh(user)
         
-        return UserResponse.from_orm(user)
+        # Re-query the user with faculty relationship to avoid greenlet issues
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        updated_user = result.scalar_one()
+        
+        return UserResponse.from_orm(updated_user)
     except HTTPException:
         raise
     except Exception as e:
@@ -203,7 +224,10 @@ async def update_role(
         current_user_faculty_id = user_info["faculty_id"]
         
         # Get the user to update role
-        user = await db.get(User, user_id)
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -219,12 +243,22 @@ async def update_role(
             # Basic users cannot update roles
             raise HTTPException(status_code=403, detail="Insufficient permissions to update user roles")
         
-        user.role = user_role_update.role
+        # Convert string role to enum
+        try:
+            new_role = UserRoles(user_role_update.role)
+            user.role = new_role
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid role: {user_role_update.role}")
         
         await db.commit()
-        await db.refresh(user)
         
-        return UserResponse.from_orm(user)
+        # Re-query the user with faculty relationship to avoid greenlet issues
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        updated_user = result.scalar_one()
+        
+        return UserResponse.from_orm(updated_user)
     except HTTPException:
         raise
     except Exception as e:
@@ -248,7 +282,10 @@ async def delete_user(
         current_user_faculty_id = user_info["faculty_id"]
         
         # Get the user to delete
-        user = await db.get(User, user_id)
+        result = await db.execute(
+            select(User).options(selectinload(User.faculty)).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         

@@ -1,7 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
-from app.models.user import UserRoles, VerifyStatus
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -11,14 +10,22 @@ class UserUpdate(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: str
 
+class FacultyResponse(BaseModel):
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
+
 class UserResponse(BaseModel):
     id: int
     email: str
     first_name: str
     last_name: str
-    role: UserRoles
-    verify_status: VerifyStatus
+    role: str  # Will be UserRoles enum value as string
+    verify_status: str  # Will be VerifyStatus enum value as string
     faculty_id: Optional[int]  # Made optional to support super user
+    faculty: Optional[FacultyResponse] = None
     last_login: Optional[datetime]
     created_at: Optional[datetime]  # Made optional to support super user
     updated_at: Optional[datetime]  # Made optional to support super user

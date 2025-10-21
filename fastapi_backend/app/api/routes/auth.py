@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from jose import JWTError, jwt
 import logging
 
@@ -64,7 +65,9 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get user by email from database."""
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User).options(selectinload(User.faculty)).where(User.email == email)
+    )
     return result.scalar_one_or_none()
 
 async def authenticate_super_user(email: str, password: str) -> Optional[dict]:
@@ -513,8 +516,8 @@ async def get_current_user_info(
             email=current_user["email"],
             first_name=current_user["first_name"],
             last_name=current_user["last_name"],
-            role=UserRoles.SUPERADMIN,  # Use the enum directly
-            verify_status=VerifyStatus.ADMINVERIFIED,  # Super user is always admin verified
+            role=UserRoles.SUPERADMIN.value,  # Use the enum value (string)
+            verify_status=VerifyStatus.ADMINVERIFIED.value,  # Use the enum value (string)
             faculty_id=current_user["faculty_id"],  # This is None, which is now allowed
             last_login=None,  # Super user doesn't have login tracking
             created_at=None,  # Super user doesn't have these timestamps

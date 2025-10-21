@@ -66,7 +66,6 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const accessToken = req.cookies.get("access_token")?.value;
-  const refreshToken = req.cookies.get("refresh_token")?.value;
 
   // If public route and already logged in
   if (publicRoutes.includes(pathname) && accessToken) {
