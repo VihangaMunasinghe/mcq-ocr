@@ -1,31 +1,45 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faTachometerAlt,
-  faFileText,
-  faClipboardCheck,
-  faUsers,
-  faCog,
-  faChartBar,
-  faBars,
-  faTimes,
-  faPlusCircle,
-} from "@fortawesome/free-solid-svg-icons";
+import * as OutlineIcons from "@heroicons/react/24/outline";
+
+// Destructure icons with fallbacks for Docker compatibility
+const {
+  HomeIcon,
+  DocumentIcon,
+  ClipboardDocumentCheckIcon,
+  UsersIcon,
+  CogIcon,
+  Bars3Icon,
+  XMarkIcon,
+  PlusCircleIcon,
+  AcademicCapIcon,
+  ArrowRightOnRectangleIcon,
+} = OutlineIcons;
+
+// Fallback icon component for environments where Heroicons might not load
+const FallbackIcon = ({ className }: { className?: string }) => (
+  <div className={`${className} bg-gray-300 rounded`} />
+);
+import { useAuth } from "../../hooks/useAuth";
+import { UserRoles } from "../../app/users/types/types";
 
 interface SidebarItem {
   name: string;
   path: string;
-  icon: React.ReactNode;
+  iconName: string;
+  allowedRoles: UserRoles[];
 }
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check if screen is mobile
   useEffect(() => {
@@ -46,50 +60,133 @@ export function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  const sidebarItems: SidebarItem[] = [
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const sidebarItems = [
     {
       name: "Dashboard",
       path: "/",
-      icon: <FontAwesomeIcon icon={faTachometerAlt} className="h-5 w-5" />,
+      iconName: "HomeIcon",
+      allowedRoles: [
+        UserRoles.SUPERADMIN,
+        UserRoles.FACULTYADMIN,
+        UserRoles.BASIC,
+      ],
     },
     {
       name: "My Templates",
       path: "/templates",
-      icon: <FontAwesomeIcon icon={faFileText} className="h-5 w-5" />,
-    },
-    {
-      name: "Marking Jobs",
-      path: "/marking-jobs",
-      icon: <FontAwesomeIcon icon={faClipboardCheck} className="h-5 w-5" />,
-    },
-    {
-      name: "Users",
-      path: "/users",
-      icon: <FontAwesomeIcon icon={faUsers} className="h-5 w-5" />,
-    },
-    {
-      name: "Reports",
-      path: "/reports",
-      icon: <FontAwesomeIcon icon={faChartBar} className="h-5 w-5" />,
+      iconName: "DocumentIcon",
+      allowedRoles: [UserRoles.FACULTYADMIN, UserRoles.BASIC], // Super admin cannot see
     },
     {
       name: "Generate Template",
       path: "/generate-template",
-      icon: <FontAwesomeIcon icon={faPlusCircle} className="h-5 w-5" />,
+      iconName: "PlusCircleIcon",
+      allowedRoles: [UserRoles.FACULTYADMIN, UserRoles.BASIC], // Super admin cannot see
+    },
+    {
+      name: "Marking Jobs",
+      path: "/marking-jobs",
+      iconName: "ClipboardDocumentCheckIcon",
+      allowedRoles: [UserRoles.FACULTYADMIN, UserRoles.BASIC], // Super admin cannot see
+    },
+    {
+      name: "Users",
+      path: "/users",
+      iconName: "UsersIcon",
+      allowedRoles: [UserRoles.SUPERADMIN, UserRoles.FACULTYADMIN], // Only super admin and faculty admin
     },
     {
       name: "Settings",
       path: "/settings",
-      icon: <FontAwesomeIcon icon={faCog} className="h-5 w-5" />,
+      iconName: "CogIcon",
+      allowedRoles: [UserRoles.SUPERADMIN], // Only super admin
     },
   ];
 
-  const toggleSidebar = () => {
-    setCollapsed(!collapsed);
+  // Filter sidebar items based on user role
+  const filteredSidebarItems = sidebarItems.filter((item) => {
+    if (!user?.role) return false;
+    return item.allowedRoles.includes(user.role as UserRoles);
+  });
+
+  // Function to get icon component safely
+  const getIcon = (iconName: string, className: string) => {
+    const iconMap: {
+      [key: string]: React.ComponentType<{ className?: string }>;
+    } = {
+      HomeIcon,
+      DocumentIcon,
+      PlusCircleIcon,
+      ClipboardDocumentCheckIcon,
+      UsersIcon,
+      CogIcon,
+    };
+
+    const IconComponent = iconMap[iconName];
+    return IconComponent ? (
+      <IconComponent className={className} />
+    ) : (
+      <FallbackIcon className={className} />
+    );
   };
 
   const toggleMobileSidebar = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleMouseEnter = () => {
+    if (window.innerWidth >= 768) {
+      // Only on desktop
+      setCollapsed(false);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (window.innerWidth >= 768) {
+      // Only on desktop
+      setCollapsed(true);
+    }
+  };
+
+  // Get initials from user name or email
+  const getInitials = () => {
+    if (user?.first_name && user?.last_name) {
+      return (user.first_name[0] + user.last_name[0]).toUpperCase();
+    }
+    if (user?.first_name) {
+      return user.first_name[0].toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  // Get display name from user
+  const getDisplayName = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    }
+    if (user?.first_name) {
+      return user.first_name;
+    }
+    return "User";
   };
 
   return (
@@ -98,13 +195,13 @@ export function Sidebar() {
       <div className="md:hidden fixed top-4 left-4 z-30">
         <button
           onClick={toggleMobileSidebar}
-          className="p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+          className="p-2 rounded-lg text-gray-600 hover:text-gray-800 hover:bg-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <span className="sr-only">Open sidebar</span>
           {mobileOpen ? (
-            <FontAwesomeIcon icon={faTimes} className="h-6 w-6" />
+            <XMarkIcon className="h-6 w-6" />
           ) : (
-            <FontAwesomeIcon icon={faBars} className="h-6 w-6" />
+            <Bars3Icon className="h-6 w-6" />
           )}
         </button>
       </div>
@@ -112,7 +209,7 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 z-20 bg-gray-600 bg-opacity-75 transition-opacity"
+          className="md:hidden fixed inset-0 z-20 bg-black bg-opacity-30 transition-opacity backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         ></div>
       )}
@@ -120,71 +217,48 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          flex flex-col bg-white shadow-lg h-screen pt-5 pb-4 transition-all duration-300 transform
+          flex flex-col bg-white/80 backdrop-blur-xl border-r border-gray-200/50 h-screen transition-all duration-300 ease-in-out transform shadow-xl
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0
-          ${collapsed ? "w-20" : "w-64"}
+          ${collapsed ? "w-20" : "w-72"}
           fixed md:static z-30 md:z-auto
         `}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <div className="flex items-center justify-between px-4">
+        {/* Header */}
+        <div
+          className={`flex items-center p-6 border-b border-gray-200/50 ${
+            collapsed ? "justify-center" : "justify-between"
+          }`}
+        >
           <div
-            className={`flex items-center ${
+            className={`flex items-center transition-all duration-300 ${
               collapsed ? "justify-center w-full" : ""
             }`}
           >
-            <div className="bg-blue-600 text-white p-2 rounded-lg">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white p-3 rounded-xl shadow-lg">
+              <AcademicCapIcon className="h-7 w-7" />
             </div>
-            {!collapsed && (
-              <span className="ml-3 text-xl font-bold text-gray-900">
-                MCQ Grader.
-              </span>
-            )}
-          </div>
-          <button
-            onClick={toggleSidebar}
-            className="hidden md:block p-1 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-          >
-            <span className="sr-only">
-              {collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            </span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+            <div
+              className={`ml-4 transition-all duration-300 overflow-hidden ${
+                collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d={
-                  collapsed
-                    ? "M13 5l7 7-7 7M5 5l7 7-7 7"
-                    : "M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                }
-              />
-            </svg>
-          </button>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent whitespace-nowrap">
+                MCQ Grader
+              </h1>
+              <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">
+                Smart Evaluation
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="mt-8 flex-1 flex flex-col overflow-y-auto">
-          <nav className="flex-1 px-2 space-y-2">
-            {sidebarItems.map((item) => {
+
+        {/* Navigation */}
+        <div className="flex-1 px-4 py-6 overflow-y-auto">
+          <nav className="space-y-2">
+            {filteredSidebarItems.map((item) => {
               const isActive =
                 item.path === "/"
                   ? pathname === "/"
@@ -196,20 +270,99 @@ export function Sidebar() {
                   className={`
                     ${
                       isActive
-                        ? "bg-blue-50 text-blue-600 border-r-4 border-blue-600"
+                        ? "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 border-l-4 border-blue-500 shadow-sm"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
-                    group flex items-center px-3 py-3 text-sm font-medium rounded-l-lg transition-colors duration-200
+                    group flex items-center px-4 py-3.5 text-sm font-medium rounded-r-xl transition-all duration-200 transform hover:scale-105 hover:shadow-md relative overflow-hidden
                   `}
                 >
-                  <div className={`${collapsed ? "mx-auto" : "mr-3"} text-lg`}>
-                    {item.icon}
+                  {/* Background animation */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-r-xl" />
+
+                  <div
+                    className={`${
+                      collapsed ? "mx-auto" : "mr-4"
+                    } relative z-10 transition-all duration-200 ${
+                      isActive ? "text-blue-600" : ""
+                    }`}
+                  >
+                    {getIcon(
+                      item.iconName,
+                      `h-6 w-6 ${isActive ? "stroke-2" : "stroke-1.5"}`
+                    )}
                   </div>
-                  {!collapsed && <span>{item.name}</span>}
+
+                  <span
+                    className={`relative z-10 transition-all duration-300 overflow-hidden whitespace-nowrap ${
+                      collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                    }`}
+                  >
+                    {item.name}
+                  </span>
+
+                  {/* Active indicator */}
+                  {isActive && !collapsed && (
+                    <div className="ml-auto">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    </div>
+                  )}
                 </Link>
               );
             })}
           </nav>
+        </div>
+
+        {/* Footer - User Profile */}
+        <div className="p-4 border-t border-gray-200/50">
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className={`w-full transition-all duration-300 ${
+                collapsed ? "flex justify-center" : ""
+              }`}
+            >
+              <div className="flex items-center w-full">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-white font-semibold text-sm">
+                    {getInitials()}
+                  </span>
+                </div>
+                <div
+                  className={`ml-3 transition-all duration-300 overflow-hidden ${
+                    collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900 whitespace-nowrap text-left">
+                    {getDisplayName()}
+                  </p>
+                  <p className="text-xs text-gray-500 whitespace-nowrap text-left">
+                    {user?.email || "user@example.com"}
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {/* Dropdown Menu */}
+            {dropdownOpen && (
+              <div className="absolute bottom-full left-0 mb-2 w-48 bg-white rounded-xl shadow-xl py-2 border border-gray-100 z-50">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">
+                    {getDisplayName()}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user?.email || "user@example.com"}
+                  </p>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center transition-colors duration-200"
+                >
+                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
     </div>
