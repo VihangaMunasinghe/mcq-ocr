@@ -71,6 +71,7 @@ class MarkingJob:
         self.total_answer_sheets = 0
         self.processed_answer_sheets = 0
         self.failed_answer_sheets = 0
+        self.available_index_numbers = None
 
         self.event_registery = event_registery
         self.temp_data_store = temp_data_store
