@@ -10,7 +10,7 @@ from .base import BaseModel
 class TemplateConfigType(PyEnum):
     """Enum for template configuration type."""
     GRID_BASED = "grid_based"
-    CLUSTERING_BASED = "cluster_based"
+    CLUSTER_BASED = "cluster_based"
 
 class TemplateConfigStatus(PyEnum):
     """Enum for template configuration job status."""
