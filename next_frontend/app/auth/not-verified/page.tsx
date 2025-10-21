@@ -10,8 +10,9 @@ import {
   faBuilding,
   faRefresh,
 } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "../../../components/UI/Button";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/UI/Button";
+import axiosInstance from "@/utils/axiosclient";
 
 interface FacultyAdmin {
   id: number;
@@ -20,97 +21,59 @@ interface FacultyAdmin {
   email: string;
 }
 
-interface UserInfo {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  faculty_id: number;
-  faculty_name: string;
-  verify_status: string;
+interface Faculty {
+  name: string;
 }
 
 export default function NotVerified() {
-  const { user, signOut } = useAuth();
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const { user, signOut, refreshUser } = useAuth();
+  const [userData, setUserData] = useState<{
+    user: typeof user;
+    faculty_name: string | null;
+  }>({
+    user: user,
+    faculty_name: null,
+  });
   const [facultyAdmins, setFacultyAdmins] = useState<FacultyAdmin[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUserInfoAndAdmins = async () => {
+    const fetchFacultyAdmins = async () => {
+      if (!user) return;
       try {
-        // Fetch current user info
-        const userResponse = await fetch("/api/auth/me", {
-          credentials: "include",
+        const [facultyResponse, adminsResponse] = await Promise.all([
+          axiosInstance.get<Faculty>(`/api/faculties/${user.faculty_id}`),
+          axiosInstance.get<FacultyAdmin[]>(
+            `/api/faculties/${user.faculty_id}/admins`
+          ),
+        ]);
+        setUserData({
+          user: user,
+          faculty_name: facultyResponse.data.name,
         });
-
-        if (!userResponse.ok) {
-          throw new Error("Failed to fetch user information");
-        }
-
-        const userData = await userResponse.json();
-        setUserInfo(userData);
-
-        // Fetch faculty admins for the user's faculty
-        if (userData.faculty_id) {
-          const adminsResponse = await fetch(
-            `/api/users?role=FACULTYADMIN&faculty_id=${userData.faculty_id}`,
-            {
-              credentials: "include",
-            }
-          );
-
-          if (adminsResponse.ok) {
-            const adminsData = await adminsResponse.json();
-            setFacultyAdmins(adminsData);
-          } else {
-            // Mock faculty admins as fallback
-            setFacultyAdmins([
-              {
-                id: 1,
-                first_name: "John",
-                last_name: "Doe",
-                email: "john.doe@university.edu",
-              },
-              {
-                id: 2,
-                first_name: "Jane",
-                last_name: "Smith",
-                email: "jane.smith@university.edu",
-              },
-            ]);
-          }
-        }
+        setUserData({
+          user: user,
+          faculty_name: facultyResponse.data["name"] as string,
+        });
+        setFacultyAdmins(adminsResponse.data as FacultyAdmin[]);
       } catch (err) {
-        setError("Failed to load user information. Please try again.");
-        console.error("Error fetching user info:", err);
+        setError("Failed to load faculty administrators.");
+        console.error("Error fetching faculty admins:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserInfoAndAdmins();
-  }, []);
+    fetchFacultyAdmins();
+  }, [setUserData, user, user?.faculty_id]);
 
   const handleRefreshStatus = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/auth/me", {
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        if (userData.verify_status === "ADMINVERIFIED") {
-          // User is now verified, redirect to dashboard
-          router.push("/");
-        } else {
-          setUserInfo(userData);
-        }
-      }
-    } catch (err) {
+      await refreshUser();
+    } catch {
       setError("Failed to refresh status. Please try again.");
     } finally {
       setIsLoading(false);
@@ -122,7 +85,7 @@ export default function NotVerified() {
     router.push("/auth/signin");
   };
 
-  if (isLoading && !userInfo) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -172,62 +135,61 @@ export default function NotVerified() {
           )}
 
           {/* User Information Card */}
-          {userInfo && (
-            <div className="mb-8 bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Your Account Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center">
-                  <FontAwesomeIcon
-                    icon={faUser}
-                    className="h-5 w-5 text-gray-400 mr-3"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {userInfo.first_name} {userInfo.last_name}
-                    </p>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                  </div>
+          <div className="mb-8 bg-gray-50 p-6 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Your Account Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center">
+                <FontAwesomeIcon
+                  icon={faUser}
+                  className="h-5 w-5 text-gray-400 mr-3"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {userData.user?.first_name} {userData.user?.last_name}
+                  </p>
+                  <p className="text-sm text-gray-500">Full Name</p>
                 </div>
-                <div className="flex items-center">
-                  <FontAwesomeIcon
-                    icon={faEnvelope}
-                    className="h-5 w-5 text-gray-400 mr-3"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {userInfo.email}
-                    </p>
-                    <p className="text-sm text-gray-500">Email Address</p>
-                  </div>
+              </div>
+              <div className="flex items-center">
+                <FontAwesomeIcon
+                  icon={faEnvelope}
+                  className="h-5 w-5 text-gray-400 mr-3"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {userData.user?.email}
+                  </p>
+                  <p className="text-sm text-gray-500">Email Address</p>
                 </div>
-                <div className="flex items-center">
-                  <FontAwesomeIcon
-                    icon={faBuilding}
-                    className="h-5 w-5 text-gray-400 mr-3"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {userInfo.faculty_name || "Faculty"}
-                    </p>
-                    <p className="text-sm text-gray-500">Faculty</p>
-                  </div>
+              </div>
+              <div className="flex items-center">
+                <FontAwesomeIcon
+                  icon={faBuilding}
+                  className="h-5 w-5 text-gray-400 mr-3"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {userData.faculty_name ||
+                      `Faculty ID: ${userData.user?.faculty_id}`}
+                  </p>
+                  <p className="text-sm text-gray-500">Faculty</p>
                 </div>
-                <div className="flex items-center">
-                  <div className="h-5 w-5 mr-3 flex items-center justify-center">
-                    <div className="h-3 w-3 bg-yellow-400 rounded-full"></div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Pending Verification
-                    </p>
-                    <p className="text-sm text-gray-500">Status</p>
-                  </div>
+              </div>
+              <div className="flex items-center">
+                <div className="h-5 w-5 mr-3 flex items-center justify-center">
+                  <div className="h-3 w-3 bg-yellow-400 rounded-full"></div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    Pending Verification
+                  </p>
+                  <p className="text-sm text-gray-500">Status</p>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Information Card */}
           <div className="mb-8 bg-blue-50 p-6 rounded-lg">
@@ -238,11 +200,7 @@ export default function NotVerified() {
               <li className="flex items-start">
                 <span className="h-5 w-5 text-blue-500 mr-2 mt-0.5">•</span>A
                 faculty administrator from your faculty will review your account
-              </li>
-              <li className="flex items-start">
-                <span className="h-5 w-5 text-blue-500 mr-2 mt-0.5">•</span>
-                You will receive an email notification once your account is
-                verified
+                and verify.
               </li>
               <li className="flex items-start">
                 <span className="h-5 w-5 text-blue-500 mr-2 mt-0.5">•</span>

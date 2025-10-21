@@ -57,7 +57,7 @@ function checkAccess(
     pathname.startsWith(route)
   );
 
-  if (disallowed) return { allowed: false, redirect: "/dashboard" };
+  if (disallowed) return { allowed: false, redirect: "/" };
 
   return { allowed: true };
 }

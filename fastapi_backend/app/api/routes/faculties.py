@@ -5,9 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from app.schemas.faculty import FacultyCreate, FacultyResponse, FacultyUpdate
+from app.schemas.faculty import FacultyAdmin, FacultyCreate, FacultyResponse, FacultyUpdate
 from app.database import get_async_db
 from app.models.faculty import Faculty
+from app.models.user import User
+from app.models.user import UserRoles
 from app.middleware.authorization import require_basic_or_higher, require_superadmin
 
 router = APIRouter(prefix="/api/faculties", tags=["faculties"])
@@ -31,7 +33,6 @@ async def list_faculties(
 
 
 @router.get("/{faculty_id}", response_model=FacultyResponse)
-@require_basic_or_higher(require_admin_verified=True)
 async def get_faculty(
     faculty_id: int,
     request: Request,
@@ -132,7 +133,7 @@ async def delete_faculty(
             raise HTTPException(status_code=404, detail="Faculty not found")
         
         # Check if faculty has associated users
-        from app.models.user import User
+        
         user_result = await db.execute(select(User).where(User.faculty_id == faculty_id))
         associated_users = user_result.scalars().all()
         
@@ -156,3 +157,55 @@ async def delete_faculty(
         await db.rollback()
         logger.error(f"Failed to delete faculty: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete faculty")
+    
+
+@router.get("/{faculty_id}/admins", response_model=List[FacultyAdmin])
+@require_basic_or_higher(require_admin_verified=False)
+async def get_faculty_admins(
+    faculty_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Get all admin users for a specific faculty"""
+    try:
+
+        # Check if user has permission to view faculty admins
+        current_user = request.state.current_user
+        
+        # Handle both User objects and dict objects (for super user)
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role")
+            user_faculty_id = current_user.get("faculty_id")
+        else:
+            user_role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+            user_faculty_id = current_user.faculty_id
+            
+        if user_role != UserRoles.SUPERADMIN.value and user_faculty_id != faculty_id:
+            raise HTTPException(status_code=403, detail="Access denied. You can only view admins from your own faculty.")
+
+        # First check if faculty exists
+        faculty_result = await db.execute(select(Faculty).where(Faculty.id == faculty_id))
+        faculty = faculty_result.scalar_one_or_none()
+        
+        if not faculty:
+            raise HTTPException(status_code=404, detail="Faculty not found")
+        
+
+        
+        # Get all admin users for this faculty
+        
+        admin_users_result = await db.execute(
+            select(User).where(
+                User.faculty_id == faculty_id,
+                User.role == UserRoles.FACULTYADMIN)
+            )
+        
+        admin_users = admin_users_result.scalars().all()
+        
+        return [FacultyAdmin.from_orm(user) for user in admin_users]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get faculty admins: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get faculty admins")

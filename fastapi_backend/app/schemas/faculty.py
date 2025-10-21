@@ -19,3 +19,11 @@ class FacultyResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class FacultyAdmin(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+
+    class Config:
+        from_attributes = True
