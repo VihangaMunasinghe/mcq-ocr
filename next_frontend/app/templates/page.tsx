@@ -4,89 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "../../components/UI/Button";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  PlusIcon,
+  DocumentTextIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
 import { Template } from "@/models/template";
 import TemplateCard from "./components/template_card";
 import { EditTemplateModal } from "./components/EditTemplateModal";
 import ViewTemplateModal from "./components/ViewTemplateModal";
 import axiosInstance from "@/utils/axiosclient";
-
-//import ViewTemplateModal from "./components/view-template-modal";
 import { useRouter } from "next/navigation";
-//import { FormUploadModal } from "@/components/Modals/FormUploadModal";
-
-const selectFormConfig = [
-  {
-    name: "config_type",
-    label: "Config Type",
-    options: [
-      { value: "grid_based", label: "Grid Based" },
-      { value: "cluster_based", label: "Cluster Based" },
-    ],
-    defaultValue: "grid_based",
-  },
-  {
-    name: "save_intermediate_results",
-    label: "Save Intermediate Results",
-    options: [
-      { value: "true", label: "Yes" },
-      { value: "false", label: "No" },
-    ],
-    defaultValue: "false",
-  },
-];
-
-const inputFormConfig = [
-  {
-    name: "name",
-    label: "Name",
-    type: "text",
-    placeholder: "Enter name",
-    required: true,
-    defaultValue: "",
-  },
-  {
-    name: "description",
-    label: "Description",
-    type: "text",
-    placeholder: "Enter description",
-    defaultValue: "",
-  },
-  {
-    name: "num_of_columns",
-    label: "Number of Columns",
-    type: "number",
-    placeholder: "3",
-    defaultValue: "3",
-  },
-  {
-    name: "num_of_rows_per_column",
-    label: "Rows per Column",
-    type: "number",
-    placeholder: "30",
-    defaultValue: "30",
-  },
-  {
-    name: "num_of_options_per_question",
-    label: "Options per Question",
-    type: "number",
-    placeholder: "5",
-    defaultValue: "5",
-  },
-];
-
-const fileFormConfig = [
-  {
-    name: "template_image", // required
-    label: "Upload your template image",
-    accept: ".jpg,.jpeg,.png", // correct key
-    maxSize: 10 * 1024 * 1024, // correct key
-    maxFiles: 1,
-    required: true,
-    fullWidth: true,
-  },
-];
 
 export default function Templates() {
   const router = useRouter();
@@ -188,71 +117,131 @@ export default function Templates() {
     setIsEditModalOpen(true);
   };
   return (
-    <>
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">My Templates</h2>
+    <div className="space-y-8 p-6">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">My Templates</h1>
+          <p className="text-gray-600 mt-2">
+            Manage your MCQ templates and grading configurations
+          </p>
+        </div>
         <Button
           variant="primary"
-          icon={<FontAwesomeIcon icon={faPlus} className="h-4 w-4" />}
+          icon={<PlusIcon className="h-5 w-5" />}
           onClick={() => router.push("/templates/create")}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
         >
           New Template
         </Button>
       </div>
 
-      <div className="bg-white p-4 rounded-md shadow-sm mb-4">
-        <p className="text-sm text-gray-600">
-          Upload your MCQ templates or other grading templates. Supported
-          formats include Excel (.xlsx), CSV, and PDF with structured format.
-        </p>
+      {/* Info Card */}
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 p-6 rounded-2xl">
+        <div className="flex items-start space-x-4">
+          <div className="bg-blue-500 p-3 rounded-xl">
+            <DocumentTextIcon className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-2">
+              Template Management
+            </h3>
+            <p className="text-blue-700 text-sm leading-relaxed">
+              Upload your MCQ templates or other grading templates. Supported
+              formats include JPEG, PNG. Create reusable templates for
+              consistent evaluation.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Loading State */}
       {loading && (
-        <div className="flex justify-center items-center py-8">
-          <div className="text-gray-600">Loading templates...</div>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="bg-blue-50 p-6 rounded-2xl mb-4">
+            <ArrowPathIcon className="h-8 w-8 text-blue-600 animate-spin" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Loading templates
+          </h3>
+          <p className="text-gray-500">
+            Please wait while we fetch your templates...
+          </p>
         </div>
       )}
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-          <div className="text-red-800 text-sm">Error: {error}</div>
-          <Button variant="secondary" onClick={fetchTemplates} className="mt-2">
-            Retry
-          </Button>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-start space-x-4">
+            <div className="bg-red-500 p-3 rounded-xl">
+              <ExclamationTriangleIcon className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-900 mb-2">
+                Error loading templates
+              </h3>
+              <p className="text-red-700 text-sm mb-4">{error}</p>
+              <Button
+                variant="secondary"
+                onClick={fetchTemplates}
+                icon={<ArrowPathIcon className="h-4 w-4" />}
+                className="bg-white border-red-300 text-red-700 hover:bg-red-50"
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Templates Grid */}
       {!loading && !error && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
           {templates.length > 0 ? (
-            templates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                viewTemplate={viewTemplate}
-                confirmDelete={confirmDelete}
-                editTemplate={editTemplate}
-              />
-            ))
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Your Templates ({templates.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {templates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    viewTemplate={viewTemplate}
+                    confirmDelete={confirmDelete}
+                    editTemplate={editTemplate}
+                  />
+                ))}
+              </div>
+            </>
           ) : (
-            <div className="col-span-full text-center py-8">
-              <div className="text-gray-500">No templates found</div>
-              <Button
-                variant="primary"
-                onClick={() => router.push("/templates/create")}
-                className="mt-4"
-              >
-                Create Your First Template
-              </Button>
+            <div className="text-center py-16">
+              <div className="bg-gray-50 p-8 rounded-2xl mb-6 max-w-md mx-auto">
+                <DocumentTextIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  No templates yet
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Get started by creating your first template for MCQ evaluation
+                </p>
+                <Button
+                  variant="primary"
+                  onClick={() => router.push("/templates/create")}
+                  icon={<PlusIcon className="h-5 w-5" />}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                >
+                  Create Your First Template
+                </Button>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Modals */}
       <VerificationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -274,12 +263,12 @@ export default function Templates() {
           templates.find((t) => t.id === selectedTemplate)?.description || ""
         }
       />
-      {/* View Template Modal */}
+
       <ViewTemplateModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         template={viewingTemplate}
       />
-    </>
+    </div>
   );
 }
