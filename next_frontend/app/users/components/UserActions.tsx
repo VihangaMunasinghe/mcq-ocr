@@ -56,7 +56,7 @@ export function UserActions({
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center justify-end space-x-2">
       {/* Verify Button - only show if not verified */}
       {canVerify && (
         <Button
@@ -91,7 +91,7 @@ export function UserActions({
             />
 
             {/* Menu */}
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-100">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-100 overflow-visible">
               <div className="py-1">
                 {canChangeRole && user.role !== UserRoles.SUPERADMIN && (
                   <button

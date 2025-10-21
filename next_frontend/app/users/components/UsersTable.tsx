@@ -34,7 +34,7 @@ export function UsersTable({
   const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
       {/* Table Header */}
       <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Users</h3>
@@ -43,10 +43,10 @@ export function UsersTable({
         </p>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      {/* Table Container with flex-grow to push pagination to bottom */}
+      <div className="flex-grow overflow-x-auto relative">
+        <table className="min-w-full divide-y divide-gray-200 h-full">
+          <thead className="bg-gray-50 sticky top-0">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 User
@@ -73,9 +73,9 @@ export function UsersTable({
               <tr>
                 <td
                   colSpan={6}
-                  className="px-6 py-12 text-center text-gray-500"
+                  className="px-6 py-12 text-center text-gray-500 h-96"
                 >
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center justify-center h-full">
                     <svg
                       className="h-12 w-12 text-gray-400 mb-4"
                       fill="none"
@@ -147,7 +147,7 @@ export function UsersTable({
                   </td>
 
                   {/* Actions */}
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative overflow-visible">
                     <UserActions
                       user={user}
                       currentUserRole={currentUserRole}
@@ -163,25 +163,25 @@ export function UsersTable({
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700">Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span className="text-sm text-gray-700">per page</span>
-            </div>
+      {/* Pagination - Always visible */}
+      <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 mt-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">Show</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-sm text-gray-700">per page</span>
+          </div>
 
+          {totalPages > 1 && (
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => onPageChange(currentPage - 1)}
@@ -217,9 +217,9 @@ export function UsersTable({
                 Next
               </button>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
