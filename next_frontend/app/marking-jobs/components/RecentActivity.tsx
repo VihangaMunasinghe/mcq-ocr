@@ -1,11 +1,10 @@
 import React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCheckCircle,
-  faClock,
-  faExclamationTriangle,
-  faUser,
-} from "@fortawesome/free-solid-svg-icons";
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  UserIcon,
+} from "@heroicons/react/24/outline";
 import { MarkingJobBasic, MarkingJobStatus } from "../types/types";
 
 interface RecentActivityProps {
@@ -24,13 +23,13 @@ export function RecentActivity({ jobs }: RecentActivityProps) {
   const getActivityIcon = (status: MarkingJobStatus) => {
     switch (status) {
       case MarkingJobStatus.COMPLETED:
-        return faCheckCircle;
+        return CheckCircleIcon;
       case MarkingJobStatus.PROCESSING:
-        return faClock;
+        return ClockIcon;
       case MarkingJobStatus.FAILED:
-        return faExclamationTriangle;
+        return ExclamationTriangleIcon;
       default:
-        return faUser;
+        return UserIcon;
     }
   };
 
@@ -79,8 +78,8 @@ export function RecentActivity({ jobs }: RecentActivityProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-100 p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
         <span className="text-sm text-gray-500">Last 5 jobs</span>
       </div>
@@ -89,29 +88,31 @@ export function RecentActivity({ jobs }: RecentActivityProps) {
         {recentJobs.length === 0 ? (
           <p className="text-gray-500 text-center py-4">No recent activity</p>
         ) : (
-          recentJobs.map((job) => (
-            <div key={job.id} className="flex items-center space-x-3">
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center ${getActivityColor(
-                  job.status
-                )}`}
-              >
-                <FontAwesomeIcon
-                  icon={getActivityIcon(job.status)}
-                  className="h-4 w-4"
-                />
+          recentJobs.map((job) => {
+            const IconComponent = getActivityIcon(job.status);
+            return (
+              <div key={job.id} className="flex items-center space-x-3">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${getActivityColor(
+                    job.status
+                  )}`}
+                >
+                  <IconComponent className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {job.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {getActivityDescription(job)}
+                  </p>
+                </div>
+                <span className="text-sm text-gray-400 flex-shrink-0">
+                  {formatTimeAgo(job.created_at)}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{job.name}</p>
-                <p className="text-sm text-gray-500">
-                  {getActivityDescription(job)}
-                </p>
-              </div>
-              <span className="text-sm text-gray-400 flex-shrink-0">
-                {formatTimeAgo(job.created_at)}
-              </span>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

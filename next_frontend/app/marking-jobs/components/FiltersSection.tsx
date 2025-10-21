@@ -1,7 +1,6 @@
 import React from "react";
 import { Select } from "../../../components/UI/Select";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFilter, faSearch } from "@fortawesome/free-solid-svg-icons";
+import { FunnelIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { StatusFilterOption } from "../types/types";
 
 interface FiltersSectionProps {
@@ -33,7 +32,7 @@ export function FiltersSection({
   onSearchChange,
 }: FiltersSectionProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-100 p-6 mb-6">
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         {/* Search Bar */}
         <div className="flex-1 max-w-md">
@@ -43,13 +42,10 @@ export function FiltersSection({
               placeholder="Search marking jobs..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full px-4 py-2 pl-10 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 pl-11 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <FontAwesomeIcon
-                icon={faSearch}
-                className="h-4 w-4 text-gray-400"
-              />
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
             </div>
           </div>
         </div>
@@ -61,10 +57,7 @@ export function FiltersSection({
           </div>
 
           <div className="flex items-center space-x-2">
-            <FontAwesomeIcon
-              icon={faFilter}
-              className="h-4 w-4 text-gray-400"
-            />
+            <FunnelIcon className="h-5 w-5 text-gray-400" />
             <Select
               value={statusFilter}
               onChange={(e) => onStatusFilterChange(e.target.value)}
