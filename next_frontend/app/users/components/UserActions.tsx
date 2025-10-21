@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faEllipsisV,
-  faUserShield,
-  faUserMinus,
-  faTrash,
-  faCheckCircle,
-} from "@fortawesome/free-solid-svg-icons";
+  EllipsisVerticalIcon,
+  ShieldCheckIcon,
+  UserMinusIcon,
+  TrashIcon,
+  CheckCircleIcon,
+} from "@heroicons/react/24/outline";
 import { User, UserRoles, VerifyStatus } from "../types/types";
 import { Button } from "../../../components/UI/Button";
 
@@ -62,7 +61,7 @@ export function UserActions({
         <Button
           variant="outline"
           size="sm"
-          icon={<FontAwesomeIcon icon={faCheckCircle} className="h-4 w-4" />}
+          icon={<CheckCircleIcon className="h-4 w-4" />}
           onClick={handleVerify}
           className="text-green-600 border-green-200 hover:bg-green-50"
           title="Verify User"
@@ -76,7 +75,7 @@ export function UserActions({
         <Button
           variant="outline"
           size="sm"
-          icon={<FontAwesomeIcon icon={faEllipsisV} className="h-4 w-4" />}
+          icon={<EllipsisVerticalIcon className="h-4 w-4" />}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="px-2"
           title="More Actions"
@@ -91,21 +90,18 @@ export function UserActions({
             />
 
             {/* Menu */}
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-100 overflow-visible">
+            <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-100 overflow-visible transform -translate-x-full">
               <div className="py-1">
                 {canChangeRole && user.role !== UserRoles.SUPERADMIN && (
                   <button
                     onClick={handleToggleRole}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    <FontAwesomeIcon
-                      icon={
-                        user.role === UserRoles.FACULTYADMIN
-                          ? faUserMinus
-                          : faUserShield
-                      }
-                      className="h-4 w-4 mr-3"
-                    />
+                    {user.role === UserRoles.FACULTYADMIN ? (
+                      <UserMinusIcon className="h-4 w-4 mr-3" />
+                    ) : (
+                      <ShieldCheckIcon className="h-4 w-4 mr-3" />
+                    )}
                     {user.role === UserRoles.FACULTYADMIN
                       ? "Remove Faculty Admin"
                       : "Make Faculty Admin"}
@@ -117,7 +113,7 @@ export function UserActions({
                     onClick={handleDelete}
                     className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
                   >
-                    <FontAwesomeIcon icon={faTrash} className="h-4 w-4 mr-3" />
+                    <TrashIcon className="h-4 w-4 mr-3" />
                     Delete User
                   </button>
                 )}

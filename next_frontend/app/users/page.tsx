@@ -17,8 +17,6 @@ export default function Users() {
   const [verificationFilter, setVerificationFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentUserRole, setCurrentUserRole] = useState<UserRoles>(
     UserRoles.BASIC
   );
@@ -82,33 +80,18 @@ export default function Users() {
     });
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1); // Reset to first page when changing items per page
-  };
+  // The Table component handles pagination internally
 
   const handleVerificationFilterChange = (status: string) => {
     setVerificationFilter(status);
-    setCurrentPage(1); // Reset to first page when changing filter
   };
 
   const handleRoleFilterChange = (role: string) => {
     setRoleFilter(role);
-    setCurrentPage(1); // Reset to first page when changing filter
   };
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    setCurrentPage(1); // Reset to first page when searching
   };
 
   const handleVerifyUser = async (userId: number) => {
@@ -221,20 +204,14 @@ export default function Users() {
       />
 
       {loading ? (
-        <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-500">Loading users...</p>
         </div>
       ) : (
         <UsersTable
-          users={paginatedUsers}
+          users={filteredUsers}
           currentUserRole={currentUserRole}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          totalItems={filteredUsers.length}
-          onPageChange={handlePageChange}
-          onItemsPerPageChange={handleItemsPerPageChange}
           onVerifyUser={handleVerifyUser}
           onToggleRole={handleToggleRole}
           onDeleteUser={confirmDelete}
