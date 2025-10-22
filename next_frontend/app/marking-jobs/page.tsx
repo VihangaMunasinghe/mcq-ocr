@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
+import axiosInstance from "@/utils/axiosclient";
+import { createAuthenticatedWebSocket } from "@/utils/websocketClient";
 
 import { MarkingJobBasic, MarkingJobStatus } from "./types/types";
 import { PageHeader } from "./components/PageHeader";
@@ -21,8 +23,6 @@ export default function MarkingJobs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const [loading, setLoading] = useState(true);
   const [markingJobs, setMarkingJobs] = useState<MarkingJobBasic[]>([]);
   const { showToast } = useToast();
@@ -91,86 +91,100 @@ export default function MarkingJobs() {
   };
 
   useEffect(() => {
-    const progressWebsocket = (markingJobIds: number[]) => {
-      const websocket = new WebSocket(`${BACKEND_URL}/api/markings/progress`);
-      websocket.onopen = () => {
-        websocket.send(JSON.stringify({ marking_job_ids: markingJobIds }));
-      };
-      websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.status === "connected") {
-          console.log("WebSocket connection established");
-          return;
-        }
-        if (data.status === "error") {
-          console.error("WebSocket error:", data.message);
-          websocket.close();
-          return;
-        }
-        if (data.status === "processing") {
-          const jobId = data.marking_job_id;
-          const progress = data.progress;
-          console.log("Processing update:", data);
-          setMarkingJobs((prevJobs) =>
-            prevJobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: MarkingJobStatus.PROCESSING,
-                    processed_answer_sheets: progress.completed,
-                    total_answer_sheets: progress.total,
-                  }
-                : job
-            )
-          );
-        }
-        if (data.status === "completed") {
-          const jobId = data.marking_job_id;
-          console.log("Completed update:", data);
-          setMarkingJobs((prevJobs) =>
-            prevJobs.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: MarkingJobStatus.COMPLETED,
-                  }
-                : job
-            )
-          );
-        }
-      };
-      websocket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        websocket.close();
-      };
-      websocket.onclose = () => {
-        console.log("WebSocket connection closed");
-        websocket.close();
-      };
+    const progressWebsocket = async (markingJobIds: number[]) => {
+      try {
+        const ws = await createAuthenticatedWebSocket(
+          `/api/markings/progress`,
+          {
+            initialMessage: { marking_job_ids: markingJobIds },
+            onMessage: (event: MessageEvent) => {
+              const data = JSON.parse(event.data);
+              if (data.status === "connected") {
+                console.log("WebSocket connection established");
+                return;
+              }
+              if (data.status === "error") {
+                console.error("WebSocket error:", data.message);
+                ws.close();
+                return;
+              }
+              if (data.status === "processing") {
+                const jobId = data.marking_job_id;
+                const progress = data.progress;
+                console.log("Processing update:", data);
+                setMarkingJobs((prevJobs) =>
+                  prevJobs.map((job) =>
+                    job.id === jobId
+                      ? {
+                          ...job,
+                          status: MarkingJobStatus.PROCESSING,
+                          processed_answer_sheets: progress.completed,
+                          total_answer_sheets: progress.total,
+                        }
+                      : job
+                  )
+                );
+              }
+              if (data.status === "completed") {
+                const jobId = data.marking_job_id;
+                console.log("Completed update:", data);
+                setMarkingJobs((prevJobs) =>
+                  prevJobs.map((job) =>
+                    job.id === jobId
+                      ? {
+                          ...job,
+                          status: MarkingJobStatus.COMPLETED,
+                        }
+                      : job
+                  )
+                );
+              }
+            },
+            onError: (error: Event) => {
+              console.error("WebSocket error:", error);
+              ws.close();
+            },
+            onClose: () => {
+              console.log("WebSocket connection closed");
+            },
+          }
+        );
+
+        await ws.connect();
+      } catch (error) {
+        console.error("Failed to create WebSocket connection:", error);
+      }
     };
 
     const fetchMarkingJobs = async () => {
       setLoading(true);
-      const response = await fetch(`${BACKEND_URL}/api/markings`);
-      const markingJobs: MarkingJobBasic[] = await response.json();
-      setMarkingJobs(markingJobs);
-      progressWebsocket(
-        markingJobs
-          .map((job) =>
-            job.status === MarkingJobStatus.PROCESSING ||
-            job.status === MarkingJobStatus.QUEUED
-              ? job.id
-              : null
-          )
-          .filter((id) => id !== null)
-      );
-      setLoading(false);
+      try {
+        const response = await axiosInstance.get("/api/markings");
+        const markingJobs: MarkingJobBasic[] =
+          response.data as MarkingJobBasic[];
+        setMarkingJobs(markingJobs);
+        progressWebsocket(
+          markingJobs
+            .map((job) =>
+              job.status === MarkingJobStatus.PROCESSING ||
+              job.status === MarkingJobStatus.QUEUED
+                ? job.id
+                : null
+            )
+            .filter((id) => id !== null)
+        );
+      } catch (error) {
+        console.error("Failed to fetch marking jobs:", error);
+        showToast("Failed to load marking jobs", "error");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchMarkingJobs();
-  }, [BACKEND_URL]);
+  }, [showToast]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <PageHeader onCreateNew={() => router.push("marking-jobs/create")} />
 
       <StatsOverview jobs={markingJobs} />

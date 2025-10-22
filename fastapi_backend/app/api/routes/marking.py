@@ -1,12 +1,12 @@
 import uuid
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request
 from starlette.websockets import WebSocketState
 from sqlalchemy import select
 import logging
 import io
 
 from sqlalchemy.orm import selectinload
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
 from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ProgressRequest, ProgressResponse, ResultsData, UpdateResultRequest
@@ -17,9 +17,14 @@ from fastapi import Depends
 from typing import List
 from app.api.deps import get_websocket_manager
 from app.websocket import WebSocketManager
+from app.middleware.websocket_auth import authorize_websocket
+from app.models.user import UserRoles
 
 from app.queue import submit_marking_job, submit_marking_scheme_config_job
 from app.storage.shared_storage import SharedStorage
+from app.middleware.authorization import require_non_super_admin
+from app.middleware.websocket_auth import authorize_websocket
+from app.models.user import UserRoles
 import json
 
 router = APIRouter(prefix="/api/markings", tags=['markings'])
@@ -57,11 +62,14 @@ def _get_marking_response(marking: MarkingJob) -> MarkingResponse:
 
 
 @router.get('/', response_model=List[MarkingResponseBasic])
+@require_non_super_admin(require_admin_verified=True)
 async def list_markings(
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """List all markings"""
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership filtering
+    user_id = request.state.current_user.id
     try:
       markings = await db.execute(select(MarkingJob).options(selectinload(MarkingJob.template)).where(MarkingJob.created_by == user_id).order_by(MarkingJob.created_at.desc()))
       markings = markings.scalars().all()
@@ -92,13 +100,19 @@ async def progress_websocket(
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get the progress for a marking job"""
-    user_id = 1  # TODO: Get from authentication
     marking_job_ids = []
     
     try:
-        # Accept the WebSocket connection
+        # Accept WebSocket connection first (required before authorization can close it)
         await websocket.accept()
         
+        user = await authorize_websocket(
+            websocket,
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
+            require_admin_verified=True
+        )
+        user_id = user.id
+
         # Receive the marking job IDs from the client
         data = await websocket.receive_json()
         
@@ -112,6 +126,24 @@ async def progress_websocket(
             return
         
         marking_job_ids = data["marking_job_ids"]
+        
+        # Validate that all marking jobs belong to the user
+        for marking_job_id in marking_job_ids:
+            result = await db.execute(
+                select(MarkingJob).where(
+                    MarkingJob.id == marking_job_id,
+                    MarkingJob.created_by == user_id
+                )
+            )
+            marking_job = result.scalar_one_or_none()
+            
+            if not marking_job:
+                await websocket.send_json({
+                    "status": "error",
+                    "message": f"Marking job {marking_job_id} not found or access denied"
+                })
+                await websocket.close()
+                return
         
         # Register to all marking jobs (websocket already accepted)
         for marking_job_id in marking_job_ids:
@@ -151,12 +183,15 @@ async def progress_websocket(
                 logger.warning(f"Failed to disconnect from marking job {marking_job_id}: {e}")
 
 @router.get("/{marking_job_id}", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def get_marking(
+    request: Request,
     marking_job_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get a single marking job by ID"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         result = await db.execute(
             select(MarkingJob).where(
@@ -176,13 +211,16 @@ async def get_marking(
         logger.error(f"Failed to get marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get marking job")
 
-@router.post("/", response_model=MarkingResponse)
+@router.post("/", response_model=MarkingResponse, status_code=201)
+@require_non_super_admin(require_admin_verified=True)
 async def create_marking(
+    request: Request,
     marking: MarkingCreateMetadata,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new marking"""
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership tracking
+    user_id = request.state.current_user.id
     try:
         marking_record = MarkingJob(
           name=marking.name,
@@ -212,13 +250,16 @@ async def create_marking(
 
 
 @router.put("/{marking_job_id}", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def update_marking(
+    request: Request,
     marking_job_id: int,
     marking: MarkingCreateMetadata,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Update a marking"""
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         marking_record = await db.get(MarkingJob, marking_job_id)
         if not marking_record:
@@ -246,14 +287,23 @@ async def configure_marking_scheme_websocket(
 ):
     """Attach marking scheme and enqueue config job via WebSocket"""
     
-    user_id = 1  # TODO: Get from authentication
-    
     logger.info(f"WebSocket endpoint called for marking job {marking_job_id}")
     
     try:
-        # Connect to WebSocket manager (this handles websocket.accept())
-        await websocket_manager.connect_marking_scheme_config(str(marking_job_id), websocket)
+        # Accept WebSocket connection first (required before authorization can close it)
+        await websocket.accept()
+
+        user = await authorize_websocket(
+            websocket,
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
+            require_admin_verified=True
+        )
+        user_id = user.id
+        
         logger.info(f"WebSocket connection established for marking job {marking_job_id}")
+        
+        # Register with WebSocket manager after accepting connection
+        await websocket_manager.register_marking_scheme_config(str(marking_job_id), websocket)
         
         # Wait for the marking scheme data from the client
         
@@ -363,13 +413,16 @@ async def configure_marking_scheme_websocket(
             logger.warning(f"Failed to disconnect WebSocket cleanly: {disconnect_error}")
 
 @router.post("/{marking_job_id}/update-marking-scheme-config", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def update_marking_scheme_config(
+    request_obj: Request,
     marking_job_id: int,
     request: UpdateMarkingSchemeConfigRequest,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Update the marking scheme configuration for a job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request_obj.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -437,13 +490,16 @@ async def update_marking_scheme_config(
 
 
 @router.post("/{marking_job_id}/attach-answer-sheets", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def attach_answer_sheets(
+    request: Request,
     marking_job_id: int,
     sheets_data: MarkingAttachAnswerSheets,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Attach answer sheets folder to marking job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -478,12 +534,15 @@ async def attach_answer_sheets(
 
 
 @router.post("/{marking_job_id}/start-marking", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def start_marking(
+    request: Request,
     marking_job_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Start the marking process"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -544,12 +603,15 @@ async def start_marking(
 
 
 @router.get("/{marking_job_id}/results", response_model=ResultsData)
+@require_non_super_admin(require_admin_verified=True)
 async def get_results(
+    request: Request,
     marking_job_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get the results for a marking job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -586,14 +648,17 @@ async def get_results(
 
 
 @router.put("/{marking_job_id}/update-result/{row_number}", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def update_result(
+    request_obj: Request,
     marking_job_id: int,
     row_number: int,
     request: UpdateResultRequest,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Update a result for a marking job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request_obj.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(

@@ -3,18 +3,20 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowLeft,
-  faFileText,
-  faUpload,
-  faPlay,
-} from "@fortawesome/free-solid-svg-icons";
+  ArrowLeftIcon,
+  DocumentTextIcon,
+  CloudArrowUpIcon,
+  PlayIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
 import CreateMarkingProvider, {
   useCreateMarking,
 } from "@/hooks/useCreateMarking";
 import { useToast } from "@/hooks/useToast";
 import { useRouter } from "next/navigation";
+import axiosInstance from "@/utils/axiosclient";
 import {
   MarkingJobForm,
   Step,
@@ -33,19 +35,19 @@ const steps: Step[] = [
     id: 1,
     title: "Job Metadata",
     description: "Basic information about your marking job",
-    icon: faFileText,
+    icon: DocumentTextIcon,
   },
   {
     id: 2,
     title: "Marking Scheme",
     description: "Upload and configure marking scheme",
-    icon: faUpload,
+    icon: CloudArrowUpIcon,
   },
   {
     id: 3,
     title: "Answer Sheets",
     description: "Upload answer sheets and start marking",
-    icon: faPlay,
+    icon: PlayIcon,
   },
 ];
 
@@ -90,8 +92,6 @@ function CreateMarkingJobContent() {
   const searchParams = useSearchParams();
   const markingJobIdString = searchParams.get("markingJobId");
   const markingJobId = markingJobIdString ? parseInt(markingJobIdString) : null;
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const router = useRouter();
   const { showToast } = useToast();
@@ -112,8 +112,8 @@ function CreateMarkingJobContent() {
     async function fetchMarkingJob(jobId: number) {
       setIsLoading(true);
       try {
-        const response = await fetch(`${BACKEND_URL}/api/markings/${jobId}`);
-        const data: MarkingJob = await response.json();
+        const response = await axiosInstance.get(`/api/markings/${jobId}`);
+        const data: MarkingJob = response.data as MarkingJob;
         console.log("Fetched marking job:", data);
 
         // Map MarkingJob to MarkingJobForm
@@ -189,10 +189,10 @@ function CreateMarkingJobContent() {
     if (!isStepAccessible(currentStep, markingJob?.status || null)) {
       return (
         <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <FontAwesomeIcon icon={faFileText} className="h-12 w-12" />
+          <div className="bg-gray-100 p-4 rounded-2xl w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <ExclamationTriangleIcon className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Step Not Available
           </h3>
           <p className="text-gray-600 mb-4">
@@ -243,31 +243,38 @@ function CreateMarkingJobContent() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-6">
       <div className="space-y-6">
-        {/* Page Header - Match main page design */}
-        <div className="mb-6">
+        {/* Page Header - Modern design */}
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6">
           <div className="flex justify-between items-center">
             <div>
-              <div className="flex items-center mb-2">
+              <div className="flex items-center mb-3">
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  icon={
-                    <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
-                  }
+                  icon={<ArrowLeftIcon className="h-4 w-4" />}
                   onClick={() => router.push("/marking-jobs")}
-                  className="text-gray-600 hover:text-gray-900 mr-2"
+                  className="inline-flex items-center mr-4"
                 >
                   Back to Jobs
                 </Button>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {markingJobId ? "Edit Marking Job" : "Create New Marking Job"}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Follow the steps below to create and start a new marking job
-              </p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500 p-2 rounded-xl">
+                  <DocumentTextIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {markingJobId
+                      ? "Edit Marking Job"
+                      : "Create New Marking Job"}
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    Follow the steps below to create and start a new marking job
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -282,16 +289,21 @@ function CreateMarkingJobContent() {
 
         {/* Step Content */}
         {isLoading ? (
-          <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-500">Loading marking job...</p>
+          <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+            <div className="bg-blue-500 p-4 rounded-2xl w-16 h-16 mx-auto mb-4">
+              <ArrowPathIcon className="h-8 w-8 animate-spin text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Loading
+            </h3>
+            <p className="text-gray-600">Loading marking job...</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-100 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm">
             <div className="p-6">{renderStepContent()}</div>
 
             {/* Navigation */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 rounded-b-2xl">
               <NavigationButtons
                 currentStep={currentStep}
                 totalSteps={steps.length}
@@ -315,13 +327,20 @@ function CreateMarkingJobContent() {
 
 export default function CreateMarkingJob() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <CreateMarkingProvider>
         <Suspense
           fallback={
-            <div className="bg-white rounded-lg border border-gray-100 p-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-500">Loading...</p>
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+                <div className="bg-blue-500 p-4 rounded-2xl w-16 h-16 mx-auto mb-4">
+                  <ArrowPathIcon className="h-8 w-8 animate-spin text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Loading
+                </h3>
+                <p className="text-gray-600">Please wait...</p>
+              </div>
             </div>
           }
         >

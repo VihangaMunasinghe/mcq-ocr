@@ -1,14 +1,15 @@
 import React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
+import { CheckIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { MarkingJobStatus } from "../../types/types";
+import { ComponentType, SVGProps } from "react";
+
+type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 interface Step {
   id: number;
   title: string;
   description: string;
-  icon: IconDefinition;
+  icon: HeroIcon;
 }
 
 interface ProgressStepsProps {
@@ -28,7 +29,7 @@ export function ProgressSteps({
   isStepAccessible = () => true,
 }: ProgressStepsProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
+    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Progress</h3>
         <p className="text-sm text-gray-600 mt-1">
@@ -70,18 +71,11 @@ export function ProgressSteps({
                     }`}
                   >
                     {isCompleted ? (
-                      <FontAwesomeIcon
-                        icon={faCheck}
-                        className="w-4 h-4 text-white"
-                      />
+                      <CheckIcon className="w-4 h-4 text-white" />
                     ) : !isAccessible ? (
-                      <FontAwesomeIcon
-                        icon={faLock}
-                        className="w-4 h-4 text-gray-400"
-                      />
+                      <LockClosedIcon className="w-4 h-4 text-gray-400" />
                     ) : (
-                      <FontAwesomeIcon
-                        icon={step.icon}
+                      <step.icon
                         className={`w-4 h-4 ${
                           isCurrent ? "text-blue-600" : "text-gray-400"
                         }`}

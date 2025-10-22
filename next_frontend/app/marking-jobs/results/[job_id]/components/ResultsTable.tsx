@@ -1,10 +1,8 @@
 import React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faEye,
-  faFlag,
-  faExclamationTriangle,
-} from "@fortawesome/free-solid-svg-icons";
+  EyeIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { Table, TableColumn } from "@/components/UI/Table";
 import { Button } from "@/components/UI/Button";
 import { StudentResult } from "@/app/marking-jobs/types/types";
@@ -27,13 +25,10 @@ export function ResultsTable({
 
     return (
       <span
-        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"
+        className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium bg-red-100 text-red-800 border border-red-200"
         title={flagReason}
       >
-        <FontAwesomeIcon
-          icon={faExclamationTriangle}
-          className="h-3 w-3 mr-1"
-        />
+        <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
         Flagged
       </span>
     );
@@ -122,9 +117,10 @@ export function ResultsTable({
         <Button
           variant="secondary"
           size="sm"
-          icon={<FontAwesomeIcon icon={faEye} className="h-3 w-3" />}
+          icon={<EyeIcon className="h-4 w-4" />}
           onClick={() => onViewMarkedPaper(result)}
           title="View marked paper"
+          className="inline-flex items-center"
         >
           View Paper
         </Button>
@@ -134,18 +130,18 @@ export function ResultsTable({
   ];
 
   return (
-    <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 flex items-center">
-          <FontAwesomeIcon
-            icon={faFlag}
-            className="h-5 w-5 mr-2 text-gray-500"
-          />
-          Student Results
-          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            {results.length} students
-          </span>
-        </h3>
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Student Results
+            </h3>
+            <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+              {results.length} students
+            </span>
+          </div>
+        </div>
       </div>
       <Table
         columns={columns}

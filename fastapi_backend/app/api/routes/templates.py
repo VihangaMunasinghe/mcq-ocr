@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, WebSocket,WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Depends, status, WebSocket, WebSocketDisconnect, Request
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,17 +16,23 @@ from app.websocket import WebSocketManager
 from app.api.deps import get_websocket_manager
 from app.storage.shared_storage import SharedStorage
 from app.models.file import FileOrFolder, FileOrFolderStatus
+from app.middleware.authorization import require_non_super_admin
+from app.middleware.websocket_auth import authorize_websocket
+from app.models.user import UserRoles
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
 
-@router.post("/")
+@router.post("/", status_code=201)
+@require_non_super_admin(require_admin_verified=True)
 async def create_template(
+    request: Request,
     template: TemplateCreate,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Create a new template and return job_id for configuration"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership tracking
+    user_id = request.state.current_user.id
     try:
         # Step 1: Add details to template table
         template_record = Template(
@@ -98,7 +104,9 @@ async def create_template(
         )
 
 @router.get("/", response_model=List[TemplateResponse])
+@require_non_super_admin(require_admin_verified=True)
 async def list_templates(
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     config_type: Optional[TemplateConfigType] = None,
@@ -107,7 +115,8 @@ async def list_templates(
     """
     List all templates
     """
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership filtering
+    user_id = request.state.current_user.id
     try:
         query = select(Template)
         query = query.where(Template.created_by == user_id)
@@ -147,14 +156,17 @@ async def list_templates(
         )
 
 @router.get("/{template_id}", response_model=TemplateResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def get_template(
+    request: Request,
     template_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get template details by ID
     """
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         template = await db.get(Template, template_id)
         if not template or template.created_by != user_id:
@@ -189,14 +201,17 @@ async def get_template(
         )
 
 @router.get("/config-job/{templateConfigJob_id}")
-async def get_template(
+@require_non_super_admin(require_admin_verified=True)
+async def get_template_config_job(
+    request: Request,
     templateConfigJob_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    Get template details by ID
+    Get template config job details by ID
     """
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         templateConfigJob = await db.get(TemplateConfigJob, templateConfigJob_id)
         if not templateConfigJob or templateConfigJob.created_by != user_id:
@@ -219,7 +234,9 @@ async def get_template(
         )
 
 @router.put("/{template_id}", response_model=TemplateResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def update_template(
+    request: Request,
     template_id: int,
     template_update: TemplateCreate,
     db: AsyncSession = Depends(get_async_db)
@@ -227,7 +244,8 @@ async def update_template(
     """
     Update a template by ID
     """
-    user_id = 1 # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         template = await db.get(Template, template_id)
         if not template or template.created_by != user_id:
@@ -272,7 +290,9 @@ async def update_template(
         )
 
 @router.delete("/{template_id}")
+@require_non_super_admin(require_admin_verified=True)
 async def delete_template(
+    request: Request,
     template_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
@@ -286,7 +306,8 @@ async def delete_template(
          - Delete the FileOrFolder DB record (optional but done here).
      3. Delete the Template record.
     """
-    user_id = 1  # TODO: Replace with actual user from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     shared_storage = SharedStorage()
 
     try:
@@ -389,10 +410,19 @@ async def configure_template_websocket(
     websocket_manager: WebSocketManager = Depends(get_websocket_manager)
 ):
     """Configure template via WebSocket"""
-    user_id = 1  # TODO: Get from authentication
     logger.info(f"WebSocket endpoint called for template config job {job_id}")
     
     try:
+        
+        # Authorize WebSocket connection after accepting
+        user = await authorize_websocket(
+            websocket,
+            allowed_roles=[UserRoles.BASIC, UserRoles.FACULTYADMIN],
+            require_admin_verified=True
+        )
+        user_id = user.id
+        logger.info(f"WebSocket authorization successful for user {user_id}")
+        
         # Connect to WebSocket manager
         await websocket_manager.connect_template_config(str(job_id), websocket)
         logger.info(f"WebSocket connection established for template config job {job_id}")
@@ -450,33 +480,27 @@ async def configure_template_websocket(
             await websocket_manager.disconnect_template_config(str(job_id), websocket)
             return
 
+    except WebSocketDisconnect:
+        # WebSocket was properly closed during authorization
+        logger.info(f"WebSocket authorization failed for template config job {job_id}")
     except Exception as e:
         logger.error(f"Failed to configure template job {job_id}: {str(e)}")
-        try:
-            await websocket.send_json({
-                "status": "error",
-                "message": f"Failed to configure template: {str(e)}"
-            })
-        except Exception as send_error:
-            logger.error(f"Failed to send error message: {send_error}")
-        try:
-            await websocket_manager.disconnect_template_config(str(job_id), websocket)
-        except Exception as disconnect_error:
-            logger.error(f"Failed to disconnect WebSocket: {disconnect_error}")
+        # Don't try to send messages if WebSocket was never accepted
+        # The authorization function handles closing the connection
 
 @router.put("/edit/{template_id}")
+@require_non_super_admin(require_admin_verified=True)
 async def update_template_details(
+    request: Request,
     template_id: int,
     updated_data: TemplateUpdate,
     db: AsyncSession = Depends(get_async_db)
 ):
-    
-    # Log the raw body for debugging
-    
     """
     Update template name and description in both Template and TemplateConfigJob tables.
     """
-    user_id = 1  # TODO: Replace with authenticated user
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
 
     try:
         # 1️⃣ Fetch template record
