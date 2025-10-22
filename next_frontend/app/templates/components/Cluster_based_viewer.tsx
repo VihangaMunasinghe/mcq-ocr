@@ -8,12 +8,6 @@ interface BubbleCoordinate {
   y: number;
 }
 
-interface ClusterConfigMetadata {
-  num_columns: number;
-  num_of_options_per_question: number;
-  column_row_distribution: number[];
-}
-
 type BubbleTuple = [number, number];
 
 interface ClusterConfigData {
