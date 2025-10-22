@@ -23,11 +23,20 @@ export function UsersTable({
     {
       header: "Name",
       accessor: (user: User) => (
-        <div>
-          <p className="text-sm font-medium text-slate-900">
-            {`${user.first_name} ${user.last_name}`}
-          </p>
-          <p className="text-xs text-slate-500">ID: {user.id}</p>
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+              {`${user.first_name?.charAt(0) || ""}${
+                user.last_name?.charAt(0) || ""
+              }`}
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-900">
+              {`${user.first_name} ${user.last_name}`}
+            </p>
+            <p className="text-xs text-slate-500">ID: {user.id}</p>
+          </div>
         </div>
       ),
       sortable: true,
@@ -85,8 +94,8 @@ export function UsersTable({
         </p>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-h-96 overflow-hidden">
           <Table
             columns={columns}
             data={users}

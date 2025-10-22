@@ -1,7 +1,6 @@
 import React from "react";
 import {
   EyeIcon,
-  FlagIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { Table, TableColumn } from "@/components/UI/Table";

@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  InformationCircleIcon,
   CalendarIcon,
   FlagIcon,
   ChartBarIcon,
