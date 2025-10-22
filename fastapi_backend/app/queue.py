@@ -313,7 +313,8 @@ class MarkingJobProducer:
                     selectinload(MarkingJob.template).selectinload(Template.template_file),
                     selectinload(MarkingJob.template).selectinload(Template.configuration_file),
                     selectinload(MarkingJob.marking_scheme),
-                    selectinload(MarkingJob.answer_sheets_folder)
+                    selectinload(MarkingJob.answer_sheets_folder),
+                    selectinload(MarkingJob.index_list_file_path)
                 ).where(MarkingJob.id == job_id)
             )
             result = result.scalar_one_or_none()

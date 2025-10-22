@@ -24,6 +24,10 @@ export function AnswerSheetsStep({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Added state for optional data file (CSV/XLSX)
+  const [dataFile, setDataFile] = useState<File | null>(null);
+
+
   const validateStep = (): boolean => {
     return answerSheetsFile !== null;
   };
@@ -58,11 +62,70 @@ export function AnswerSheetsStep({
         answer_sheets_folder_id: uploadData.file_id,
       }));
 
+      // Attempt to upload optional data file (CSV/XLSX) — do not block the main flow if this fails
+      if (dataFile) {
+        try {
+          const data_formData = new FormData();
+          data_formData.append("file", dataFile);
+          data_formData.append("file_type", "data_file");
+
+          // const dataUploadResp = await fetch(`${BACKEND_URL}/api/files/upload`, {
+          //   method: "POST",
+          //   body: data_formData,
+          // });
+          const dataUploadResp = await axiosInstance.post(
+            "/api/files/upload",
+            data_formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+
+          console.log("Data file upload response:", dataUploadResp);
+
+          if (dataUploadResp.status !== 201) {
+            // show error but don't throw so the main flow continues
+            showToast("Failed to upload optional data file", "error");
+          } else {
+            // Axios already parses JSON
+            const dataUploadData = dataUploadResp.data;
+            showToast("Index Number data file uploaded", "success");
+            console.log("Index Number data file uploaded with ID:", dataUploadData.file_id);
+            console.log("Please implement the attacher here, or I will forget!");
+
+            const fileAttachResponse = await axiosInstance.post(
+              `/api/markings/${markingJob.id}/attach-index-list`,
+              { index_list_file_id: dataUploadData.file_id }
+            );
+
+            // Check status, not .ok
+            if (fileAttachResponse.status < 200 || fileAttachResponse.status >= 300) {
+              showToast("Failed to attach index number data file", "error");
+            } else {
+              console.log("✅ Index list attached successfully!");
+            }
+          }
+
+        } catch (e) {
+          // Non-fatal: inform user but continue
+          showToast(
+            e instanceof Error ? e.message : "Error uploading index number data file",
+            "error"
+          );
+        }
+      }
+
       // Attach answer sheets to marking job
-      await axiosInstance.post(
+      const attachResponse = await axiosInstance.post(
         `/api/markings/${markingJob.id}/attach-answer-sheets`,
         { answer_sheets_folder_id: uploadData.file_id }
       );
+
+      if (attachResponse.status !== 200) {
+        throw new Error("Failed to attach answer sheets");
+      }
 
       // Start the marking process
       const startResponse = await axiosInstance.post(
@@ -112,6 +175,25 @@ export function AnswerSheetsStep({
             onFilesChange={(files) => onFileChange(files[0] || null)}
             error={error}
           />
+        </div>
+
+        {/* Index List File Upload Section */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-6">
+          <h4 className="text-base font-semibold text-gray-900 mb-4">
+            Index List File
+          </h4>
+          <FileUpload
+            label="Upload Data File (CSV or XLSX)"
+            hint="Upload a file containting all available stundent index numbers under 'Index No' column."
+            accept=".csv,.xlsx"
+            maxFiles={1}
+            maxSize={10 * 1024 * 1024} // 10MB
+            onFilesChange={(files) => setDataFile(files[0] || null)}
+            error={undefined}
+          />
+          {dataFile && (
+            <p className="mt-2 text-sm text-gray-600">Selected: {dataFile.name}</p>
+          )}
         </div>
 
         {answerSheetsFile && (

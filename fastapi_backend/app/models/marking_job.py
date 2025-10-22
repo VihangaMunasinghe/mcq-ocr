@@ -52,6 +52,7 @@ class MarkingJob(BaseModel):
     answer_sheets_folder_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
     result_sheet_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
     intermediate_results_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
+    index_list_file_id = Column(Integer, ForeignKey("files_or_folders.id"), nullable=True)
 
     # Output paths
     marking_config_file_path = Column(String(500), nullable=True)
@@ -87,6 +88,7 @@ class MarkingJob(BaseModel):
     marking_scheme = relationship("FileOrFolder", foreign_keys=[marking_scheme_id])
     marking_config = relationship("FileOrFolder", foreign_keys=[marking_config_id])
     answer_sheets_folder = relationship("FileOrFolder", foreign_keys=[answer_sheets_folder_id])
+    index_list_file_path = relationship("FileOrFolder", foreign_keys=[index_list_file_id])
     result_sheet_file = relationship("FileOrFolder", foreign_keys=[result_sheet_file_id])
     def __repr__(self):
         return f"<MarkingJob(id={self.id}, name='{self.name}', status='{self.status}')>"
@@ -162,6 +164,7 @@ class MarkingJob(BaseModel):
             'answers_folder_path': self.answer_sheets_folder.path if self.answer_sheets_folder else None,
             'result_sheet_file_path': self.result_sheet_file_path,
             'intermediate_results_path': self.intermediate_results_path,
+            'index_list_file_path': self.index_list_file_path.path if self.index_list_file_path else None,
             'save_intermediate_results': self.save_intermediate_results
         }
     
