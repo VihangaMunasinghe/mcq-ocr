@@ -5,7 +5,7 @@ import { ToastProvider } from "../hooks/useToast";
 import { ConditionalLayout } from "@/components/Layout/ConditionalLayout";
 
 export const metadata: Metadata = {
-  title: "UOM MCQ Auto Grader",
+  title: "EduMark",
   description: "Automated MCQ grading system for University of Moratuwa",
 };
 

@@ -384,17 +384,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
       render();
     };
-  }, [
-    templateImage,
-    configData,
-    columns,
-    xOffset,
-    yOffset,
-    hoverColumnKey,
-    isDragging,
-    mousePos,
-    draggedColumn,
-  ]);
+  }, [templateImage, configData, columns, xOffset, yOffset, hoverColumnKey, isDragging, mousePos, draggedColumn, drawGuides, drawTopBubble]);
 
   return (
     <div className="relative w-full h-full flex">
