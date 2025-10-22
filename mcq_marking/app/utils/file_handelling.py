@@ -7,6 +7,8 @@ from openpyxl import Workbook, load_workbook
 from app.storage.nfs_storage import NFSStorage
 from io import BytesIO
 import logging
+import csv
+from io import StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +190,45 @@ def save_spreadsheet(path, workbook):
     
     # Save to NFS storage
     nfs.save_file(buffer.getvalue(), path)
+
+# Functions for getting the index numbers list from a file path(supports csv or xlsx)
+def get_column_from_file(file_path, column_name):
+    """
+    Get a specific column from a CSV or XLSX file stored in NFS storage.
+    
+    Args:
+        file_path: Relative path within the file_type directory
+        column_name: Name of the column to extract
+        
+    Returns:
+        List of values in the specified column
+    """
+    nfs = NFSStorage()
+    _, ext = os.path.splitext(file_path)
+    
+    if ext.lower() == '.csv':
+        # Read CSV file
+        file_bytes = nfs.get_file(file_path)
+        file_str = file_bytes.decode('utf-8')
+        csv_reader = csv.DictReader(StringIO(file_str))
+        if column_name not in csv_reader.fieldnames:
+            raise ValueError(f"Column '{column_name}' not found in CSV file")
+        return [row[column_name] for row in csv_reader if row[column_name] is not None]
+
+    
+    elif ext.lower() in ['.xlsx', '.xlsm', '.xltx', '.xltm']:
+        # Read XLSX file
+        file_bytes = nfs.get_file(file_path)
+        workbook = load_workbook(BytesIO(file_bytes), read_only=True)
+        sheet = workbook.active
+        
+        header = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+        
+        if column_name not in header:
+            raise ValueError(f"Column '{column_name}' not found in XLSX file")
+        
+        col_index = header.index(column_name) + 1  # openpyxl is 1-indexed
+        return [row[col_index - 1].value for row in sheet.iter_rows(min_row=2) if row[col_index - 1].value is not None]
+    
+    else:
+        raise ValueError("Unsupported file format. Only CSV and XLSX are supported.")

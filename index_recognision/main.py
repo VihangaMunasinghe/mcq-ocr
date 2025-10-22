@@ -8,6 +8,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stdout  # ← Use stream parameter instead of handlers
 )
+logging.getLogger("pika").setLevel(logging.WARNING)
 import Detector
 import Recognizer
 import numpy as np
@@ -30,22 +31,32 @@ def preprocess(file_path) -> np.ndarray:
 
 def callback(ch, method, properties, body):
     logger.info(" [x] Received %r" % body)
-    task = json.loads(body)
+    task = json.loads(body) # type: dict
     file_path = task['file_path']
-    
+    result = task
+    result['error_flag'] = False
+
     ## Detect the index section from the input image
     try:
         image = preprocess(file_path)
     except FileNotFoundError as e:
         logger.error(e)
+        result['error_flag'] = True
+        send_message(OUTGOING_QUEUE, result)
+        logger.info(" [x] Sent result to outgoing queue")
         return
-    index_image = Detector.get_index_section(image)
-    logger.info(" [x] Index section detected")
-    data = Recognizer.recognize_student_index(index_image)
-    logger.info(" [x] Index recognized")
+    try:
+        index_image = Detector.get_index_section(image)
+        logger.info(" [x] Index section detected")
+        data = Recognizer.recognize_student_index(index_image)
+        logger.info(" [x] Index recognized")
+    except Exception as e:
+        logger.error(f"Error during detection/recognition: {e}")
+        result['error_flag'] = True
+        send_message(OUTGOING_QUEUE, result)
+        return
 
     ## Make result with incoming task + data
-    result = task
     result.update(data)
     send_message(OUTGOING_QUEUE, result)
     logger.info(" [x] Sent result to outgoing queue")
