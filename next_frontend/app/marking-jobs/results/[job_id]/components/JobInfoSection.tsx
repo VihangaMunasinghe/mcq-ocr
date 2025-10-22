@@ -1,11 +1,12 @@
 import React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faFileAlt,
-  faCalendarAlt,
-  faFlag,
-  faChartLine,
-} from "@fortawesome/free-solid-svg-icons";
+  InformationCircleIcon,
+  CalendarIcon,
+  FlagIcon,
+  ChartBarIcon,
+  ClockIcon,
+  DocumentTextIcon,
+} from "@heroicons/react/24/outline";
 import { StatusBadge } from "@/app/marking-jobs/components/StatusBadge";
 import { JobInfo, MarkingJobStatus } from "@/app/marking-jobs/types/types";
 
@@ -29,25 +30,34 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-          <FontAwesomeIcon
-            icon={faFileAlt}
-            className="h-5 w-5 mr-2 text-gray-500"
-          />
-          Job Information
-        </h2>
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Job Information
+            </h2>
+            <p className="text-sm text-gray-600">
+              Processing details and statistics
+            </p>
+          </div>
+        </div>
         <StatusBadge status={jobInfo.status as MarkingJobStatus} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Basic Info */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Basic Information
-          </h3>
-          <div className="space-y-2">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-4">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="bg-blue-500 p-2 rounded-xl">
+              <DocumentTextIcon className="h-5 w-5 text-white" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Basic Information
+            </h3>
+          </div>
+          <div className="space-y-3">
             <div>
               <span className="text-sm text-gray-500">Job Name:</span>
               <p className="text-sm font-medium text-gray-900">
@@ -63,15 +73,15 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
             <div>
               <span className="text-sm text-gray-500">Priority:</span>
               <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium ml-2 border ${
                   jobInfo.priority === "high"
-                    ? "bg-red-100 text-red-800"
+                    ? "bg-red-100 text-red-800 border-red-200"
                     : jobInfo.priority === "medium"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-green-100 text-green-800"
+                    ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                    : "bg-green-100 text-green-800 border-green-200"
                 }`}
               >
-                <FontAwesomeIcon icon={faFlag} className="h-3 w-3 mr-1" />
+                <FlagIcon className="h-3 w-3 mr-1" />
                 {jobInfo.priority}
               </span>
             </div>
@@ -79,17 +89,19 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
         </div>
 
         {/* Timing Info */}
-        <div className="space-y-4 ">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Timing
-          </h3>
-          <div className="space-y-2">
+        <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-2xl p-4">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="bg-green-500 p-2 rounded-xl">
+              <ClockIcon className="h-5 w-5 text-white" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Timing Information
+            </h3>
+          </div>
+          <div className="space-y-3">
             <div>
               <span className="text-sm text-gray-500 flex items-center">
-                <FontAwesomeIcon
-                  icon={faCalendarAlt}
-                  className="h-3 w-3 mr-1"
-                />
+                <CalendarIcon className="h-3 w-3 mr-2" />
                 Created:
               </span>
               <p className="text-sm font-medium text-gray-900">
@@ -115,14 +127,17 @@ export function JobInfoSection({ jobInfo }: JobInfoSectionProps) {
           </div>
         </div>
         {/* Duration Info */}
-        <div className="space-y-4 ">
-          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Duration
-          </h3>
-          <div className="space-y-2">
+        <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="bg-purple-500 p-2 rounded-xl">
+              <ChartBarIcon className="h-5 w-5 text-white" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">Performance</h3>
+          </div>
+          <div className="space-y-3">
             <div>
               <span className="text-sm text-gray-500 flex items-center">
-                <FontAwesomeIcon icon={faChartLine} className="h-3 w-3 mr-1" />
+                <ClockIcon className="h-3 w-3 mr-2" />
                 Duration:
               </span>
               <p className="text-sm font-medium text-gray-900">

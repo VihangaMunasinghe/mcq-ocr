@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft, faSpinner } from "@fortawesome/free-solid-svg-icons";
+import {
+  ArrowLeftIcon,
+  DocumentChartBarIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/outline";
 import { Button } from "../../../../components/UI/Button";
 import { useToast } from "../../../../hooks/useToast";
 import axiosInstance from "@/utils/axiosclient";
@@ -126,13 +130,17 @@ const ResultsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <FontAwesomeIcon
-            icon={faSpinner}
-            className="h-8 w-8 animate-spin text-blue-600 mb-4"
-          />
-          <p className="text-gray-600">Loading results...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+          <div className="bg-blue-500 p-4 rounded-2xl w-16 h-16 mx-auto mb-4">
+            <ArrowPathIcon className="h-8 w-8 animate-spin text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Loading Results
+          </h3>
+          <p className="text-gray-600">
+            Please wait while we fetch the marking results...
+          </p>
         </div>
       </div>
     );
@@ -140,33 +148,52 @@ const ResultsPage = () => {
 
   if (error || !resultsData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">
-            <p className="text-lg font-medium">Error Loading Results</p>
-            <p className="text-sm">{error || "No data available"}</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-50 to-pink-100">
+        <div className="text-center bg-white rounded-2xl shadow-xl p-8 border border-red-200 max-w-md">
+          <div className="bg-red-500 p-4 rounded-2xl w-16 h-16 mx-auto mb-4">
+            <ExclamationTriangleIcon className="h-8 w-8 text-white" />
           </div>
-          <Button onClick={handleGoBack}>Go Back to Marking Jobs</Button>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Error Loading Results
+          </h3>
+          <p className="text-gray-600 mb-6">{error || "No data available"}</p>
+          <Button onClick={handleGoBack} className="inline-flex items-center">
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Go Back to Marking Jobs
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="secondary"
-            icon={<FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />}
-            onClick={handleGoBack}
-          >
-            Back to Jobs
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Results: {resultsData.job_info.name}
-          </h1>
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="secondary"
+              icon={<ArrowLeftIcon className="h-4 w-4" />}
+              onClick={handleGoBack}
+              className="inline-flex items-center"
+            >
+              Back to Jobs
+            </Button>
+            <div className="flex items-center space-x-3">
+              <div className="bg-blue-500 p-2 rounded-xl">
+                <DocumentChartBarIcon className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Marking Results
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {resultsData.job_info.name}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
