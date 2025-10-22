@@ -27,8 +27,6 @@ export function AnswerSheetsStep({
   // Added state for optional data file (CSV/XLSX)
   const [dataFile, setDataFile] = useState<File | null>(null);
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
   const validateStep = (): boolean => {
     return answerSheetsFile !== null;
@@ -71,32 +69,45 @@ export function AnswerSheetsStep({
           data_formData.append("file", dataFile);
           data_formData.append("file_type", "data_file");
 
-          const dataUploadResp = await fetch(`${BACKEND_URL}/api/files/upload`, {
-            method: "POST",
-            body: data_formData,
-          });
+          // const dataUploadResp = await fetch(`${BACKEND_URL}/api/files/upload`, {
+          //   method: "POST",
+          //   body: data_formData,
+          // });
+          const dataUploadResp = await axiosInstance.post(
+            "/api/files/upload",
+            data_formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
 
-          if (!dataUploadResp.ok) {
+          console.log("Data file upload response:", dataUploadResp);
+
+          if (dataUploadResp.status !== 201) {
             // show error but don't throw so the main flow continues
             showToast("Failed to upload optional data file", "error");
           } else {
-            const dataUploadData = await dataUploadResp.json();
+            // Axios already parses JSON
+            const dataUploadData = dataUploadResp.data;
             showToast("Index Number data file uploaded", "success");
             console.log("Index Number data file uploaded with ID:", dataUploadData.file_id);
             console.log("Please implement the attacher here, or I will forget!");
-            // attach-index-list endpoint
-            const fileAttachResponse = await fetch(
-              `${BACKEND_URL}/api/markings/${markingJob.id}/attach-index-list`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ index_list_file_id: dataUploadData.file_id }),
-              }
+
+            const fileAttachResponse = await axiosInstance.post(
+              `/api/markings/${markingJob.id}/attach-index-list`,
+              { index_list_file_id: dataUploadData.file_id }
             );
-            if (!fileAttachResponse.ok) {
+
+            // Check status, not .ok
+            if (fileAttachResponse.status < 200 || fileAttachResponse.status >= 300) {
               showToast("Failed to attach index number data file", "error");
+            } else {
+              console.log("✅ Index list attached successfully!");
             }
           }
+
         } catch (e) {
           // Non-fatal: inform user but continue
           showToast(
@@ -107,16 +118,12 @@ export function AnswerSheetsStep({
       }
 
       // Attach answer sheets to marking job
-      const attachResponse = await fetch(
-        `${BACKEND_URL}/api/markings/${markingJob.id}/attach-answer-sheets`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ answer_sheets_folder_id: uploadData.file_id }),
-        }
+      const attachResponse = await axiosInstance.post(
+        `/api/markings/${markingJob.id}/attach-answer-sheets`,
+        { answer_sheets_folder_id: uploadData.file_id }
       );
 
-      if (!attachResponse.ok) {
+      if (attachResponse.status !== 200) {
         throw new Error("Failed to attach answer sheets");
       }
 
