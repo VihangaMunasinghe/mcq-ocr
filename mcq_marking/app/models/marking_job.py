@@ -10,7 +10,7 @@ from app.autograder.utils.image_processing import enhance_image, read_enhanced_i
 from app.models.answer_sheet import AnswerSheet
 from app.models.marking_scheme import MarkingScheme
 from app.models.template import Template, TemplateConfigType
-from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet
+from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_sheet_paths, read_json, save_image_using_folder_and_filename, save_spreadsheet, get_column_from_file
 from app.anomalydetection.anomaly_detector import AnomalyDetector
 from app.utils.EventRegistery import EventRegistery
 from app.utils.ThreadSafeDict import ThreadSafeDict
@@ -56,6 +56,7 @@ class MarkingJob:
         self.intermediate_results_path = data.get('intermediate_results_path')
         self.config_type = data.get('config_type')
         self.save_intermediate_results = data.get('save_intermediate_results')
+        self.index_list_file_path = data.get('index_list_file_path', None)
         self.rabbitmq_url = rabbitmq_url
         self.progress_callback = progress_callback
 
@@ -70,6 +71,7 @@ class MarkingJob:
         self.total_answer_sheets = 0
         self.processed_answer_sheets = 0
         self.failed_answer_sheets = 0
+        self.available_index_numbers = None
 
         self.event_registery = event_registery
         self.temp_data_store = temp_data_store
@@ -90,6 +92,13 @@ class MarkingJob:
     
     def setup(self, force_recalculate=False):
         self.connect()
+        if self.index_list_file_path and file_exists(self.index_list_file_path):
+            # Check if index list file is .csv or .xlsx
+            try:
+                self.available_index_numbers = get_column_from_file(self.index_list_file_path, 'Index No')
+                logger.info(f"Loaded {len(self.available_index_numbers)} index numbers from {self.index_list_file_path}")
+            except Exception as e:
+                logger.error(f"Failed to load index numbers from {self.index_list_file_path}: {e}")
         if self.template is None or self.marking_scheme is None or self.answer_sheets is None or self.spreadsheet_workbook is None or self.spreadsheet_sheet is None or force_recalculate:
             template_img = read_resize_image(self.template_path, resize=False)
 
@@ -142,17 +151,9 @@ class MarkingJob:
                 else:
                     logger.info("Event registery or temp data store not set, skipping index recognition wait.")
                 # Validate index number
-                regex_str = "\\d{6}[A-Z]"
-                available_index_numbers =  [
-                "230004X", "230008M", "230012U", "230016K", "230020R",
-                "230024H", "230028A", "230032F", "230036V", "230040D",
-                "230045X", "230050H", "230054A", "230058N", "230062V",
-                "230066L", "230071X", "230075M", "230079E", "230083K",
-                "230087C", "230092L", "230095A", "230099N", "230103B",
-                "230107P", "230111X", "230114J", "230119E", "230123K",
-                "230127C"]
-                if index_number != "None":
-                    validated_index_number, is_exact_match, is_guess = get_matching_index(index_number, regex_str, available_index_numbers)
+                if index_number != "None" and self.available_index_numbers:
+                    regex_str = "\\d{6}[A-Z]" #TODO: Extract this from the list of available index numbers
+                    validated_index_number, is_exact_match, is_guess = get_matching_index(index_number, regex_str, self.available_index_numbers)
                     if not is_exact_match:
                         results['flag'] = True
                         if is_guess:

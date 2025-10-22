@@ -185,7 +185,13 @@ class LineBasedIndexSectionDetector:
         y -= self.contour_margin
         w += 2 * self.contour_margin
         h += 2 * self.contour_margin
-        self.current = self.current[y:y+h, x:x+w].copy()
+        # Clamp coordinates to image boundaries
+        height, width = self.current.shape[:2]
+        x = max(0, x)
+        y = max(0, y)
+        x2 = min(width, x + w)
+        y2 = min(height, y + h)
+        self.current = self.current[y:y2, x:x2].copy()
         if debug:
             self.__save_intermediate(self.current, "step3_extracted_section", file_id)
         ################################ PHASE 2 ##########################
