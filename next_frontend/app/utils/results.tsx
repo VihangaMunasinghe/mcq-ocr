@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { Bubble, StudentResult } from "@/app/marking-jobs/types/types";
 import { BubbleStyle } from "@/components/UI/AnswerSheetBubble";
+import axiosInstance from "@/utils/axiosclient";
 
 export const _convertBlobToStudentResults = async (
   blob: Blob
@@ -87,12 +88,13 @@ export const _convertBlobToStudentResults = async (
 };
 
 export const getMarkingSchemeBubbleData = async (markingConfigId: number) => {
-  const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
-
-  const markingSchemeConfig = await fetch(
-    `${BACKEND_URL}/api/files/download?method=file_id&file_id=${markingConfigId}`
+  const markingSchemeConfig = await axiosInstance.get(
+    `/api/files/download?method=file_id&file_id=${markingConfigId}`
   );
-  const markingSchemeConfigDataJson = await markingSchemeConfig.json();
+  const markingSchemeConfigDataJson = markingSchemeConfig.data as Record<
+    string,
+    any
+  >;
   console.log("Marking scheme config data:", markingSchemeConfigDataJson);
   if (!markingSchemeConfigDataJson["answers_with_coordinates"]) {
     throw new Error("Missing marking scheme bubble data");

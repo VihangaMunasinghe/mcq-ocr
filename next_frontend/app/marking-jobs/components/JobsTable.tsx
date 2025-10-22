@@ -56,7 +56,7 @@ export function JobsTable({
   ];
 
   return (
-    <div className="bg-white shadow rounded-lg overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
       <Table
         columns={columns}
         data={jobs}

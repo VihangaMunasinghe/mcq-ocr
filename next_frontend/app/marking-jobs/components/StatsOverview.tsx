@@ -1,11 +1,10 @@
 import React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faClipboardCheck,
-  faClock,
-  faCheckCircle,
-  faExclamationTriangle,
-} from "@fortawesome/free-solid-svg-icons";
+  ClipboardDocumentCheckIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { MarkingJobBasic, MarkingJobStatus } from "../types/types";
 
 interface StatsOverviewProps {
@@ -29,30 +28,28 @@ export function StatsOverview({ jobs }: StatsOverviewProps) {
       value: jobs.length.toString(),
       bgColor: "bg-blue-50",
       iconColor: "text-blue-600",
-      icon: <FontAwesomeIcon icon={faClipboardCheck} className="h-6 w-6" />,
+      icon: <ClipboardDocumentCheckIcon className="h-6 w-6" />,
     },
     {
       name: "Completed",
       value: completedJobs.length.toString(),
       bgColor: "bg-green-50",
       iconColor: "text-green-600",
-      icon: <FontAwesomeIcon icon={faCheckCircle} className="h-6 w-6" />,
+      icon: <CheckCircleIcon className="h-6 w-6" />,
     },
     {
       name: "Processing",
       value: processingJobs.length.toString(),
       bgColor: "bg-yellow-50",
       iconColor: "text-yellow-600",
-      icon: <FontAwesomeIcon icon={faClock} className="h-6 w-6" />,
+      icon: <ClockIcon className="h-6 w-6" />,
     },
     {
       name: "Failed",
       value: failedJobs.length.toString(),
       bgColor: "bg-red-50",
       iconColor: "text-red-600",
-      icon: (
-        <FontAwesomeIcon icon={faExclamationTriangle} className="h-6 w-6" />
-      ),
+      icon: <ExclamationTriangleIcon className="h-6 w-6" />,
     },
   ];
 
@@ -61,7 +58,7 @@ export function StatsOverview({ jobs }: StatsOverviewProps) {
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-white rounded-lg p-6 border border-gray-100 hover:shadow-lg transition-shadow"
+          className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-xl transition-all duration-300"
         >
           <div className="flex items-center justify-between">
             <div>

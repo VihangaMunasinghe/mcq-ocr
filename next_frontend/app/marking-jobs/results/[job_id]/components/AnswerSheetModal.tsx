@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { AnswerSheetViewer } from "@/components/UI/AnswerSheetViewer";
 import { Button } from "@/components/UI/Button";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
+import {
+  PencilIcon,
+  CheckIcon,
+  XMarkIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  DocumentTextIcon,
+  HashtagIcon,
+  TrophyIcon,
+  ClipboardDocumentListIcon,
+} from "@heroicons/react/24/outline";
 import { Bubble, StudentResult } from "@/app/marking-jobs/types/types";
 import { _updateCounts } from "@/app/utils/results";
 
@@ -140,51 +149,44 @@ const AnswerSheetModal = ({
     setLocalResult(newLocalResult);
   }
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 bg-gray-500 bg-opacity-75 flex items-center justify-center p-0 transition-opacity h-screen w-screen">
-      <div className="w-[90vw] h-[90vh] max-w-none bg-white rounded-lg shadow-xl transform transition-all flex flex-col m-10 min-h-0">
+    <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-0 transition-opacity h-screen w-screen">
+      <div className="w-[90vw] h-[90vh] max-w-none bg-white rounded-2xl shadow-2xl transform transition-all flex flex-col m-10 min-h-0 border border-gray-200">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-          <h3 className="text-lg font-medium text-gray-900">
-            Answer Sheet: {localResult.index_number}
-          </h3>
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-blue-50 to-blue-100 rounded-t-2xl">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-500 p-2 rounded-xl">
+              <DocumentTextIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Answer Sheet
+              </h3>
+              <p className="text-sm text-gray-600">
+                Index: {localResult.index_number}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "8px",
-              borderRadius: "4px",
-              color: "#9CA3AF",
-              fontSize: "20px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-white/50 transition-colors"
             onClick={() => {
               onClose();
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#374151";
-              e.currentTarget.style.backgroundColor = "#F3F4F6";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "#9CA3AF";
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
             aria-label="Close"
           >
-            <FontAwesomeIcon icon={faTimes} />
+            <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-4 overflow-hidden min-h-0">
+        <div className="flex-1 p-6 overflow-hidden min-h-0">
           <div className="grid grid-cols-5 gap-6 h-full min-h-0">
             {/* Left Column - Answer Sheet Viewer */}
             <div className="col-span-3 h-full min-h-0">
-              <div className="bg-gray-50 border border-gray-200 rounded-md p-4 h-full overflow-auto">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 h-full overflow-auto">
                 {localResult.answer_sheet_path ? (
                   <div className="min-w-max">
                     <AnswerSheetViewer
@@ -201,7 +203,10 @@ const AnswerSheetModal = ({
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-500">
-                    No answer sheet image available
+                    <div className="text-center">
+                      <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                      <p>No answer sheet image available</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -209,173 +214,243 @@ const AnswerSheetModal = ({
 
             {/* Right Column - Answer Sheet Data */}
             <div className="col-span-2 h-full flex flex-col min-h-0">
-              <div className="bg-white border border-gray-200 rounded-md p-6 flex-1 overflow-auto min-h-0">
-                {/* Header */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Answer Sheet Data
-                  </h3>
+              <div className="bg-white border border-gray-200 rounded-2xl flex-1 overflow-hidden min-h-0 shadow-sm">
+                {/* Header with Edit Button */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-blue-500 p-2 rounded-xl">
+                        <ClipboardDocumentListIcon className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Answer Data
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Student information and results
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            onClick={handleSave}
+                            size="sm"
+                            variant="primary"
+                            className="inline-flex items-center"
+                          >
+                            <CheckIcon className="h-4 w-4 mr-2" />
+                            Save
+                          </Button>
+                          <Button
+                            onClick={handleCancel}
+                            size="sm"
+                            variant="secondary"
+                            className="inline-flex items-center"
+                          >
+                            <XMarkIcon className="h-4 w-4 mr-2" />
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          onClick={handleEdit}
+                          size="sm"
+                          variant="primary"
+                          className="inline-flex items-center"
+                        >
+                          <PencilIcon className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Form Fields */}
-                <div className="space-y-4">
-                  {/* Index Number - Only editable field */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Index Number
-                    </label>
-                    <input
-                      type="text"
-                      value={localResult.index_number}
-                      onChange={(e) =>
-                        setLocalResult({
-                          ...localResult,
-                          index_number: e.target.value,
-                        })
-                      }
-                      disabled={!isEditing}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        !isEditing ? "bg-gray-50 text-gray-600" : "bg-white"
-                      }`}
-                    />
-                  </div>
-
-                  {/* Flag Status - Badge */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Flag Status
-                    </label>
-                    <div className="flex items-center">
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          localResult.flag
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-green-100 text-green-800"
+                {/* Scrollable Content */}
+                <div className="p-6 overflow-auto flex-1 min-h-0">
+                  <div className="space-y-6">
+                    {/* Index Number - Editable Field */}
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="bg-blue-100 p-2 rounded-xl">
+                          <HashtagIcon className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <label className="text-sm font-semibold text-gray-900">
+                          Index Number
+                        </label>
+                      </div>
+                      <input
+                        type="text"
+                        value={localResult.index_number}
+                        onChange={(e) =>
+                          setLocalResult({
+                            ...localResult,
+                            index_number: e.target.value,
+                          })
+                        }
+                        disabled={!isEditing}
+                        className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                          !isEditing ? "bg-gray-50 text-gray-600" : "bg-white"
                         }`}
-                      >
-                        {localResult.flag ? "Flagged" : "Not Flagged"}
-                      </span>
+                        placeholder="Enter index number"
+                      />
                     </div>
-                  </div>
 
-                  {/* Flag Reason - Always show if exists */}
-                  {localResult.flag_reason && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Flag Reason
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.flag_reason}
+                    {/* Status Section */}
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="bg-amber-100 p-2 rounded-xl">
+                          <ExclamationTriangleIcon className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <label className="text-sm font-semibold text-gray-900">
+                          Flag Status
+                        </label>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Read-only Information Fields */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Correct Answers */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Correct Answers
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.correct.length}
+                      <div className="flex items-center">
+                        <span
+                          className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium ${
+                            localResult.flag
+                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                              : "bg-green-100 text-green-800 border border-green-200"
+                          }`}
+                        >
+                          {localResult.flag ? (
+                            <>
+                              <ExclamationTriangleIcon className="h-4 w-4 mr-2" />
+                              Flagged
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircleIcon className="h-4 w-4 mr-2" />
+                              Not Flagged
+                            </>
+                          )}
+                        </span>
                       </div>
+                      {localResult.flag_reason && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-gray-700 mb-2">
+                            Flag Reason
+                          </p>
+                          <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+                            {localResult.flag_reason}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Incorrect Answers */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Incorrect Answers
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.incorrect.length}
+                    {/* Score Section */}
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="bg-green-100 p-2 rounded-xl">
+                          <TrophyIcon className="h-4 w-4 text-green-600" />
+                        </div>
+                        <label className="text-sm font-semibold text-gray-900">
+                          Final Score
+                        </label>
                       </div>
-                    </div>
-
-                    {/* Duplicated */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Duplicated
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.more_than_one_marked.length}
+                      <div className="text-3xl font-bold text-green-600">
+                        {localResult.score}
                       </div>
-                    </div>
-
-                    {/* Not Marked */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Not Marked
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.not_marked.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Score */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Score
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                      {localResult.score}
-                    </div>
-                  </div>
-
-                  {/* Additional Information */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Row Number
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
-                        {localResult.row_number}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Total Questions
-                      </label>
-                      <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600">
+                      <p className="text-sm text-gray-500 mt-1">
+                        out of{" "}
                         {localResult.correct.length +
                           localResult.incorrect.length +
                           localResult.more_than_one_marked.length +
-                          localResult.not_marked.length}
+                          localResult.not_marked.length}{" "}
+                        questions
+                      </p>
+                    </div>
+
+                    {/* Statistics Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Correct Answers */}
+                      <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-2xl p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-medium text-green-900">
+                            Correct
+                          </span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {localResult.correct.length}
+                        </div>
+                      </div>
+
+                      {/* Incorrect Answers */}
+                      <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-2xl p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <XMarkIcon className="h-5 w-5 text-red-600" />
+                          <span className="text-sm font-medium text-red-900">
+                            Incorrect
+                          </span>
+                        </div>
+                        <div className="text-2xl font-bold text-red-600">
+                          {localResult.incorrect.length}
+                        </div>
+                      </div>
+
+                      {/* Duplicated */}
+                      <div className="bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <ExclamationTriangleIcon className="h-5 w-5 text-amber-600" />
+                          <span className="text-sm font-medium text-amber-900">
+                            Duplicated
+                          </span>
+                        </div>
+                        <div className="text-2xl font-bold text-amber-600">
+                          {localResult.more_than_one_marked.length}
+                        </div>
+                      </div>
+
+                      {/* Not Marked */}
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <DocumentTextIcon className="h-5 w-5 text-gray-600" />
+                          <span className="text-sm font-medium text-gray-900">
+                            Not Marked
+                          </span>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-600">
+                          {localResult.not_marked.length}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Edit Button Section */}
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <div className="flex justify-end gap-2">
-                    {isEditing ? (
-                      <>
-                        <Button
-                          onClick={handleSave}
-                          size="md"
-                          variant="primary"
-                        >
-                          <FontAwesomeIcon icon={faSave} className="mr-2" />
-                          Save
-                        </Button>
-                        <Button
-                          onClick={handleCancel}
-                          size="md"
-                          variant="secondary"
-                        >
-                          <FontAwesomeIcon icon={faTimes} className="mr-2" />
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <Button onClick={handleEdit} size="md" variant="primary">
-                        <FontAwesomeIcon icon={faEdit} className="mr-2" />
-                        Edit
-                      </Button>
-                    )}
+                    {/* Additional Information */}
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="bg-blue-100 p-2 rounded-xl">
+                          <ClipboardDocumentListIcon className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <label className="text-sm font-semibold text-gray-900">
+                          Additional Details
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                          <span className="text-sm text-gray-600">
+                            Row Number
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {localResult.row_number}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                          <span className="text-sm text-gray-600">
+                            Total Questions
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {localResult.correct.length +
+                              localResult.incorrect.length +
+                              localResult.more_than_one_marked.length +
+                              localResult.not_marked.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

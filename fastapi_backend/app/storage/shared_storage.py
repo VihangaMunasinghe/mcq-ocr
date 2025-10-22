@@ -26,6 +26,12 @@ class SharedStorage:
     def get_base_path(self):
         return self.base_path
     
+    def get_user_directory(self, user_id: int) -> Path:
+        """Get user-specific directory path"""
+        user_dir = self.base_path / "users" / str(user_id)
+        user_dir.mkdir(parents=True, exist_ok=True)
+        return user_dir
+    
     async def save_file(self, file_content: bytes, file_path: str):
         full_path = self.base_path / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
