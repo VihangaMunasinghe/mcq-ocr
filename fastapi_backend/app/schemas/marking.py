@@ -15,6 +15,7 @@ class MarkingResponse(BaseModel):
     marking_config_id: Optional[int] = None
     answer_sheets_folder_id: Optional[int] = None
     result_sheet_file_id: Optional[int] = None
+    index_list_file_id: Optional[int] = None
     save_intermediate_results: bool
     total_answer_sheets: Optional[int] = None
     processed_answer_sheets: Optional[int] = None
@@ -67,6 +68,9 @@ class MarkingAttachScheme(BaseModel):
 
 class MarkingAttachAnswerSheets(BaseModel):
     answer_sheets_folder_id: int
+
+class MarkingAttachIndexList(BaseModel):
+    index_list_file_id: int
 
 class UpdateMarkingSchemeConfigRequest(BaseModel):
     isUpdated: bool

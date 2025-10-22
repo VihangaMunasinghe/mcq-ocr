@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from openpyxl import load_workbook, Workbook
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
-from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ProgressRequest, ProgressResponse, ResultsData, UpdateResultRequest
+from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ProgressRequest, ProgressResponse, ResultsData, UpdateResultRequest, MarkingAttachIndexList
 from app.schemas.marking import UpdateMarkingSchemeConfigRequest
 from app.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +39,7 @@ def _get_marking_response(marking: MarkingJob) -> MarkingResponse:
             marking_config_id=marking.marking_config_id,
             answer_sheets_folder_id=marking.answer_sheets_folder_id,
             result_sheet_file_id=marking.result_sheet_file_id,
+            index_list_file_id=marking.index_list_file_id,
             save_intermediate_results=marking.save_intermediate_results,
             total_answer_sheets=marking.total_answer_sheets,
             processed_answer_sheets=marking.processed_answer_sheets,
@@ -476,6 +477,41 @@ async def attach_answer_sheets(
         logger.error(f"Failed to attach answer sheets to job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to attach answer sheets")
 
+@router.post("/{marking_job_id}/attach-index-list", response_model=MarkingResponse)
+async def attach_index_list(
+    marking_job_id: int,
+    index_list_data: MarkingAttachIndexList,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Attach index list file to marking job"""
+    user_id = 1  # TODO: Get from authentication
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+        
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        # Update index list file ID
+        marking.index_list_file_id = index_list_data.index_list_file_id
+        await db.commit()
+        await db.refresh(marking)
+        
+        logger.info(f"Index list attached to job {marking_job_id}")
+        
+        return _get_marking_response(marking)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to attach index list to job {marking_job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to attach index list")
 
 @router.post("/{marking_job_id}/start-marking", response_model=MarkingResponse)
 async def start_marking(
