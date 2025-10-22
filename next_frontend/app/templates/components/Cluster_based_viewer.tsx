@@ -8,6 +8,23 @@ interface BubbleCoordinate {
   y: number;
 }
 
+interface ClusterConfigMetadata {
+  num_columns: number;
+  num_of_options_per_question: number;
+  column_row_distribution: number[];
+}
+
+type BubbleTuple = [number, number];
+
+interface ClusterConfigData {
+  metadata: {
+    num_columns: number;
+    num_of_options_per_question: number;
+    column_row_distribution: number[];
+  };
+  bubbles: BubbleTuple[][][]; // [column][row][bubble] where bubble is [x, y]
+}
+
 interface ColumnBounds {
   x_min: number;
   x_max: number;
@@ -31,7 +48,7 @@ interface ConfigJobResponse {
 
 interface ClusterBasedViewerProps {
   templateImage: string | null;
-  configData: any;
+  configData: ClusterConfigData;
   configId: string | null;
   jobId: number | null;
   onClose: () => void;
@@ -484,14 +501,24 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
 
       draw();
     };
-  }, [templateImage, configData, scale, bubbles, isDragging, mousePos, hoveredBubble, draggedBubble, drawBubble]);
+  }, [
+    templateImage,
+    configData,
+    scale,
+    bubbles,
+    isDragging,
+    mousePos,
+    hoveredBubble,
+    draggedBubble,
+    drawBubble,
+  ]);
 
   useEffect(() => {
     if (!configData?.bubbles) return;
 
-    const initialBubbles = configData.bubbles.map((column:[]) =>
-      column.map((row: []) =>
-        row.map((coord: number[]) => ({
+    const initialBubbles = configData.bubbles.map((column) =>
+      column.map((row) =>
+        row.map((coord) => ({
           x: coord[0],
           y: coord[1],
         }))
@@ -503,73 +530,153 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
 
   return (
     <div className="relative w-full h-full flex">
-      <div className="w-64 p-4 border-r border-gray-200">
-        <h3 className="font-semibold text-lg mb-3">Submitted Metadata</h3>
-        {configData?.metadata && (
-          <div className="space-y-2">
-            <div className="bg-gray-50 p-2 rounded">
-              <span className="font-medium">Columns:</span>{" "}
-              {configData.metadata.num_columns}
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <span className="font-medium">Options per Question:</span>{" "}
-              {configData.metadata.num_of_options_per_question}
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <span className="font-medium">Row Distribution:</span>
-              <div className="ml-2 text-sm">
-                {configData.metadata.column_row_distribution.map(
-                  (rows: number, idx: number) => (
-                    <div key={idx}>
-                      Column {idx + 1}: {rows} rows
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              Double-click a green bubble and drag (without releasing after 2nd
-              click) to move it (turns blue). Release to a valid location (turns
-              green again).
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={() => handleSubmit()}
-          disabled={isSaving}
-          className={`mt-6 w-full py-2 px-4 rounded-lg shadow-md text-white ${
-            isSaving
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          {isSaving ? "Saving..." : "Save Changes"}
-        </button>
-        <button
-          onClick={handleEdit}
-          className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-red-600 hover:bg-red-800 text-white"
-        >
-          Edit
-        </button>
-        <button
-          onClick={handleOk}
-          className="w-full py-2 px-4 rounded-lg border border-gray-300 mt-2 bg-white hover:bg-gray-100"
-        >
-          Ok
-        </button>
-      </div>
-
-      <div className="flex-1 flex justify-center p-4">
+      {/* Canvas */}
+      <div className="flex-1 flex justify-center p-6 bg-gray-50">
         <div className="relative">
           <canvas
             ref={canvasRef}
-            className="border border-gray-300 rounded shadow-lg cursor-pointer"
+            className="border border-gray-300 rounded-xl shadow-lg cursor-pointer bg-white"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           />
+        </div>
+      </div>
+
+      {/* Sidebar - Right Side */}
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+          <div>
+            <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center">
+              <span className="bg-blue-100 text-blue-600 rounded-lg p-2 mr-3">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 00-2 2v2a2 2 0 002 2m0 0h14m-14 0v6m14-6v6"
+                  />
+                </svg>
+              </span>
+              Cluster Configuration
+            </h3>
+
+            {configData?.metadata && (
+              <div className="space-y-3">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">Columns</span>
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-semibold">
+                      {configData.metadata.num_columns}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">
+                      Options per Question
+                    </span>
+                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-lg font-semibold">
+                      {configData.metadata.num_of_options_per_question}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-4">
+                  <div className="mb-2">
+                    <span className="font-medium text-gray-700">
+                      Row Distribution
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {configData.metadata.column_row_distribution.map(
+                      (rows: number, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="text-gray-600">
+                            Column {idx + 1}
+                          </span>
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-md font-medium">
+                            {rows} rows
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-700">
+                    💡 <strong>Tip:</strong> Double-click a green bubble and
+                    drag (without releasing after 2nd click) to move it (turns
+                    blue). Release to a valid location (turns green again).
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="p-6 border-t border-gray-200 space-y-3">
+          <button
+            onClick={() => handleSubmit()}
+            disabled={isSaving}
+            className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-colors ${
+              isSaving
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl"
+            }`}
+          >
+            {isSaving ? (
+              <span className="flex items-center justify-center">
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Saving...
+              </span>
+            ) : (
+              "Save Changes"
+            )}
+          </button>
+          <button
+            onClick={handleEdit}
+            className="w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold transition-colors shadow-md hover:shadow-lg"
+          >
+            Edit Configuration
+          </button>
+          <button
+            onClick={handleOk}
+            className="w-full py-3 px-4 rounded-xl border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold transition-colors"
+          >
+            Continue
+          </button>
         </div>
       </div>
     </div>

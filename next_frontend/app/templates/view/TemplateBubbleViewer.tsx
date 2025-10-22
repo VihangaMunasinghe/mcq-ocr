@@ -179,45 +179,104 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
   }, [templateId, configId, configtype]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg w-full max-w-6xl h-[90vh] overflow-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            Template Configuration Viewer
-          </h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] overflow-hidden border border-gray-200">
+        {/* Header */}
+        <div className="bg-white px-6 py-4 flex justify-between items-center border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 rounded-lg">
+              <svg
+                className="h-5 w-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                Template Configuration Viewer
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Configure and preview your template bubbles
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition-colors"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-[80vh] space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <p className="text-gray-600">Loading template files...</p>
-            {retryCount > 0 && (
-              <p className="text-sm text-amber-600">
-                Retrying... (Attempt {retryCount}/3)
-              </p>
-            )}
-          </div>
-        ) : (
-          <>
-            {configtype === "grid" ? (
-              <Grid_based_viewer
-                templateImage={templateImage}
-                configData={configData}
-                configId={configId}
-                jobId={jobId}
-                onClose={onClose}
-              />
-            ) : (
-              <Cluster_based_viewer
-                templateImage={templateImage}
-                configData={configData}
-                configId={configId}
-                jobId={jobId}
-                onClose={onClose}
-              />
-            )}
-          </>
-        )}
+        {/* Content */}
+        <div className="h-[calc(90vh-80px)]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-4">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-12 w-12 border-3 border-blue-200"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-3 border-blue-500 border-t-transparent absolute inset-0"></div>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-700 font-medium">
+                  Loading template files...
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  Please wait while we prepare your template
+                </p>
+              </div>
+              {retryCount > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+                  <p className="text-sm text-amber-700 font-medium">
+                    Retrying... (Attempt {retryCount}/3)
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Files may need a moment to be available
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {configtype === "grid" ? (
+                <Grid_based_viewer
+                  templateImage={templateImage}
+                  configData={configData}
+                  configId={configId}
+                  jobId={jobId}
+                  onClose={onClose}
+                />
+              ) : (
+                <Cluster_based_viewer
+                  templateImage={templateImage}
+                  configData={configData}
+                  configId={configId}
+                  jobId={jobId}
+                  onClose={onClose}
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
