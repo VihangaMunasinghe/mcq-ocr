@@ -272,7 +272,7 @@ async def register(
         # Check if user already exists
         result = await db.execute(select(User).where(User.email == user_data.email))
         if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="User already exists")
+            raise HTTPException(status_code=400, detail="Email already exists")
 
         # Hash the password
         hashed_password = get_password_hash(user_data.password)
@@ -292,7 +292,7 @@ async def register(
         await db.commit()
         await db.refresh(new_user)
         
-        return UserResponse.from_orm(new_user)
+        return UserResponse.model_validate(new_user)
     except HTTPException:
         raise
     except Exception as e:
@@ -523,9 +523,9 @@ async def get_current_user_info(
             created_at=None,  # Super user doesn't have these timestamps
             updated_at=None
         )
-    
+
     # Handle regular user
-    return UserResponse.from_orm(current_user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.post("/logout")

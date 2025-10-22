@@ -25,10 +25,12 @@ class UserResponse(BaseModel):
     role: str  # Will be UserRoles enum value as string
     verify_status: str  # Will be VerifyStatus enum value as string
     faculty_id: Optional[int]  # Made optional to support super user
-    faculty: Optional[FacultyResponse] = None
     last_login: Optional[datetime]
     created_at: Optional[datetime]  # Made optional to support super user
     updated_at: Optional[datetime]  # Made optional to support super user
     
     class Config:
         from_attributes = True
+
+class UserResponseWithFaculty(UserResponse):
+    faculty: FacultyResponse
