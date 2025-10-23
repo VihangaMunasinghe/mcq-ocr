@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import logging
 
-from app.schemas.user import UserResponse, UserRoleUpdate, UserUpdate
+from app.schemas.user import UserResponse, UserResponseWithFaculty, UserRoleUpdate, UserUpdate
 from app.database import get_async_db
 from app.models.user import User, VerifyStatus, UserRoles
 from app.middleware.authorization import require_basic_or_higher, require_faculty_admin_or_higher
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 logger = logging.getLogger(__name__)
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/", response_model=List[UserResponseWithFaculty])
 @require_faculty_admin_or_higher(require_admin_verified=True)
 async def list_users(
     request: Request,
@@ -42,14 +42,14 @@ async def list_users(
             raise HTTPException(status_code=403, detail="Insufficient permissions to list users")
         
         users = result.scalars().all()
-        return [UserResponse.from_orm(user) for user in users]
+        return [UserResponseWithFaculty.from_orm(user) for user in users]
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to list users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list users")
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponseWithFaculty)
 @require_basic_or_higher(require_admin_verified=True)
 async def get_user(
     user_id: int,
@@ -87,7 +87,7 @@ async def get_user(
         else:
             raise HTTPException(status_code=403, detail="Invalid user role")
 
-        return UserResponse.from_orm(user)
+        return UserResponseWithFaculty.from_orm(user)
     except HTTPException:
         raise
     except Exception as e:
