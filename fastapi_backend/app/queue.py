@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from .config import get_settings
+from .config import get_rabbitmq_url
 from .database import get_async_db, AsyncSessionLocal
 from app.models.marking_job import MarkingJob
 from app.models.template_config_job import TemplateConfigJob
@@ -21,7 +21,6 @@ from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
 from app.api.deps import get_websocket_manager
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class RabbitMQManager:
@@ -43,10 +42,10 @@ class RabbitMQManager:
         for attempt in range(max_retries):
             try:
                 logger.info(f"Attempting to connect to RabbitMQ (attempt {attempt + 1}/{max_retries})...")
-                logger.info(f"Using RabbitMQ URL: {settings.rabbitmq.rabbitmq_url}")
+                logger.info(f"Using RabbitMQ URL: {get_rabbitmq_url()}")
                 
                 self.connection = await aio_pika.connect_robust(
-                    settings.rabbitmq.rabbitmq_url,
+                    get_rabbitmq_url(),
                     heartbeat=60,
                     client_properties={"connection_name": "MCQ-OCR-FastAPI"}
                 )

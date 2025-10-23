@@ -272,3 +272,134 @@ def get_super_user_creds() -> dict:
         "email": settings.auth.super_user_email,
         "super_user_password_hashed": settings.auth.super_user_password_hashed
     })
+
+
+# Utility functions for accessing specific settings without circular imports
+def get_nfs_shared_path() -> str:
+    """Get NFS shared path from settings."""
+    return settings.app.nfs_shared_path
+
+
+def get_rabbitmq_url() -> str:
+    """Get RabbitMQ URL from settings."""
+    return settings.rabbitmq.rabbitmq_url
+
+
+def get_rabbitmq_host() -> str:
+    """Get RabbitMQ host from settings."""
+    return settings.rabbitmq.rabbitmq_host
+
+
+def get_rabbitmq_port() -> int:
+    """Get RabbitMQ port from settings."""
+    return settings.rabbitmq.rabbitmq_port
+
+
+def get_rabbitmq_user() -> str:
+    """Get RabbitMQ user from settings."""
+    return settings.rabbitmq.rabbitmq_user
+
+
+def get_rabbitmq_password() -> str:
+    """Get RabbitMQ password from settings."""
+    return settings.rabbitmq.rabbitmq_password
+
+
+def get_secret_key() -> str:
+    """Get JWT secret key from settings."""
+    return settings.auth.secret_key
+
+
+def get_jwt_algorithm() -> str:
+    """Get JWT algorithm from settings."""
+    return settings.auth.algorithm
+
+
+def get_access_token_expire_minutes() -> int:
+    """Get access token expire minutes from settings."""
+    return settings.auth.access_token_expire_minutes
+
+
+def get_refresh_token_expire_days() -> int:
+    """Get refresh token expire days from settings."""
+    return settings.auth.refresh_token_expire_days
+
+
+def get_super_user_email() -> str:
+    """Get super user email from settings."""
+    return settings.auth.super_user_email
+
+
+def get_super_user_password_hashed() -> str:
+    """Get super user password hashed from settings."""
+    return settings.auth.super_user_password_hashed
+
+
+def get_cookie_secure() -> bool:
+    """Get cookie secure setting from settings."""
+    return settings.auth.cookie_secure
+
+
+def get_cookie_samesite() -> str:
+    """Get cookie samesite setting from settings."""
+    return settings.auth.cookie_samesite
+
+
+def get_cookie_httponly() -> bool:
+    """Get cookie httponly setting from settings."""
+    return settings.auth.cookie_httponly
+
+
+def get_app_name() -> str:
+    """Get app name from settings."""
+    return settings.app.app_name
+
+
+def get_app_version() -> str:
+    """Get app version from settings."""
+    return settings.app.app_version
+
+
+def get_debug() -> bool:
+    """Get debug setting from settings."""
+    return settings.app.debug
+
+
+def get_environment() -> str:
+    """Get environment from settings."""
+    return settings.app.environment
+
+
+def get_allowed_hosts() -> list:
+    """Get allowed hosts from settings."""
+    return settings.app.allowed_hosts
+
+
+def get_max_upload_size() -> int:
+    """Get max upload size from settings."""
+    return settings.app.max_upload_size
+
+
+def get_upload_dir() -> str:
+    """Get upload directory from settings."""
+    return settings.app.upload_dir
+
+
+def get_database_echo() -> bool:
+    """Get database echo setting from settings."""
+    return settings.database.database_echo
+
+
+def get_database_pool_recycle() -> int:
+    """Get database pool recycle setting from settings."""
+    return settings.database.database_pool_recycle
+
+
+def get_database_pool_size() -> int:
+    """Get database pool size setting from settings."""
+    return settings.database.database_pool_size
+
+
+def get_database_max_overflow() -> int:
+    """Get database max overflow setting from settings."""
+    return settings.database.database_max_overflow

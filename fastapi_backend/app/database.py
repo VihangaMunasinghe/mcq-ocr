@@ -8,27 +8,24 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from .config import get_settings
+from .config import get_database_url, get_database_echo, get_database_pool_recycle, get_database_pool_size, get_database_max_overflow
 
 # Load environment variables
 load_dotenv()
 
-# Get settings
-settings = get_settings()
-
 # Database configuration
-DATABASE_URL = settings.database.database_url
+DATABASE_URL = get_database_url()
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
 # Create async engine
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    echo=settings.database.database_echo,
+    echo=get_database_echo(),
     future=True,
     pool_pre_ping=True,
-    pool_recycle=settings.database.database_pool_recycle,
-    pool_size=settings.database.database_pool_size,
-    max_overflow=settings.database.database_max_overflow,
+    pool_recycle=get_database_pool_recycle(),
+    pool_size=get_database_pool_size(),
+    max_overflow=get_database_max_overflow(),
 )
 
 # Create async session factory
@@ -43,12 +40,12 @@ AsyncSessionLocal = async_sessionmaker(
 # Create synchronous engine for migrations and other sync operations
 sync_engine = create_engine(
     DATABASE_URL,
-    echo=settings.database.database_echo,
+    echo=get_database_echo(),
     future=True,
     pool_pre_ping=True,
-    pool_recycle=settings.database.database_pool_recycle,
-    pool_size=settings.database.database_pool_size,
-    max_overflow=settings.database.database_max_overflow,
+    pool_recycle=get_database_pool_recycle(),
+    pool_size=get_database_pool_size(),
+    max_overflow=get_database_max_overflow(),
 )
 
 # Create synchronous session factory

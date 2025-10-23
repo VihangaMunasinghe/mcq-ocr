@@ -5,10 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import files_router, templates_router, users_router, marking_router, generator_router, auth_router, faculties_router, dashboard_router
 from app.database import init_db, close_db, test_database_connection
-from app.config import get_settings
+from app.config import get_app_name, get_app_version, get_debug, get_environment
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
 
-settings = get_settings()
 
 handlers=[
         logging.StreamHandler(sys.stdout)  # Send logs to stdout
@@ -56,10 +55,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.app.app_name,
-    version=settings.app.app_version,
+    title=get_app_name(),
+    version=get_app_version(),
     description="A comprehensive system for MCQ marking and template management",
-    debug=settings.app.debug,
+    debug=get_debug(),
     lifespan=lifespan
 )
 
@@ -111,8 +110,8 @@ async def health_check():
         "status": overall_status,
         "database": db_status,
         "queue": queue_status,
-        "version": settings.app.app_version,
-        "environment": settings.app.environment
+        "version": get_app_version(),
+        "environment": get_environment()
     }
 
 

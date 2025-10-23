@@ -13,10 +13,11 @@ from app.models.user import User, UserRoles, VerifyStatus
 from app.schemas.auth import TokenResponse, TokenData, UserLogin, UserRegister
 from app.schemas.user import UserResponse
 from app.utils.security import verify_password, get_password_hash
-from app.config import get_settings
-
-# Configuration
-settings = get_settings()
+from app.config import (
+    get_secret_key, get_jwt_algorithm, get_access_token_expire_minutes,
+    get_refresh_token_expire_days, get_super_user_email, get_super_user_password_hashed,
+    get_cookie_secure, get_cookie_samesite, get_cookie_httponly
+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
@@ -43,10 +44,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.auth.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=get_access_token_expire_minutes())
     
     to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm)
+    encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=get_jwt_algorithm())
     return encoded_jwt
 
 
@@ -56,10 +57,10 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(days=settings.auth.refresh_token_expire_days)
+        expire = datetime.now(timezone.utc) + timedelta(days=get_refresh_token_expire_days())
     
     to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm)
+    encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=get_jwt_algorithm())
     return encoded_jwt
 
 
@@ -72,15 +73,15 @@ async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
 
 async def authenticate_super_user(email: str, password: str) -> Optional[dict]:
     """Authenticate super user with email and password."""
-    if email != settings.auth.super_user_email:
+    if email != get_super_user_email():
         return None
-    if not verify_password(password, settings.auth.super_user_password_hashed):
+    if not verify_password(password, get_super_user_password_hashed()):
         return None
     
     # Return a mock user object for super user
     return {
         "id": 0,  # Special ID for super user
-        "email": settings.auth.super_user_email,
+        "email": get_super_user_email(),
         "role": UserRoles.SUPERADMIN.value,
         "faculty_id": None,
         "first_name": "Super",
@@ -111,7 +112,7 @@ async def get_current_user(
     
     try:
         token = get_token_from_cookie(request)
-        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         email: str = payload.get("sub")
         user_id: int = payload.get("user_id")
         role: str = payload.get("role")
@@ -133,11 +134,11 @@ async def get_current_user(
         raise credentials_exception
     
     # Check if this is a super user token
-    if user_id == 0 and email == settings.auth.super_user_email:
+    if user_id == 0 and email == get_super_user_email():
         # Return mock super user object
         return {
             "id": 0,
-            "email": settings.auth.super_user_email,
+            "email": get_super_user_email(),
             "role": UserRoles.SUPERADMIN.value,
             "faculty_id": None,
             "first_name": "Super",
@@ -163,7 +164,7 @@ def get_user_id_from_token(request: Request) -> int:
     """Extract user_id from JWT token without database call."""
     try:
         token = get_token_from_cookie(request)
-        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         user_id: int = payload.get("user_id")
         token_type: str = payload.get("type")
         
@@ -186,7 +187,7 @@ def get_user_role_from_token(request: Request) -> str:
     """Extract user role from JWT token without database call."""
     try:
         token = get_token_from_cookie(request)
-        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         role: str = payload.get("role")
         token_type: str = payload.get("type")
         
@@ -209,7 +210,7 @@ def get_user_verify_status_from_token(request: Request) -> str:
     """Extract user verify status from JWT token without database call."""
     try:
         token = get_token_from_cookie(request)
-        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         verify_status: str = payload.get("verify_status")
         token_type: str = payload.get("type")
         
@@ -232,7 +233,7 @@ def get_user_from_token(request: Request) -> Dict[str, Any]:
     """Extract all user information from JWT token without database call."""
     try:
         token = get_token_from_cookie(request)
-        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         
         user_id: int = payload.get("user_id")
         email: str = payload.get("sub")
@@ -313,7 +314,7 @@ async def login(
         is_super_user = False
         
         # Check if this is super user login
-        if form_data.email == settings.auth.super_user_email:
+        if form_data.email == get_super_user_email():
             logger.info("Super User")
             super_user_data = await authenticate_super_user(form_data.email, form_data.password)
             if super_user_data:
@@ -339,8 +340,8 @@ async def login(
             await db.commit()
         
         # Create tokens
-        access_token_expires = timedelta(minutes=settings.auth.access_token_expire_minutes)
-        refresh_token_expires = timedelta(days=settings.auth.refresh_token_expire_days)
+        access_token_expires = timedelta(minutes=get_access_token_expire_minutes())
+        refresh_token_expires = timedelta(days=get_refresh_token_expire_days())
         
         # Prepare token data based on user type
         if is_super_user:
@@ -373,18 +374,18 @@ async def login(
         response.set_cookie(
             key="access_token",
             value=access_token,
-            httponly=settings.auth.cookie_httponly,
-            secure=settings.auth.cookie_secure,
-            samesite=settings.auth.cookie_samesite,
-            max_age=settings.auth.access_token_expire_minutes * 60
+            httponly=get_cookie_httponly(),
+            secure=get_cookie_secure(),
+            samesite=get_cookie_samesite(),
+            max_age=get_access_token_expire_minutes() * 60
         )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
-            httponly=settings.auth.cookie_httponly,
-            secure=settings.auth.cookie_secure,
-            samesite=settings.auth.cookie_samesite,
-            max_age=settings.auth.refresh_token_expire_days * 24 * 60 * 60
+            httponly=get_cookie_httponly(),
+            secure=get_cookie_secure(),
+            samesite=get_cookie_samesite(),
+            max_age=get_refresh_token_expire_days() * 24 * 60 * 60
         )
         
         return {
@@ -420,7 +421,7 @@ async def refresh_token(
         if not refresh_token:
             raise credentials_exception
             
-        payload = jwt.decode(refresh_token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
+        payload = jwt.decode(refresh_token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         email: str = payload.get("sub")
         token_type: str = payload.get("type")
         
@@ -435,11 +436,11 @@ async def refresh_token(
     is_super_user = False
     
     # Check if this is a super user refresh token
-    if user_id == 0 and email == settings.auth.super_user_email:
+    if user_id == 0 and email == get_super_user_email():
         is_super_user = True
         user = {
             "id": 0,
-            "email": settings.auth.super_user_email,
+            "email": get_super_user_email(),
             "role": UserRoles.SUPERADMIN.value,
             "faculty_id": None,
             "verify_status": VerifyStatus.ADMINVERIFIED.value
@@ -451,8 +452,8 @@ async def refresh_token(
             raise credentials_exception
     
     # Create new tokens
-    access_token_expires = timedelta(minutes=settings.auth.access_token_expire_minutes)
-    new_refresh_token_expires = timedelta(days=settings.auth.refresh_token_expire_days)
+    access_token_expires = timedelta(minutes=get_access_token_expire_minutes())
+    new_refresh_token_expires = timedelta(days=get_refresh_token_expire_days())
     
     # Prepare token data based on user type
     if is_super_user:
@@ -485,18 +486,18 @@ async def refresh_token(
     response.set_cookie(
         key="access_token",
         value=new_access_token,
-        httponly=settings.auth.cookie_httponly,
-        secure=settings.auth.cookie_secure,
-        samesite=settings.auth.cookie_samesite,
-        max_age=settings.auth.access_token_expire_minutes * 60
+        httponly=get_cookie_httponly(),
+        secure=get_cookie_secure(),
+        samesite=get_cookie_samesite(),
+        max_age=get_access_token_expire_minutes() * 60
     )
     response.set_cookie(
         key="refresh_token",
         value=new_refresh_token,
-        httponly=settings.auth.cookie_httponly,
-        secure=settings.auth.cookie_secure,
-        samesite=settings.auth.cookie_samesite,
-        max_age=settings.auth.refresh_token_expire_days * 24 * 60 * 60
+        httponly=get_cookie_httponly(),
+        secure=get_cookie_secure(),
+        samesite=get_cookie_samesite(),
+        max_age=get_refresh_token_expire_days() * 24 * 60 * 60
     )
     
     return {
@@ -535,17 +536,17 @@ async def logout(response: Response):
     response.set_cookie(
         key="access_token",
         value="",
-        httponly=settings.auth.cookie_httponly,
-        secure=settings.auth.cookie_secure,
-        samesite=settings.auth.cookie_samesite,
+        httponly=get_cookie_httponly(),
+        secure=get_cookie_secure(),
+        samesite=get_cookie_samesite(),
         max_age=0
     )
     response.set_cookie(
         key="refresh_token",
         value="",
-        httponly=settings.auth.cookie_httponly,
-        secure=settings.auth.cookie_secure,
-        samesite=settings.auth.cookie_samesite,
+        httponly=get_cookie_httponly(),
+        secure=get_cookie_secure(),
+        samesite=get_cookie_samesite(),
         max_age=0
     )
     return {"message": "Successfully logged out"}
