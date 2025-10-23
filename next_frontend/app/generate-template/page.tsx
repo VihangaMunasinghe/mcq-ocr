@@ -392,7 +392,7 @@ export default function GenerateTemplate() {
                 {/* Simple PDF Viewer */}
                 <div className="relative bg-gray-100 rounded-lg overflow-hidden">
                   <object
-                    data={`/api/custom_template/file?file_name=${encodeURIComponent(
+                    data={`${axiosInstance.defaults.baseURL}/api/custom_template/file?file_name=${encodeURIComponent(
                       filename
                     )}#toolbar=0&navpanes=0&scrollbar=0`}
                     type="application/pdf"
