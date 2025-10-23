@@ -35,6 +35,7 @@ class MarkingResponseBasic(BaseModel):
     status: MarkingJobStatus
     priority: MarkingJobPriority
     template_name: str
+    save_intermediate_results: bool
     total_answer_sheets: Optional[int] = None
     processed_answer_sheets: Optional[int] = None
     created_at: datetime

@@ -86,6 +86,7 @@ export interface JobInfo {
   priority: string;
   status: string;
   marking_config_id: number;
+  save_intermediate_results: boolean;
   result_sheet_file_id: number;
   created_at: string;
   updated_at: string;
