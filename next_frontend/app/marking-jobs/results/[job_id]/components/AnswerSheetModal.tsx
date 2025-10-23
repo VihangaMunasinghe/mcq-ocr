@@ -42,7 +42,7 @@ const AnswerSheetModal = ({
       incorrect: [...(result.incorrect || [])],
       more_than_one_marked: [...(result.more_than_one_marked || [])],
       not_marked: [...(result.not_marked || [])],
-      columnwise_total: [...(result.columnwise_total || [])],
+      // columnwise_total: [...(result.columnwise_total || [])],
     };
   });
 
@@ -59,7 +59,7 @@ const AnswerSheetModal = ({
       incorrect: [...(result.incorrect || [])],
       more_than_one_marked: [...(result.more_than_one_marked || [])],
       not_marked: [...(result.not_marked || [])],
-      columnwise_total: [...(result.columnwise_total || [])],
+      // columnwise_total: [...(result.columnwise_total || [])],
     };
     setLocalResult(deepClonedResult);
     setIsEditing(false);
@@ -85,7 +85,7 @@ const AnswerSheetModal = ({
       incorrect: [...(result.incorrect || [])],
       more_than_one_marked: [...(result.more_than_one_marked || [])],
       not_marked: [...(result.not_marked || [])],
-      columnwise_total: [...(result.columnwise_total || [])],
+      // columnwise_total: [...(result.columnwise_total || [])],
     };
     setLocalResult(deepClonedResult);
     setIsEditing(false);
@@ -134,7 +134,7 @@ const AnswerSheetModal = ({
       incorrect: [...(localResult.incorrect || [])],
       more_than_one_marked: [...(localResult.more_than_one_marked || [])],
       not_marked: [...(localResult.not_marked || [])],
-      columnwise_total: [...(localResult.columnwise_total || [])],
+      // columnwise_total: [...(localResult.columnwise_total || [])],
     };
 
     newLocalResult.labeled_points![questionIndex][optionIndex].marked =

@@ -98,6 +98,81 @@ const ResultsPage = () => {
     setIsAnswerSheetModalOpen(true);
   };
 
+  const handelOnDownloadResultsClicked = async () => {
+    try {
+      const response = await axiosInstance.get(
+        `api/markings/${resultsData?.job_info.id}/download-results`,
+        {
+          responseType: "blob",
+          withCredentials: true,
+          headers: {
+            Accept:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          },
+        }
+      );
+
+      // Create blob URL for download
+      const blob = new Blob([response.data as ArrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link and trigger download
+      const a = document.createElement("a");
+      a.href = url;
+      const fileName = resultsData?.job_info.name
+        ? `${resultsData.job_info.name}_results.xlsx`
+        : `results.xlsx`;
+      a.download = `${fileName}`;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+    }
+  };
+
+  const handelOnDownloadAuditClicked = async () => {
+    try {
+      const response = await axiosInstance.get(
+        `api/markings/${resultsData?.job_info.id}/download-audit`,
+        {
+          responseType: "blob",
+          withCredentials: true,
+          headers: {
+            Accept: "application/zip",
+          },
+        }
+      );
+
+      // Create blob URL for download
+      const blob = new Blob([response.data as ArrayBuffer], {
+        type: "application/zip",
+      });
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link and trigger download
+      const a = document.createElement("a");
+      a.href = url;
+      const fileName = resultsData?.job_info.name
+        ? `${resultsData.job_info.name}_audit.zip`
+        : `audit.zip`;
+      a.download = `${fileName}`;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+    }
+  };
+
   const handelUpdateResult = async (newResult: StudentResult) => {
     try {
       await axiosInstance.put(
@@ -203,7 +278,10 @@ const ResultsPage = () => {
       {/* Results Table */}
       <ResultsTable
         results={resultsData.results}
+        hasIntermedieteResults={resultsData.job_info.save_intermediate_results}
         onViewMarkedPaper={handleViewMarkedPaper}
+        onDownloadResults={handelOnDownloadAuditClicked}
+        onAuditResults={handelOnDownloadResultsClicked}
       />
       {selectedResult && (
         <AnswerSheetModal

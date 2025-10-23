@@ -1,20 +1,23 @@
 import React from "react";
-import {
-  EyeIcon,
-  ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
+import { EyeIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Table, TableColumn } from "@/components/UI/Table";
 import { Button } from "@/components/UI/Button";
 import { StudentResult } from "@/app/marking-jobs/types/types";
 
 interface ResultsTableProps {
   results: StudentResult[];
+  hasIntermedieteResults: boolean;
   onViewMarkedPaper: (result: StudentResult) => void;
+  onDownloadResults: () => void;
+  onAuditResults: () => void;
 }
 
 export function ResultsTable({
   results,
+  hasIntermedieteResults,
   onViewMarkedPaper,
+  onDownloadResults,
+  onAuditResults
 }: ResultsTableProps) {
   const formatArrayAsString = (arr: number[]) => {
     return arr.length > 0 ? arr.join(", ") : "-";
@@ -76,15 +79,15 @@ export function ResultsTable({
       ),
       sortable: false,
     },
-    {
-      header: "Columnwise Total",
-      accessor: (result: StudentResult) => (
-        <span className="text-gray-700 font-medium">
-          {formatArrayAsString(result.columnwise_total)}
-        </span>
-      ),
-      sortable: false,
-    },
+    // {
+    //   header: "Columnwise Total",
+    //   accessor: (result: StudentResult) => (
+    //     <span className="text-gray-700 font-medium">
+    //       {formatArrayAsString(result.columnwise_total)}
+    //     </span>
+    //   ),
+    //   sortable: false,
+    // },
     {
       header: "Score",
       accessor: (result: StudentResult) => (
@@ -132,7 +135,7 @@ export function ResultsTable({
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
       <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h3 className="text-lg font-semibold text-gray-900">
               Student Results
@@ -140,6 +143,26 @@ export function ResultsTable({
             <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
               {results.length} students
             </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="primary"
+              size="sm"
+              className="inline-flex items-center"
+              onClick={onAuditResults}
+            >
+              Download Results
+            </Button>
+            {hasIntermedieteResults && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="inline-flex items-center"
+                onClick={onDownloadResults}
+              >
+                Download Audit
+              </Button>
+            )}
           </div>
         </div>
       </div>

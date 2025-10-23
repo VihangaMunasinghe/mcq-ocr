@@ -25,7 +25,7 @@ class AnswerSheet:
         self.incorrect = None
         self.more_than_one_marked = None
         self.not_marked = None
-        self.columnwise_total = None
+        # self.columnwise_total = None
         self.flag = False
         self.flag_reason = ""
         self.points = None
@@ -66,7 +66,7 @@ class AnswerSheet:
             self.incorrect,
             self.more_than_one_marked,
             self.not_marked,
-            self.columnwise_total,
+            # self.columnwise_total,
             self.points,
             self.labeled_points,
         ) = calculate_score(marking_scheme_answers, self.answers_with_coordinates, choice_distribution)
@@ -92,7 +92,7 @@ class AnswerSheet:
             "incorrect": self.incorrect,
             "more_than_one_marked": self.more_than_one_marked,
             "not_marked": self.not_marked,
-            "columnwise_total": self.columnwise_total,
+            # "columnwise_total": self.columnwise_total,
             "score": len(self.correct),
             "flag": self.flag,
             "flag_reason": self.flag_reason,

@@ -40,8 +40,8 @@ export const _convertBlobToStudentResults = async (
         };
 
         try {
-          const labeledPoints: Bubble[][] = row[10]
-            ? JSON.parse(String(row[10]))
+          const labeledPoints: Bubble[][] = row[9]
+            ? JSON.parse(String(row[9]))
             : [];
 
           results.push({
@@ -67,11 +67,11 @@ export const _convertBlobToStudentResults = async (
               .filter((s) => s.trim() !== "" && s.trim() !== "-")
               .map((s) => Number(s.trim()))
               .filter((n) => !isNaN(n)),
-            columnwise_total: parseNumberArray(String(row[5] || "")),
-            score: Number(row[6]) || 0,
-            flag: Boolean(row[7] || false),
-            flag_reason: String(row[8] || ""),
-            answer_sheet_path: String(row[9] || ""),
+            // columnwise_total: parseNumberArray(String(row[5] || "")),
+            score: Number(row[5]) || 0,
+            flag: Boolean(row[6] || false),
+            flag_reason: String(row[7] || ""),
+            answer_sheet_path: String(row[8] || ""),
             labeled_points: labeledPoints,
           });
         } catch (parseError) {

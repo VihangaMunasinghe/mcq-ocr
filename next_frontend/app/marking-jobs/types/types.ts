@@ -71,7 +71,7 @@ export interface StudentResult {
   incorrect: number[];
   more_than_one_marked: number[];
   not_marked: number[];
-  columnwise_total: number[];
+  // columnwise_total: number[];
   score: number;
   flag: boolean;
   flag_reason: string;
@@ -86,6 +86,7 @@ export interface JobInfo {
   priority: string;
   status: string;
   marking_config_id: number;
+  save_intermediate_results: boolean;
   result_sheet_file_id: number;
   created_at: string;
   updated_at: string;

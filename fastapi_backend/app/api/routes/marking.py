@@ -1,14 +1,20 @@
 import uuid
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request
+
+import pandas as pd
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, Response
 from starlette.websockets import WebSocketState
 from sqlalchemy import select
 import logging
-import io
+from io import BytesIO
+import zipfile
+import os
+from pathlib import Path
 
 from sqlalchemy.orm import selectinload
 from openpyxl import load_workbook
 
 from app.models.marking_job import MarkingJob, MarkingJobStatus
+from app.models.template import Template
 from app.schemas.marking import MarkingCreateMetadata, MarkingResponse, MarkingAttachAnswerSheets, MarkingResponseBasic, ProgressRequest, ProgressResponse, ResultsData, UpdateResultRequest, MarkingAttachIndexList
 from app.schemas.marking import UpdateMarkingSchemeConfigRequest
 from app.database import get_async_db
@@ -81,6 +87,7 @@ async def list_markings(
               status=marking.status,
               priority=marking.priority,
               template_name=marking.template.name,
+              save_intermediate_results=marking.save_intermediate_results,
               total_answer_sheets=marking.total_answer_sheets,
               processed_answer_sheets=marking.processed_answer_sheets,
               created_at=marking.created_at,
@@ -670,6 +677,7 @@ async def get_results(
             created_at=marking.created_at,
             updated_at=marking.updated_at,
             created_by=marking.created_by,
+            save_intermediate_results=marking.save_intermediate_results,
             marking_config_id=marking.marking_config_id,
             result_sheet_file_id=marking.result_sheet_file_id,
             processing_started_at=marking.processing_started_at,
@@ -719,7 +727,7 @@ async def update_result(
         excel_content = await storage.get_file(result_sheet_file_path)
         
         # Load the workbook from bytes
-        workbook = load_workbook(io.BytesIO(excel_content))
+        workbook = load_workbook(BytesIO(excel_content))
         worksheet = workbook.active
         student_result = request.result
         
@@ -748,7 +756,7 @@ async def update_result(
         worksheet.cell(row=excel_row, column=11, value=labeled_points_json)  # K
         
         # Save the workbook back to bytes
-        output = io.BytesIO()
+        output = BytesIO()
         workbook.save(output)
         output.seek(0)
         updated_excel_content = output.getvalue()
@@ -764,3 +772,215 @@ async def update_result(
     except Exception as e:
         logger.error(f"Failed to update result for marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update result")
+    
+    
+
+@router.get("/{marking_job_id}/download-results")
+@require_non_super_admin(require_admin_verified=True)
+async def get_file(
+    request: Request,
+    marking_job_id: int,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Endpoint to retrieve a generated XLSX file,
+    remove some columns in-memory, and return for download.
+    """
+
+    # Validate user ownership
+    user_id = request.state.current_user.id
+
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).options(selectinload(MarkingJob.result_sheet_file)).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if not marking.result_sheet_file:
+            raise HTTPException(status_code=404, detail="Result sheet file not found")
+        
+        # Update the result in the Excel file
+        result_sheet_file_path = marking.result_sheet_file.path
+        
+        # Load file from your shared storage
+        shared_storage = SharedStorage()
+        file_content = await shared_storage.get_file(result_sheet_file_path)
+
+        if not file_content:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # ---- Perform in-memory operations ----
+        # Create an in-memory buffer for reading
+        original_buffer = BytesIO(file_content)
+
+        # Read XLSX into pandas DataFrame
+        df = pd.read_excel(original_buffer)
+
+        # Example: remove some columns safely if they exist
+        columns_to_remove = ["Answer Sheet Path", "Labeled Points", "Audit File Name"]
+        df = df.drop(columns=[c for c in columns_to_remove if c in df.columns])
+
+        # Create another in-memory buffer to save modified file
+        modified_buffer = BytesIO()
+        df.to_excel(modified_buffer, index=False)
+        modified_buffer.seek(0)
+
+        # Set headers for download (proper filename)
+        headers = {
+            "Content-Disposition": f'attachment; filename="{marking.name}_results.xlsx"'
+        }
+
+        # Return modified file (no disk writes!)
+        return Response(
+            content=modified_buffer.read(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers=headers,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve or process file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
+    
+
+@router.get("/{marking_job_id}/download-audit")
+@require_non_super_admin(require_admin_verified=True)
+async def get_audit(
+    request: Request,
+    marking_job_id: int,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Endpoint to retrieve a generated Audit ZIP file.
+    """
+
+    # Validate user ownership
+    user_id = request.state.current_user.id
+
+    try:
+        # Get the marking job
+        result = await db.execute(
+            select(MarkingJob).options(
+                selectinload(MarkingJob.result_sheet_file),
+                selectinload(MarkingJob.template).selectinload(Template.template_file),
+                selectinload(MarkingJob.marking_scheme),
+            ).where(
+                MarkingJob.id == marking_job_id,
+                MarkingJob.created_by == user_id
+            )
+        )
+        marking = result.scalar_one_or_none()
+
+        if not marking:
+            raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        if not marking.result_sheet_file:
+            raise HTTPException(status_code=404, detail="Result sheet file not found")
+        
+        # Update the result in the Excel file
+        result_sheet_file_path = marking.result_sheet_file.path
+        
+        # Load file from your shared storage
+        shared_storage = SharedStorage()
+        excel_file_content = await shared_storage.get_file(result_sheet_file_path)
+
+        if not excel_file_content:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # ---- Perform in-memory operations ----
+        # Create an in-memory buffer for reading
+        original_buffer = BytesIO(excel_file_content)
+
+        # Read XLSX into pandas DataFrame
+        df = pd.read_excel(original_buffer)
+
+        # Example: remove some columns safely if they exist
+        columns_to_remove = ["Answer Sheet Path", "Labeled Points"]
+        df = df.drop(columns=[c for c in columns_to_remove if c in df.columns])
+
+        # Create another in-memory buffer to save modified file
+        modified_buffer = BytesIO()
+        df.to_excel(modified_buffer, index=False)
+        modified_buffer.seek(0)
+
+        # Create an in-memory ZIP containing the modified results + template + marking scheme
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            # Add modified results XLSX
+            zf.writestr(f"{marking.name}_results.xlsx", modified_buffer.getvalue())
+
+            # Add template files if available
+            try:
+                if getattr(marking, "template", None) and getattr(marking.template, "template_file", None) and getattr(marking.template.template_file, "path", None):
+                    tpl_path = marking.template.template_file.path
+                    tpl_bytes = await shared_storage.get_file(tpl_path)
+                    if tpl_bytes:
+                        zf.writestr(os.path.basename(tpl_path), tpl_bytes)
+            except Exception:
+                logger.warning(f"Failed to include template file for marking job {marking_job_id}")
+
+            # Add marking scheme file if available
+            try:
+                if getattr(marking, "marking_scheme", None) and getattr(marking.marking_scheme, "path", None):
+                    ms_path = marking.marking_scheme.path
+                    ms_bytes = await shared_storage.get_file(ms_path)
+                    if ms_bytes:
+                        zf.writestr(os.path.basename(ms_path), ms_bytes)
+            except Exception:
+                logger.warning(f"Failed to include marking scheme file for marking job {marking_job_id}")
+            
+            #Add intermediate results folder
+            try:
+                inter_rel = getattr(marking, "intermediate_results_path", None)
+                if inter_rel:
+                    base_path = shared_storage.get_base_path()
+                    inter_folder = base_path / inter_rel
+                    if inter_folder.exists() and inter_folder.is_dir():
+                        # Walk directory and add files preserving relative structure
+                        for root, dirs, files in os.walk(inter_folder):
+                            for fname in files:
+                                file_full = Path(root) / fname
+                                # relative path inside the intermediate folder
+                                rel_inside = os.path.relpath(file_full, inter_folder)
+                                arcname = os.path.join(os.path.basename(inter_rel.rstrip('/')), rel_inside)
+                                try:
+                                    # Use shared_storage to read file bytes
+                                    file_path_for_storage = str(Path(inter_rel) / rel_inside)
+                                    file_bytes = await shared_storage.get_file(file_path_for_storage)
+                                except Exception:
+                                    # fallback to reading directly from disk
+                                    try:
+                                        with open(file_full, 'rb') as f:
+                                            file_bytes = f.read()
+                                    except Exception:
+                                        file_bytes = None
+
+                                if file_bytes:
+                                    zf.writestr(arcname, file_bytes)
+            except Exception:
+                logger.warning(f"Failed to include intermediate results folder for marking job {marking_job_id}")
+
+        zip_buffer.seek(0)
+
+        headers = {"Content-Disposition": f'attachment; filename="{marking.name}_audit.zip"'}
+
+        # Return ZIP (no disk writes)
+        return Response(
+            content=zip_buffer.read(),
+            media_type="application/zip",
+            headers=headers,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve or process file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
