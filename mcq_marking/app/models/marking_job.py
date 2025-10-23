@@ -14,7 +14,7 @@ from app.utils.file_handelling import file_exists, get_spreadsheet, read_answer_
 from app.anomalydetection.anomaly_detector import AnomalyDetector
 from app.utils.EventRegistery import EventRegistery
 from app.utils.ThreadSafeDict import ThreadSafeDict
-from app.indexListner.indexValidator import get_matching_index
+from app.indexListner.indexValidator import get_matching_index, get_regex_from_list
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -152,7 +152,7 @@ class MarkingJob:
                     logger.info("Event registery or temp data store not set, skipping index recognition wait.")
                 # Validate index number
                 if index_number != "None" and self.available_index_numbers:
-                    regex_str = "\\d{6}[A-Z]" #TODO: Extract this from the list of available index numbers
+                    regex_str = get_regex_from_list(self.available_index_numbers)
                     validated_index_number, is_exact_match, is_guess = get_matching_index(index_number, regex_str, self.available_index_numbers)
                     if not is_exact_match:
                         results['flag'] = True
