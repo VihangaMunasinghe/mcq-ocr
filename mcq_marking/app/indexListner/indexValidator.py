@@ -1,6 +1,44 @@
 from rapidfuzz.distance import Levenshtein, Hamming
 import re
 
+def get_regex_from_list(label_list):
+    ''' Given a list of labels, return a a generalized regex pattern string'''
+    includes_matrix = []
+    matrix_height = 0
+    options = 4 # digits/ A-Z / a-z / other characters
+    for label in label_list:
+        # adjust matrix height
+        if len(label) > matrix_height:
+            for _ in range(len(label) - matrix_height):
+                includes_matrix.append([False]*options)
+            matrix_height = len(label)
+        # fill in includes matrix
+        for i, char in enumerate(label):
+            if char.isdigit():
+                includes_matrix[i][0] = True
+            elif char.isupper():
+                includes_matrix[i][1] = True
+            elif char.islower():
+                includes_matrix[i][2] = True
+            else:
+                includes_matrix[i][3] = True
+    # build regex string from includes matrix
+    regex_str = ""
+    for row in includes_matrix:
+        # if other characters are included, we use . to match any character
+        if row[3]:
+            regex_str += "."
+        else:
+            char_class = ""
+            if row[0]:
+                char_class += "0-9"
+            if row[1]:
+                char_class += "A-Z"
+            if row[2]:
+                char_class += "a-z"
+            regex_str += f"[{char_class}]"
+    return regex_str
+
 def get_matching_index(predicted_label,regex_str, possible_labels):
     ''' Given a predicted label, a regex string and a list of possible labels,
     return the best matching label from the possible labels based on exact match or hamming distance.
