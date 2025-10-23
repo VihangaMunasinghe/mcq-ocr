@@ -71,7 +71,7 @@ export interface StudentResult {
   incorrect: number[];
   more_than_one_marked: number[];
   not_marked: number[];
-  columnwise_total: number[];
+  // columnwise_total: number[];
   score: number;
   flag: boolean;
   flag_reason: string;

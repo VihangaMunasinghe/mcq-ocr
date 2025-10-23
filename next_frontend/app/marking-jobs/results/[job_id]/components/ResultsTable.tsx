@@ -76,15 +76,15 @@ export function ResultsTable({
       ),
       sortable: false,
     },
-    {
-      header: "Columnwise Total",
-      accessor: (result: StudentResult) => (
-        <span className="text-gray-700 font-medium">
-          {formatArrayAsString(result.columnwise_total)}
-        </span>
-      ),
-      sortable: false,
-    },
+    // {
+    //   header: "Columnwise Total",
+    //   accessor: (result: StudentResult) => (
+    //     <span className="text-gray-700 font-medium">
+    //       {formatArrayAsString(result.columnwise_total)}
+    //     </span>
+    //   ),
+    //   sortable: false,
+    // },
     {
       header: "Score",
       accessor: (result: StudentResult) => (

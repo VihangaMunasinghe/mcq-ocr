@@ -119,7 +119,10 @@ class MarkingJob:
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
-            self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Columnwise Total', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points'])
+            if self.save_intermediate_results:
+                self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points', 'Audit File Name'])
+            else:
+                self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points'])
     
     def mark_answers(self):
         self.setup()
@@ -169,12 +172,14 @@ class MarkingJob:
                     #results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] =='') else f'{results['flag_reason']}, ') + 'Unussual marks detected'
                     results['flag_reason'] = ('' if (not results['flag_reason'] or results['flag_reason'] == '') else f'{results["flag_reason"]}, ') + 'Unusual marks detected'
 
-                self.add_to_spreadsheet(results)
                 if self.save_intermediate_results:
-                    save_image_using_folder_and_filename(self.intermediate_results_path, f"{answer_sheet.id}.jpg", answer_sheet.result_img)
+                    audit_file_name = f"{answer_sheet.id}.jpg"
+                    save_image_using_folder_and_filename(self.intermediate_results_path, audit_file_name, answer_sheet.result_img)
+                    results['audit_file_name'] = audit_file_name
+                    logger.info(f"Saved intermediate results")
+                self.add_to_spreadsheet(results)
                 #update progress
                 self.processed_answer_sheets += 1
-                logger.info(f"Saved intermediate results")
             except Exception as e:
                 logger.error(f"Error processing answer sheet: {answer_sheet_path}")
                 logger.error(f"Error: {e}")
@@ -204,19 +209,23 @@ class MarkingJob:
         return result
 
     def add_to_spreadsheet(self, results: dict):
-        self.spreadsheet_sheet.append([
+        append_data =[
             results['index_number'], 
             ','.join(map(str, results['correct'])), 
             ','.join(map(str, results['incorrect'])), 
             ','.join(map(str, results['more_than_one_marked'])), 
             ','.join(map(str, results['not_marked'])), 
-            ','.join(map(str, results['columnwise_total'])), 
+            # ','.join(map(str, results['columnwise_total'])), 
             results['score'], 
             results['flag'], 
             results['flag_reason'],
             results['answer_sheet_path'],
-            json.dumps(results['labeled_points'])
-            ])
+            json.dumps(results['labeled_points'],)
+            ]
+        if self.save_intermediate_results:
+            append_data.append(results['audit_file_name'])
+
+        self.spreadsheet_sheet.append(append_data)
         
 
     def __str__(self):

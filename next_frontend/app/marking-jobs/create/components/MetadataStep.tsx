@@ -253,11 +253,13 @@ export function MetadataStep({
                         htmlFor="save_intermediate_results"
                         className="block text-sm font-medium text-gray-700"
                       >
-                        Save intermediate results
+                        Save Audit Copy
                       </label>
                       <p className="text-sm text-gray-500 mt-1">
-                        Store progress periodically during processing for
-                        recovery if interrupted.
+                        After the job is completed, you can download Zip file
+                        for audit. This file contains Results sheet, template,
+                        marking scheme and a folder of each answer sheet with
+                        identified points.
                       </p>
                     </div>
                   </div>

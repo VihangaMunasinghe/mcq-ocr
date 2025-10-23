@@ -106,7 +106,7 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
     correct = []
     more_than_one_marked = []
     not_marked = []
-    columnwise_total = {0: 0, 1: 0, 2: 0}
+    # columnwise_total = {0: 0, 1: 0, 2: 0}
     correct_mark = 0
     points = {
         "correct": [],
@@ -130,7 +130,7 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
         if correct_choice and len(marked_points) == 1:
             correct.append(i+1)
             correct_mark += 1
-            columnwise_total[i//30] += 1
+            # columnwise_total[i//30] += 1
             points["correct"].append({"question_number": i+1, "answer": "correct", "coordinates": marked_points[0]})
             if facility_index:
                 facility_index[i+1] += 1
@@ -146,4 +146,5 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
             for point in marked_points:
                 points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point})
             incorrect.append(i+1)
-    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points, labeled_points
+    # return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points, labeled_points
+    return correct, incorrect, more_than_one_marked, not_marked, points, labeled_points
