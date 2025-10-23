@@ -104,7 +104,7 @@ export default function GenerateTemplate() {
 
   const handleDownload = () => {
     if (!filename) return;
-    const downloadUrl = `/api/custom_template/file?file_name=${encodeURIComponent(
+    const downloadUrl = `${axiosInstance.defaults.baseURL}/api/custom_template/file?file_name=${encodeURIComponent(
       filename
     )}&download=true`;
     window.open(downloadUrl, "_blank");
