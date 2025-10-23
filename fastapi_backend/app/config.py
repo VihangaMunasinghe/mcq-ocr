@@ -186,14 +186,14 @@ class AuthSettings(BaseSettings):
     
     # Super user settings
     super_user_email: str = Field(
-        default="superadmin@uom.lk",
+        default="superuser@uom.lk",
         env="SUPER_USER_EMAIL",
-        description="Super user email for initial admin access"
+        description="Super user email"
     )
-    
+
     super_user_password_hashed: str = Field(
-        default="$2b$12$default_hashed_password_change_this",
-        env="SUPER_USER_PASSWORD_HASHED",
+        default="$2a$12$qAMxLPnimk9bnf8zEINXD.2wWdMJmtHTUmKINN2bjc8pDtr9/T4Ne",
+        env="SUPER_USER_PASSWORD",
         description="Super user hashed password"
     )
     
@@ -214,18 +214,6 @@ class AuthSettings(BaseSettings):
         default=True,
         env="COOKIE_HTTPONLY",
         description="Use HttpOnly cookies"
-    )
-
-    super_user_email: str = Field(
-        default="superuser@uom.lk",
-        env="SUPER_USER_EMAIL",
-        description="Super user email"
-    )
-
-    super_user_password_hashed: str = Field(
-        default="$2a$12$qAMxLPnimk9bnf8zEINXD.2wWdMJmtHTUmKINN2bjc8pDtr9/T4Ne",
-        env="SUPER_USER_EMAIL",
-        description="Super user hashed password"
     )
 
     class Config:

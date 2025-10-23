@@ -7,6 +7,8 @@ from typing import Optional
 
 from pathlib import Path
 
+from app.config import get_settings
+
 class SharedStorage:
     _instance: Optional['SharedStorage'] = None
     _initialized: bool = False
@@ -17,7 +19,8 @@ class SharedStorage:
         return cls._instance
 
     def __init__(self):
-        self.shared_path = os.getenv('NFS_SHARED_PATH', '/shared')
+        settings = get_settings()
+        self.shared_path = settings.app.nfs_shared_path
         self.base_path = Path(self.shared_path)
 
     def get_shared_path(self):
