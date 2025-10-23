@@ -525,7 +525,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
   return (
     <div className="relative w-full h-full flex">
       {/* Canvas */}
-      <div className="flex-1 flex justify-center p-6 bg-gray-50">
+      <div className="flex-1 flex justify-center p-6 bg-gray-50 overflow-y-auto">
         <div className="relative">
           <canvas
             ref={canvasRef}
