@@ -1,45 +1,127 @@
-# OMR based MCQ Autograder
+# EDUMARK — Automatic MCQ Grader
 
-MCQAutoGrader implements an Optical Mark Recognition based autograding tool for paper based MCQ questions. The project is mainly designed to be used for CS1033 Programming Fundamentals course offered by the Dept. of Computer Science and Engineering at University of Moratuwa, Sri Lanka.
+A multi-component system for scanning, recognising and automatically marking multiple-choice question (MCQ) sheets. This repository contains a modernized set of services and tooling that extend an older marking system (see `mcq_marking_old/`).
 
-MCQAutoGrader is designed to take a list of scanned answer scripts (bubble sheets) as inputs along with the marking scheme and the template of the bubble sheet. The template of the bubble sheet is available [here](https://docs.google.com/spreadsheets/d/1oUphoxSrNf3qI7_DLRZII-zN9sUES-WGTxp9o_Qo21Q/edit?usp=sharing).
+## Table of contents
 
-The project uses [poetry]poetry --version
-) for dependency management and packaging. To set up the dependencies run the following command after cloning/downloading the repository.
+- What this is
+- Key components
+- Quick start (Docker)
+- Running services individually (dev)
+- Tests
+- Legacy system and migration notes
 
-```bash
+## What this is
 
-poetry install
-source $(poetry env info --path)/bin/activate
+MCQ-OCR is a modular project that combines computer-vision based answer-sheet detection and recognition with a marking backend and a frontend. It integrates components for:
 
+- Detecting and segmenting answer regions from scanned sheets.
+- Recognizing filled answers from segmented regions.
+- Applying marking schemes to generate student results.
+- A web frontend for uploading and reviewing scans.
+
+The codebase is grouped into logical services to simplify development, testing and scaling.
+
+## Key components (folders)
+
+- `fastapi_backend/` — The primary backend implemented with FastAPI. Contains API endpoints, database integration, queueing, template generation and tests.
+- `index_recognision/` — Index/recognition utilities and CV-based detectors and recognizers.
+- `mcq_marking/` — The newer marking service used by the system (microservice / worker code).
+- `mcq_marking_old/` — The original/legacy marking system we extended. Kept for reference and migration.
+- `next_frontend/` — Next.js frontend for user interaction and uploads.
+- `samples/` — Example templates, answer sheets and marking schemes used during development and testing.
+
+There are test files under each service (for example, `fastapi_backend/tests/` and `index_recognision/test_*.py`).
+
+## Quick start (recommended: Docker + docker-compose)
+
+The repository includes a `docker-compose.yml` at the project root that defines the services used for local development. Docker is the fastest way to get all services up and running with minimal host setup.
+
+Prerequisites
+
+- Docker and Docker Compose installed on your machine.
+- At least 4GB free RAM recommended for local development.
+
+Start all services (from project root):
+
+PowerShell
+```
+# build and start services in the background
+docker-compose up --build -d
+
+# view logs (optional)
+docker-compose logs -f
 ```
 
-## Using the autograder tool
-To find more information about the tool execute the following command after you have set up the project:
+Stop and remove containers:
 
-`python3 mcqautograder/autograder.py --help`
+PowerShell
+```
+docker-compose down
+```
 
-Typical use of the tool require the template, marking scheme, directory containing scanned answer scripts, a list of students as a csv file to be provided as follows. Refer the [samples](/samples/) directory.
+Notes
 
-`python3 mcqautograder/autograder.py --template 2023_sample/template/1.jpg --markingscheme 2023_sample/marking_schemes/1.jpg --answers 2023_sample/answers/ --studentslist 2023_sample/students_list.csv`
+- Service names in the compose file may vary; inspect `docker-compose.yml` if you need to target a specific container (for example to run tests inside it).
 
-## Using the multiversion_autograder tool
+## Running services individually (development)
 
-MCQAutoGrader also contains a multiversion_autograder tool to grade exam papers with multiple versions. Typical use of this tool would require templates and marking schemes for each version, directory containing scanned answer scripts, and a list of students and the corresponding exam paper version given to the student as a csv file to be provided as follows. Refer the [samples](/samples/) directory.
+If you prefer to run components locally without Docker, each service has its own dev instructions and dependencies. Typical steps for the Python services (example: `fastapi_backend`) are:
 
-`python3 mcqautograder/multiversion_autograder.py --templates samples/templates/ --markingschemes samples/marking_schemes/ --answers samples/answers/ --studentslist samples/students_list.csv --numversions 2`
+PowerShell (example for `fastapi_backend`)
+```
+# create venv
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
 
-Please note that here the templates and corresponding marking schemes should be renamed to just the version number (eg: 1.jpg, 2.jpg, ...).
+# install dependencies - the project uses pyproject.toml; choose pip or poetry per your workflow
+pip install -U pip
+pip install -r fastapi_backend/requirements.txt  # if present, or use poetry install inside the service folder
 
-## Contact
+# run the backend
+cd fastapi_backend; uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-If you have any questions, please contact: [gayashan@cse.mrt.ac.lk](mailto:gayashan@cse.mrt.ac.lk)
+For `index_recognision`, follow the README inside that folder. It contains detector/recognizer scripts and tests.
 
+## Tests
 
-## Acknowledgements
+Most Python services include pytest tests. Example commands (from project root):
 
-This project is inspired and based on the following work. Special thanks should go to these authors for their contributions:
+PowerShell
+```
+# run tests for backend
+cd fastapi_backend; pytest -q
 
-[1] Chidrewar, Vaibhav, Junwei Yang, and Donguk Moon. "Mobile based auto grading of answersheets." (2014).
+# run index_recognision tests
+cd index_recognision; pytest -q
+```
 
-[2] Jain, Salay and Sharma, Harsh, "OMR-Auto-Grading-System", https://github.com/salay-jain/OMR-Auto-Grading-System
+There are integration tests in several places that mock or use local resources — review the `pytest.ini` and `conftest.py` files in the service folders for specifics.
+
+## Legacy system
+
+The older system we extended is kept in `mcq_marking_old/`. That folder includes:
+
+- historical scripts, notebooks and a `LICENSE` file for the original project files.
+- migration references and sample CSV/student lists.
+
+If you are migrating functionality or comparing behaviour, consult the files in `mcq_marking_old/` and the included `Automatic MCQ Grader.pdf` presentation that summarises the project design and decisions from the legacy system.
+
+## Common workflows
+
+- Mark a batch of scanned sheets: upload through the frontend or POST to backend API -> sheets are queued -> recognition worker(s) process images -> marking applied -> results stored in DB and available via API.
+- Test a recognition model or detector locally: run the detector/recognizer scripts in `index_recognision/` with sample images from `samples/`.
+
+## Notes / Where to find things quickly
+
+- FastAPI backend: `fastapi_backend/`
+- Recognition/detection: `index_recognision/`
+- Marking workers: `mcq_marking/`
+- Legacy system: `mcq_marking_old/`
+- Frontend: `next_frontend/`
+
+## Contact / Maintainers
+
+Repository owner: VihangaMunasinghe[vihangamunasinghe.22@cse.mrt.ac.lk](mailto:vihangamunasinghe.22@cse.mrt.ac.lk).
+
+— End of README —
