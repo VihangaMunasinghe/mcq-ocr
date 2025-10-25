@@ -90,37 +90,45 @@ async def get_dashboard_stats(
         
         user_name = f"{user.first_name} {user.last_name}" if user.first_name and user.last_name else user.email
         
-        # 2. Get key statistics
-        # Total users count
-        total_users_result = await db.execute(
-            select(func.count(User.id))
-        )
-        total_users = total_users_result.scalar() or 0
+        # 2. Get key statistics (filtered by user)
+        # Total users count (only count users in the same faculty for faculty admins, or just 1 for basic users)
+        if user_role == UserRoles.FACULTYADMIN.value:
+            # Count users in the same faculty
+            total_users_result = await db.execute(
+                select(func.count(User.id)).where(User.faculty_id == user.faculty_id)
+            )
+            total_users = total_users_result.scalar() or 0
+        else:
+            # Basic users only see themselves
+            total_users = 1
         
-        # Active templates count (status = COMPLETED)
+        # Active templates count (only user's templates)
         active_templates_result = await db.execute(
             select(func.count(Template.id)).where(
-                Template.status == TemplateConfigStatus.COMPLETED
+                Template.status == TemplateConfigStatus.COMPLETED,
+                Template.created_by == user_id
             )
         )
         active_templates = active_templates_result.scalar() or 0
         
-        # Completed marking jobs count
+        # Completed marking jobs count (only user's jobs)
         completed_jobs_result = await db.execute(
             select(func.count(MarkingJob.id)).where(
-                MarkingJob.status == MarkingJobStatus.COMPLETED
+                MarkingJob.status == MarkingJobStatus.COMPLETED,
+                MarkingJob.created_by == user_id
             )
         )
         completed_jobs = completed_jobs_result.scalar() or 0
         
-        # Overall completion rate
+        # Overall completion rate (only user's jobs)
         total_jobs_result = await db.execute(
             select(func.count(MarkingJob.id)).where(
                 MarkingJob.status.in_([
                     MarkingJobStatus.COMPLETED,
                     MarkingJobStatus.FAILED,
                     MarkingJobStatus.CANCELLED
-                ])
+                ]),
+                MarkingJob.created_by == user_id
             )
         )
         total_finished_jobs = total_jobs_result.scalar() or 0
@@ -133,10 +141,11 @@ async def get_dashboard_stats(
             completion_rate=round(completion_rate, 2)
         )
         
-        # 3. Get recent marking jobs (last 5)
+        # 3. Get recent marking jobs (last 5) - only user's jobs
         recent_jobs_result = await db.execute(
             select(MarkingJob, Template.name.label('template_name'))
             .join(Template, MarkingJob.template_id == Template.id)
+            .where(MarkingJob.created_by == user_id)
             .order_by(MarkingJob.created_at.desc())
             .limit(5)
         )
@@ -163,9 +172,10 @@ async def get_dashboard_stats(
                 )
             )
         
-        # 4. Get recent templates (last 3)
+        # 4. Get recent templates (last 3) - only user's templates
         recent_templates_result = await db.execute(
             select(Template)
+            .where(Template.created_by == user_id)
             .order_by(Template.created_at.desc())
             .limit(3)
         )
@@ -184,44 +194,50 @@ async def get_dashboard_stats(
             for template in recent_templates_data
         ]
         
-        # 5. Config type comparison (grid_based vs cluster_based)
+        # 5. Config type comparison (grid_based vs cluster_based) - only user's data
         config_type_comparison = []
         
         for config_type in [TemplateConfigType.GRID_BASED, TemplateConfigType.CLUSTER_BASED]:
-            # Count templates by type
+            # Count templates by type (only user's templates)
             template_count_result = await db.execute(
                 select(func.count(Template.id)).where(
-                    Template.config_type == config_type
+                    Template.config_type == config_type,
+                    Template.created_by == user_id
                 )
             )
             template_count = template_count_result.scalar() or 0
             
-            # Count marking jobs by template type
+            # Count marking jobs by template type (only user's jobs)
             job_count_result = await db.execute(
                 select(func.count(MarkingJob.id))
                 .join(Template, MarkingJob.template_id == Template.id)
-                .where(Template.config_type == config_type)
+                .where(
+                    Template.config_type == config_type,
+                    MarkingJob.created_by == user_id
+                )
             )
             job_count = job_count_result.scalar() or 0
             
-            # Count completed jobs
+            # Count completed jobs (only user's jobs)
             completed_jobs_result = await db.execute(
                 select(func.count(MarkingJob.id))
                 .join(Template, MarkingJob.template_id == Template.id)
                 .where(
                     Template.config_type == config_type,
-                    MarkingJob.status == MarkingJobStatus.COMPLETED
+                    MarkingJob.status == MarkingJobStatus.COMPLETED,
+                    MarkingJob.created_by == user_id
                 )
             )
             completed_jobs_count = completed_jobs_result.scalar() or 0
             
-            # Count failed jobs
+            # Count failed jobs (only user's jobs)
             failed_jobs_result = await db.execute(
                 select(func.count(MarkingJob.id))
                 .join(Template, MarkingJob.template_id == Template.id)
                 .where(
                     Template.config_type == config_type,
-                    MarkingJob.status == MarkingJobStatus.FAILED
+                    MarkingJob.status == MarkingJobStatus.FAILED,
+                    MarkingJob.created_by == user_id
                 )
             )
             failed_jobs_count = failed_jobs_result.scalar() or 0
@@ -230,7 +246,7 @@ async def get_dashboard_stats(
             total_finished = completed_jobs_count + failed_jobs_count
             type_completion_rate = (completed_jobs_count / total_finished * 100) if total_finished > 0 else 0
             
-            # Calculate average completion time per answer sheet
+            # Calculate average completion time per answer sheet (only user's jobs)
             # Get total time consumed and total processed answer sheets for fair average
             time_and_sheets_result = await db.execute(
                 select(
@@ -250,6 +266,7 @@ async def get_dashboard_stats(
                 .where(
                     Template.config_type == config_type,
                     MarkingJob.status == MarkingJobStatus.COMPLETED,
+                    MarkingJob.created_by == user_id,
                     MarkingJob.processing_started_at.isnot(None),
                     MarkingJob.processing_completed_at.isnot(None),
                     MarkingJob.processed_answer_sheets.isnot(None),
