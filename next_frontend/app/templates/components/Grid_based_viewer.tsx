@@ -45,7 +45,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   configData,
   configId,
   jobId,
-  onClose,
+  onClose
 }) => {
   const router = useRouter();
   const { showToast } = useToast();
@@ -57,23 +57,14 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [yOffset, setYOffset] = useState<number>(0);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(
-    null
-  );
-  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(
-    null
-  );
+  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(null);
+  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(null);
   const [hoverColumnKey, setHoverColumnKey] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
-    null
-  );
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
 
   const CLICK_COOLDOWN = 300; // milliseconds
   const DRAG_THRESHOLD = 5; // pixels
@@ -160,7 +151,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     // Find and select the column
     const selected: SelectedColumn = {
       key: hit,
-      originalPosition: { ...columns[hit] },
+      originalPosition: { ...columns[hit] }
     };
 
     setSelectedColumn(selected);
@@ -292,20 +283,20 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
       const response = await axiosInstance.get(
         `/api/templates/config-job/${jobId}`
       );
-
       const uploadData: ConfigJobResponse = response.data as ConfigJobResponse;
       const TemRecordId = uploadData.template_id;
       await axiosInstance.delete(`/api/templates/${TemRecordId}`);
 
-      showToast("You can re-enter again!", "success");
+      showToast("You can re-enter again !", "success");
+      // Close the viewer FIRST to unmount TemplateBubbleViewer
       onClose();
-
+      // Small delay to ensure cleanup, then navigate
       setTimeout(() => {
         router.push("/templates/create?reset=true");
       }, 100);
     } catch (error) {
       console.error(
-        "Error while getting configJob record ID or deleting template:",
+        "Error while getting configJob record ID or deleting  template:",
         error
       );
       showToast("Failed to remove entered template", "error");
@@ -316,7 +307,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setXOffset(num);
   };
-
+  
   const handleYOffsetChange = (v: string) => {
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setYOffset(num);
@@ -363,14 +354,14 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
         Object.keys(columns).forEach((k) => {
           const s = columns[k];
-
+          
           // Skip drawing the bubble being dragged at its original position
           if (draggedColumn && k === draggedColumn.key) {
             // Don't draw it here, we'll draw it at mouse position
             drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
             return;
           }
-
+          
           drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
           const isHover = hoverColumnKey === k && !isDragging;
           drawTopBubble(ctx, s.starting_x, s.starting_y, "#2BFA0B", isHover);
@@ -384,12 +375,22 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
       render();
     };
-  }, [templateImage, configData, columns, xOffset, yOffset, hoverColumnKey, isDragging, mousePos, draggedColumn, drawGuides, drawTopBubble]);
+  }, [
+    templateImage,
+    configData,
+    columns,
+    xOffset,
+    yOffset,
+    hoverColumnKey,
+    isDragging,
+    mousePos,
+    draggedColumn,
+  ]);
 
   return (
     <div className="relative w-full h-full flex">
       {/* Canvas */}
-      <div className="flex-1 flex justify-center items-start p-6 bg-gray-50">
+      <div className="flex-1 flex justify-center items-start p-6 bg-gray-50 overflow-y-auto">
         <div className="relative">
           <canvas
             ref={canvasRef}
@@ -526,8 +527,8 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
                 />
               </div>
             </div>
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-700">
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-700">
                 💡 <strong>Tip:</strong> Double-click a green bubble and drag
                 (without releasing after 2nd click) to move it (turns blue).
                 Release to finalize (turns green again).

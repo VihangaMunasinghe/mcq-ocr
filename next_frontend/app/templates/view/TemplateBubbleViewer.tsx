@@ -256,7 +256,7 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
             </div>
           ) : (
             <>
-              {configtype === "grid" ? (
+              {configtype === "grid_based" ? (
                 <Grid_based_viewer
                   templateImage={templateImage}
                   configData={configData}
