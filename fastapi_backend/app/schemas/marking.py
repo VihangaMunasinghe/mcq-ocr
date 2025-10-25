@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Any, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.marking_job import MarkingJobPriority, MarkingJobStatus
 
@@ -88,7 +88,7 @@ class StudentResult(BaseModel):
     incorrect: list[int]
     more_than_one_marked: list[int]
     not_marked: list[int]
-    columnwise_total: list[int]
+    columnwise_total: Optional[list[int]] = None
     score: int
     flag: bool
     flag_reason: str

@@ -757,29 +757,27 @@ async def update_result(
         worksheet = workbook.active
         student_result = request.result
         
-        correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else "-"
-        incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else "-"
-        more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else "-"
-        not_marked_str = ",".join(map(str, student_result.not_marked)) if student_result.not_marked else "-"
-        columnwise_total_str = ",".join(map(str, student_result.columnwise_total)) if student_result.columnwise_total else "-"
+        correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else ""
+        incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else ""
+        more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else ""
+        not_marked_str = ",".join(map(str, student_result.not_marked)) if student_result.not_marked else ""
         
         # Convert labeled_points to JSON string
-        labeled_points_json = json.dumps(student_result.labeled_points, default=lambda x: x.dict() if hasattr(x, 'dict') else x)
+        labeled_points_json = json.dumps(student_result.labeled_points, default=lambda x: x.dict() if hasattr(x, 'dict') else x) if student_result.labeled_points else "[]"
         
         # Update the row (row_number is 1-based in Excel, but we need to account for header row)
         excel_row = row_number + 1  # +1 because Excel is 1-based and we have a header row
         
-        worksheet.cell(row=excel_row, column=1, value=student_result.index_number)  # A
-        worksheet.cell(row=excel_row, column=2, value=correct_str)  # B
-        worksheet.cell(row=excel_row, column=3, value=incorrect_str)  # C
-        worksheet.cell(row=excel_row, column=4, value=more_than_one_marked_str)  # D
-        worksheet.cell(row=excel_row, column=5, value=not_marked_str)  # E
-        worksheet.cell(row=excel_row, column=6, value=columnwise_total_str)  # F
-        worksheet.cell(row=excel_row, column=7, value=student_result.score)  # G
-        worksheet.cell(row=excel_row, column=8, value=student_result.flag)  # H
-        worksheet.cell(row=excel_row, column=9, value=student_result.flag_reason)  # I
-        worksheet.cell(row=excel_row, column=10, value=student_result.answer_sheet_path)  # J
-        worksheet.cell(row=excel_row, column=11, value=labeled_points_json)  # K
+        worksheet.cell(row=excel_row, column=1, value=student_result.index_number)  # A - row[0]
+        worksheet.cell(row=excel_row, column=2, value=correct_str)  # B - row[1]
+        worksheet.cell(row=excel_row, column=3, value=incorrect_str)  # C - row[2]
+        worksheet.cell(row=excel_row, column=4, value=more_than_one_marked_str)  # D - row[3]
+        worksheet.cell(row=excel_row, column=5, value=not_marked_str)  # E - row[4]
+        worksheet.cell(row=excel_row, column=6, value=student_result.score)  # F - row[5] (score)
+        worksheet.cell(row=excel_row, column=7, value=student_result.flag)  # G - row[6] (flag)
+        worksheet.cell(row=excel_row, column=8, value=student_result.flag_reason)  # H - row[7] (flag_reason)
+        worksheet.cell(row=excel_row, column=9, value=student_result.answer_sheet_path)  # I - row[8] (answer_sheet_path)
+        worksheet.cell(row=excel_row, column=10, value=labeled_points_json)  # J - row[9] (labeled_points)
         
         # Save the workbook back to bytes
         output = BytesIO()
