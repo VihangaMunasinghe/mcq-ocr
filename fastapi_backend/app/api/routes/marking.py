@@ -1,4 +1,5 @@
 import uuid
+import asyncio
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, Response
@@ -68,7 +69,7 @@ def _get_marking_response(marking: MarkingJob) -> MarkingResponse:
 
 
 
-@router.get('/', response_model=List[MarkingResponseBasic])
+@router.get("", response_model=List[MarkingResponseBasic])
 @require_non_super_admin(require_admin_verified=True)
 async def list_markings(
     request: Request,
@@ -219,7 +220,7 @@ async def get_marking(
         logger.error(f"Failed to get marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get marking job")
 
-@router.post("/", response_model=MarkingResponse, status_code=201)
+@router.post("", response_model=MarkingResponse, status_code=201)
 @require_non_super_admin(require_admin_verified=True)
 async def create_marking(
     request: Request,
@@ -372,11 +373,29 @@ async def configure_marking_scheme_websocket(
                     "message": "Marking scheme configuration job queued successfully"
                 })
                 logger.info(f"WebSocket connection kept open for marking job {marking_job_id} to receive progress updates")
-                
+                logger.info(f"WebSocket manager instance for job {marking_job_id}: {id(websocket_manager)}")
                 # Keep connection alive - wait for disconnection
                 try:
-                    await websocket.receive_text()
-                except Exception:
+                    # Wait for client to close connection or send a close message
+                    while True:
+                        try:
+                            # Use a timeout to avoid blocking indefinitely
+                            message = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                            logger.info(f"Received additional message from client: {message}")
+                        except asyncio.TimeoutError:
+                            # Send a ping to keep connection alive
+                            try:
+                                await websocket.send_json({"status": "ping"})
+                            except Exception:
+                                break
+                        except WebSocketDisconnect:
+                            logger.info(f"Client disconnected from marking scheme config WebSocket for job {marking_job_id}")
+                            break
+                        except Exception as e:
+                            logger.info(f"WebSocket connection closed for job {marking_job_id}: {e}")
+                            break
+                except Exception as e:
+                    logger.info(f"WebSocket connection ended for job {marking_job_id}: {e}")
                     pass
             else:
                 logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
@@ -419,6 +438,13 @@ async def configure_marking_scheme_websocket(
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
         except Exception as disconnect_error:
             logger.warning(f"Failed to disconnect WebSocket cleanly: {disconnect_error}")
+    
+    finally:
+        # Ensure WebSocket connection is always cleaned up
+        try:
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to cleanup WebSocket connection: {cleanup_error}")
 
 @router.post("/{marking_job_id}/update-marking-scheme-config", response_model=MarkingResponse)
 @require_non_super_admin(require_admin_verified=True)

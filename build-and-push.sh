@@ -7,7 +7,7 @@ set -e
 
 # Configuration
 DOCKER_REGISTRY=${1:-your-dockerhub-username}
-PROJECT_NAME="mcq-ocr"
+PROJECT_NAME="edumark"
 
 echo "Building and pushing MCQ OCR System images..."
 echo "Registry: $DOCKER_REGISTRY"
@@ -21,7 +21,7 @@ build_and_push() {
     local context=$3
     
     echo "Building $service..."
-    docker build -f "$dockerfile" -t "$DOCKER_REGISTRY/$PROJECT_NAME:$service" "$context"
+    docker build --platform linux/amd64 -f "$dockerfile" -t "$DOCKER_REGISTRY/$PROJECT_NAME:$service" "$context"
     
     echo "Pushing $service..."
     docker push "$DOCKER_REGISTRY/$PROJECT_NAME:$service"
@@ -31,10 +31,10 @@ build_and_push() {
 }
 
 # Build and push all services
-build_and_push "backend" "fastapi_backend/Dockerfile" "fastapi_backend"
+# build_and_push "backend" "fastapi_backend/Dockerfile" "fastapi_backend"
 build_and_push "frontend" "next_frontend/Dockerfile" "next_frontend"
-build_and_push "marking" "mcq_marking/Dockerfile" "mcq_marking"
-build_and_push "recognizer" "index_recognision/Dockerfile" "index_recognision"
+# build_and_push "marking" "mcq_marking/Dockerfile" "mcq_marking"
+# build_and_push "recognizer" "index_recognision/Dockerfile" "index_recognision"
 
 echo "🎉 All images built and pushed successfully!"
 echo ""

@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.BACKEND_URL || "http://localhost:8000",
+  baseURL:
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "https://edumark.vihangamunasinghe.com",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -29,7 +31,8 @@ axiosInstance.interceptors.response.use(
         // Make the refresh request with a flag to prevent interceptor loops
         await axios.post(
           `${
-            process.env.BACKEND_URL || "http://localhost:8000"
+            process.env.NEXT_PUBLIC_BACKEND_URL ||
+            "https://edumark.vihangamunasinghe.com"
           }/api/auth/refresh`,
           {},
           {

@@ -23,7 +23,7 @@ from app.models.user import UserRoles
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 logger = logging.getLogger(__name__)
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 @require_non_super_admin(require_admin_verified=True)
 async def create_template(
     request: Request,
@@ -103,7 +103,7 @@ async def create_template(
             detail=f"Failed to create template: {str(e)}"
         )
 
-@router.get("/", response_model=List[TemplateResponse])
+@router.get("", response_model=List[TemplateResponse])
 @require_non_super_admin(require_admin_verified=True)
 async def list_templates(
     request: Request,

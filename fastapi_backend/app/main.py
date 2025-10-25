@@ -7,6 +7,7 @@ from app.api.routes import files_router, templates_router, users_router, marking
 from app.database import init_db, close_db, test_database_connection
 from app.config import get_app_name, get_app_version, get_debug, get_environment
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
+from app.api.deps import initialize_websocket_manager
 
 
 handlers=[
@@ -22,6 +23,10 @@ async def lifespan(app: FastAPI):
     print("Starting MCQ Marking System API...")
     
     try:
+        # Initialize WebSocket manager first - this must happen before any other operations
+        ws_manager = initialize_websocket_manager()
+        print(f"WebSocket manager initialized successfully: {id(ws_manager)}")
+        
         # Initialize database
         await init_db()
         print("Database initialized successfully")

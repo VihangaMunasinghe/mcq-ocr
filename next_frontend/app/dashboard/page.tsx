@@ -83,7 +83,7 @@ export default function Dashboard() {
       console.log("Fetching dashboard stats for user_id=1");
 
       const response = await axiosInstance.get(
-        "/api/dashboard/stats?user_id=1"
+        "/api/dashboard/stats"
       );
 
       console.log("Response status:", response.status);

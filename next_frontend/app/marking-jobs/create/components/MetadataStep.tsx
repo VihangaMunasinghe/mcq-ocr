@@ -369,7 +369,7 @@ export function MetadataStep({
                   if (selectedTemplate) {
                     const backendUrl =
                       process.env.NEXT_PUBLIC_BACKEND_URL ||
-                      "http://localhost:8000";
+                      "https://edumark.vihangamunasinghe.com";
                     const templateImageUrl = selectedTemplate.template_file_id
                       ? `${backendUrl}/api/files/download?method=file_id&file_id=${selectedTemplate.template_file_id}`
                       : null;

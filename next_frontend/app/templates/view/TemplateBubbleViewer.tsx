@@ -22,7 +22,6 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
 }) => {
   const { showToast } = useToast();
   const [templateImage, setTemplateImage] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [configData, setConfigData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -113,7 +112,7 @@ const TemplateBubbleViewer: React.FC<TemplateBubbleViewerProps> = ({
         setRetryCount(0);
 
         const BACKEND_URL =
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+          process.env.NEXT_PUBLIC_BACKEND_URL || "https://edumark.vihangamunasinghe.com";
 
         // Fetch template image with retry
         console.log(`Fetching template image (ID: ${templateId})...`);

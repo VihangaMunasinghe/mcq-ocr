@@ -181,7 +181,6 @@ class TemplateConfigProducer:
             # Create message payload
             try:
                 message = job.to_job_data()
-                logger.info(f"Created job data for job {job_id}: {message}")
             except Exception as e:
                 logger.error(f"Failed to create job data for job {job_id}: {e}")
                 raise
@@ -256,7 +255,6 @@ class MarkingSchemeConfigProducer:
             # Create message payload
             try:
                 message = job.to_marking_scheme_config_job_data()
-                logger.info(f"Created marking scheme config job data for job {job_id}: {message}")
             except Exception as e:
                 logger.error(f"Failed to create marking scheme config job data for job {job_id}: {e}")
                 raise
@@ -488,7 +486,7 @@ class TemplateConfigResultConsumer:
                                     "config_type": job.template.config_type.value,
                                     "template_file_id": job.template.template_file_id,
                                     "configuration_file_id": job.template.configuration_file_id
-                            }
+                                }
                             })
                             
                         else:
@@ -579,6 +577,8 @@ class MarkingSchemeConfigResultConsumer:
                             return
                         
                         ws = get_websocket_manager()
+                        logger.info(f"WebSocket manager instance for job {job_id}: {id(ws)}")
+                        logger.info(f"Marking scheme config connections: {list(ws.marking_scheme_config_connections.keys())}")
                         
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
@@ -865,6 +865,7 @@ async def initialize_queue_system():
     """Initialize the complete queue system."""
     try:
         logger.info("Starting queue system initialization...")
+        
         await rabbitmq_manager.connect()
         logger.info("RabbitMQ connection established successfully")
         

@@ -291,7 +291,7 @@ async def cancel_upload(
 
     return {"message": "Upload cancelled and cleaned up successfully"}
 
-@router.get("/", response_model=List[FileResponse])
+@router.get("", response_model=List[FileResponse])
 @require_non_super_admin(require_admin_verified=True)
 async def list_files(
     request: Request,

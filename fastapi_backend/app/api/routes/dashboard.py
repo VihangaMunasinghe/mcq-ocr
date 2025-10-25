@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, case, cast
 from sqlalchemy.types import TIMESTAMP
@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 from app.database import get_async_db
-from app.models.user import User
+from app.models.user import User, UserRoles
 from app.models.template import Template, TemplateConfigType, TemplateConfigStatus
 from app.models.marking_job import MarkingJob, MarkingJobStatus
 from app.schemas.dashboard import (
@@ -18,14 +18,16 @@ from app.schemas.dashboard import (
     ConfigTypeComparison,
     UserActivityResponse
 )
+from app.middleware.authorization import require_basic_or_higher
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 logger = logging.getLogger(__name__)
 
 
 @router.get("/stats", response_model=DashboardStatsResponse)
+@require_basic_or_higher(require_admin_verified=True)
 async def get_dashboard_stats(
-    user_id: int = 1,  # TODO: Get from authentication token
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -39,6 +41,45 @@ async def get_dashboard_stats(
     """
     try:
         # 1. Get user information
+        user_id = request.state.current_user.id
+        user_role = request.state.current_user.role
+        
+        # Check if user is superadmin - return default values
+        if user_role == UserRoles.SUPERADMIN.value:
+            return DashboardStatsResponse(
+                user_name="Super User",
+                key_stats=KeyStatsResponse(
+                    total_users=0,
+                    active_templates=0,
+                    completed_marking_jobs=0,
+                    completion_rate=0.0
+                ),
+                recent_marking_jobs=[],
+                recent_templates=[],
+                config_type_comparison=[
+                    ConfigTypeComparison(
+                        config_type="grid_based",
+                        template_count=0,
+                        marking_job_count=0,
+                        completed_jobs=0,
+                        failed_jobs=0,
+                        completion_rate=0.0,
+                        avg_completion_time_seconds=None
+                    ),
+                    ConfigTypeComparison(
+                        config_type="cluster_based",
+                        template_count=0,
+                        marking_job_count=0,
+                        completed_jobs=0,
+                        failed_jobs=0,
+                        completion_rate=0.0,
+                        avg_completion_time_seconds=None
+                    )
+                ],
+                user_activities=[]
+            )
+        
+        # Regular user processing
         user_result = await db.execute(
             select(User).where(User.id == user_id)
         )

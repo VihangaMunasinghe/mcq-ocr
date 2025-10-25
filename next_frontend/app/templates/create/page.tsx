@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect } from "react";
+import { useState, useEffect, useLayoutEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "../../../components/UI/Button";
 import { ArrowLeftIcon, PhotoIcon } from "@heroicons/react/24/outline";
@@ -24,7 +24,8 @@ interface UploadResponse {
   file_id: number;
 }
 
-export default function CreateTemplate() {
+// Component that uses useSearchParams - wrapped in Suspense
+function CreateTemplateContent() {
   const router = useRouter();
   const { showToast } = useToast();
 
@@ -227,7 +228,7 @@ export default function CreateTemplate() {
       }
 
       const createResponse = await axiosInstance.post(
-        "/api/templates/",
+        "/api/templates",
         templatePayload
       );
 
@@ -627,5 +628,14 @@ export default function CreateTemplate() {
         )}
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CreateTemplate() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CreateTemplateContent />
+    </Suspense>
   );
 }

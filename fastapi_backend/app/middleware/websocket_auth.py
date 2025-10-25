@@ -21,17 +21,31 @@ class MockRequest:
     def __init__(self, websocket: WebSocket):
         self.cookies = {}
         
-        # First, try to get token from query parameters (for cases where cookies don't work)
+        # First, try to get token from query parameters (for WSS connections where cookies may not work)
         query_params = dict(websocket.query_params)
         if "token" in query_params:
             logger.info("Found token in WebSocket query parameters")
             self.cookies["access_token"] = query_params["token"]
         
-        # Check if we have the access_token cookie
+        # Then try to get token from headers (for cases where cookies are sent)
+        headers = dict(websocket.headers)
+        cookie_header = headers.get("cookie", "")
+        if cookie_header:
+            # Parse cookies from header
+            for cookie in cookie_header.split(";"):
+                cookie = cookie.strip()
+                if "=" in cookie:
+                    name, value = cookie.split("=", 1)
+                    if name.strip() == "access_token":
+                        self.cookies["access_token"] = value.strip()
+                        logger.info("Found access_token in WebSocket cookie header")
+                        break
+        
+        # Check if we have the access_token
         if "access_token" not in self.cookies:
-            logger.warning("No access_token cookie found in WebSocket headers or query parameters")
+            logger.warning("No access_token found in WebSocket headers or query parameters")
         else:
-            logger.info(f"Found access_token cookie with length: {len(self.cookies['access_token'])}")
+            logger.info(f"Found access_token with length: {len(self.cookies['access_token'])}")
 
 
 async def authorize_websocket(

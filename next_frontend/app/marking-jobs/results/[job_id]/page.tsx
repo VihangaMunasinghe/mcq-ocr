@@ -51,7 +51,8 @@ const ResultsPage = () => {
         const jobInfo: JobInfo = jobResponse.data as JobInfo;
 
         const backendUrl =
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          "https://edumark.vihangamunasinghe.com";
         const resultsResponse = await fetch(
           `${backendUrl}/api/files/download?method=file_id&file_id=${jobInfo.result_sheet_file_id}`,
           {
@@ -101,7 +102,7 @@ const ResultsPage = () => {
   const handelOnDownloadResultsClicked = async () => {
     try {
       const response = await axiosInstance.get(
-        `api/markings/${resultsData?.job_info.id}/download-results`,
+        `/api/markings/${resultsData?.job_info.id}/download-results`,
         {
           responseType: "blob",
           withCredentials: true,
@@ -139,7 +140,7 @@ const ResultsPage = () => {
   const handelOnDownloadAuditClicked = async () => {
     try {
       const response = await axiosInstance.get(
-        `api/markings/${resultsData?.job_info.id}/download-audit`,
+        `/api/markings/${resultsData?.job_info.id}/download-audit`,
         {
           responseType: "blob",
           withCredentials: true,

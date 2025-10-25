@@ -1,67 +1,59 @@
 services:
-  # Frontend - Next.js (Development)
+  # Frontend - Next.js (Production)
   frontend:
-    build:
-      context: ./next_frontend
-      dockerfile: Dockerfile.dev
+    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:frontend
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=development
-    volumes:
-      - ./next_frontend:/app
-      - /app/node_modules
-      - /app/.next
-    depends_on:
-      - backend
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL:-https://edumark.vihangamunasinghe.com}
     restart: unless-stopped
+    networks:
+      - mcq-network
 
-  # Backend - FastAPI (Development)
+  # Backend - FastAPI (Production)
   backend:
-    build:
-      context: ./fastapi_backend
-      dockerfile: Dockerfile.dev
+    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:backend
     ports:
       - "8000:8000"
     environment:
       - PYTHONPATH=/app
       # Database Configuration
-      - DATABASE_URL=postgresql://mcq_user:mcq_password@postgres:5432/mcq_database
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-mcq_user}:${POSTGRES_PASSWORD:-mcq_password}@postgres:5432/${POSTGRES_DB:-mcq_database}
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
-      - DATABASE_NAME=mcq_database
-      - DATABASE_USER=mcq_user
-      - DATABASE_PASSWORD=mcq_password
-      - DATABASE_POOL_SIZE=10
-      - DATABASE_MAX_OVERFLOW=20
-      - DATABASE_POOL_RECYCLE=300
-      - DATABASE_ECHO=false
+      - DATABASE_NAME=${POSTGRES_DB:-mcq_database}
+      - DATABASE_USER=${POSTGRES_USER:-mcq_user}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-mcq_password}
+      - DATABASE_POOL_SIZE=${DATABASE_POOL_SIZE:-10}
+      - DATABASE_MAX_OVERFLOW=${DATABASE_MAX_OVERFLOW:-20}
+      - DATABASE_POOL_RECYCLE=${DATABASE_POOL_RECYCLE:-300}
+      - DATABASE_ECHO=${DATABASE_ECHO:-false}
       # Application Configuration
-      - APP_NAME=MCQ OCR System
-      - APP_VERSION=1.0.0
-      - DEBUG=true
-      - ENVIRONMENT=development
-      - ALLOWED_HOSTS=*
+      - APP_NAME=${APP_NAME:-MCQ OCR System}
+      - APP_VERSION=${APP_VERSION:-1.0.0}
+      - DEBUG=${DEBUG:-false}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
       # Shared Storage
       - NFS_SHARED_PATH=/shared
       # RabbitMQ Configuration
-      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=admin
-      - RABBITMQ_PASSWORD=secret
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-secret}
       # Authentication & Security
-      - SECRET_KEY=your-secret-key-change-this-in-production
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - REFRESH_TOKEN_EXPIRE_DAYS=7
-      - SUPER_USER_EMAIL=superadmin@uom.lk
-      - SUPER_USER_PASSWORD=$2a$12$qAMxLPnimk9bnf8zEINXD.2wWdMJmtHTUmKINN2bjc8pDtr9/T4Ne
-      - COOKIE_SECURE=true
-      - COOKIE_SAMESITE=none
-      - COOKIE_HTTPONLY=true
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this-in-production}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - SUPER_USER_EMAIL=${SUPER_USER_EMAIL:-superadmin@uom.lk}
+      - SUPER_USER_PASSWORD=$$2a$$12$$f6zMbD/vf/CHwbTDRfEHCeZUnIATx/PUBTyqeVoFMAAMZ7JLQap1m
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - COOKIE_SAMESITE=${COOKIE_SAMESITE:-none}
+      - COOKIE_HTTPONLY=${COOKIE_HTTPONLY:-true}
     volumes:
-      - ./fastapi_backend:/app
       - nfs_storage:/shared:rw
     depends_on:
       postgres:
@@ -71,38 +63,47 @@ services:
       shared-storage:
         condition: service_started
     restart: unless-stopped
-    user: "1000:1000" # Add user permissions for shared storage
+    user: "1000:1000"
+    networks:
+      - mcq-network
 
-  # Database - PostgreSQL
+  # Database - PostgreSQL (Production)
   postgres:
     image: postgres:15-alpine
-    container_name: mcq-postgres
+    container_name: mcq-postgres-prod
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      POSTGRES_DB: mcq_database
-      POSTGRES_USER: mcq_user
-      POSTGRES_PASSWORD: mcq_password
+      POSTGRES_DB: ${POSTGRES_DB:-mcq_database}
+      POSTGRES_USER: ${POSTGRES_USER:-mcq_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcq_password}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./fastapi_backend/init-db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mcq_user -d mcq_database"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-mcq_user} -d ${POSTGRES_DB:-mcq_database}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    networks:
+      - mcq-network
 
-  # Message Queue
+  # Message Queue - RabbitMQ (Production)
   rabbitmq:
     image: rabbitmq:3.12-management
+    container_name: mcq-rabbitmq-prod
     ports:
-      - "5673:5672"
-      - "15672:15672"
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: admin # change later and make it more secure
-      RABBITMQ_DEFAULT_PASS: secret # change later and make it more secure
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-secret}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -111,11 +112,14 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - mcq-network
 
-  # Simple shared storage using bind mount (works on all platforms)
+  # Shared Storage (Production)
   shared-storage:
     image: alpine:latest
-    container_name: shared-storage
+    container_name: shared-storage-prod
     volumes:
       - nfs_storage:/shared
     command: >
@@ -128,27 +132,24 @@ services:
         chmod -R 777 /shared &&
         chown -R 1000:1000 /shared &&
         echo 'Shared storage ready' &&
-        echo 'Current permissions:' &&
-        ls -la /shared &&
         tail -f /dev/null
       "
     restart: unless-stopped
+    networks:
+      - mcq-network
 
-  # Legacy MCQ marking system (keeping for compatibility)
+  # MCQ Marking System (Production)
   mcq-marking-system:
-    build:
-      context: ./mcq_marking
-      dockerfile: Dockerfile.dev
+    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:marking
     volumes:
-      - ./mcq_marking:/app
-      - nfs_storage:/shared:rw # Mount NFS storage with read-write
+      - nfs_storage:/shared:rw
     depends_on:
       rabbitmq:
         condition: service_healthy
       shared-storage:
         condition: service_started
     environment:
-      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672 # change later and make it more secure
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
       - NFS_SHARED_PATH=/shared
       - INDEX_TASK_QUEUE=index_tasks
       - INDEX_RESULTS_QUEUE=index_results
@@ -159,27 +160,34 @@ services:
       - TEMPLATE_CONFIG_RESULTS_QUEUE=template_config_results
       - MARKING_CONFIG_RESULTS_QUEUE=marking_scheme_config_results
     restart: unless-stopped
-    user: "1000:1000" # Add user permissions for shared storage
+    user: "1000:1000"
+    networks:
+      - mcq-network
 
+  # Index Recognizer (Production)
   index-recognizer:
-    build:
-      context: ./index_recognision
-      dockerfile: Dockerfile.dev
+    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:recognizer
     volumes:
-      - nfs_storage:/shared # Mount NFS storage
+      - nfs_storage:/shared
     depends_on:
       rabbitmq:
         condition: service_healthy
       shared-storage:
         condition: service_started
     environment:
-      - RABBITMQ_URL=amqp://admin:secret@rabbitmq:5672
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
       - RABBITMQ_INCOMING_QUEUE=index_tasks
       - RABBITMQ_OUTGOING_QUEUE=index_results
       - NFS_SHARED_PATH=/shared
     restart: unless-stopped
+    networks:
+      - mcq-network
 
 volumes:
   postgres-data:
   rabbitmq-data:
   nfs_storage:
+
+networks:
+  mcq-network:
+    driver: bridge

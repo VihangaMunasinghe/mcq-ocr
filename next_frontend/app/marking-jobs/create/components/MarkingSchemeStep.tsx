@@ -16,12 +16,14 @@ interface MarkingSchemeStepProps {
   markingSchemeFile: File | null;
   error?: string;
   onFileChange: (file: File | null) => void;
+  onNext: () => void;
 }
 
 export function MarkingSchemeStep({
   markingSchemeFile,
   error,
   onFileChange,
+  onNext,
 }: MarkingSchemeStepProps) {
   const [markingJob, setMarkingJob] = useCreateMarking();
   const { showToast } = useToast();
@@ -40,7 +42,7 @@ export function MarkingSchemeStep({
 
   useEffect(() => {
     const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      process.env.NEXT_PUBLIC_BACKEND_URL || "https://edumark.vihangamunasinghe.com";
     const imageUrl = markingJob.marking_scheme_id
       ? `${backendUrl}/api/files/download?method=file_id&file_id=${markingJob.marking_scheme_id}`
       : markingSchemeFile
@@ -166,7 +168,7 @@ export function MarkingSchemeStep({
     }
 
     const backendUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+      process.env.NEXT_PUBLIC_BACKEND_URL || "https://edumark.vihangamunasinghe.com";
     const markingSchemeImageUrl = markingJob.marking_scheme_id
       ? `${backendUrl}/api/files/download?method=file_id&file_id=${markingJob.marking_scheme_id}`
       : "";
@@ -208,6 +210,7 @@ export function MarkingSchemeStep({
       showToast("Marking scheme verifid successfully", "success");
       const response_data: MarkingJob = response.data as MarkingJob;
       setMarkingJob(response_data);
+      onNext();
     } catch (error) {
       console.error("Error updating marking scheme config:", error);
       showToast("Failed to update marking scheme configuration", "error");

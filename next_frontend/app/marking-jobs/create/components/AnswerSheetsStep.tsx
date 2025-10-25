@@ -69,10 +69,6 @@ export function AnswerSheetsStep({
           data_formData.append("file", dataFile);
           data_formData.append("file_type", "data_file");
 
-          // const dataUploadResp = await fetch(`${BACKEND_URL}/api/files/upload`, {
-          //   method: "POST",
-          //   body: data_formData,
-          // });
           const dataUploadResp = await axiosInstance.post(
             "/api/files/upload",
             data_formData,
@@ -90,10 +86,10 @@ export function AnswerSheetsStep({
             showToast("Failed to upload optional data file", "error");
           } else {
             // Axios already parses JSON
-            const dataUploadData = dataUploadResp.data;
+            // Explicitly type dataUploadResp.data to address linter warning
+            const dataUploadData = dataUploadResp.data as { file_id: number };
             showToast("Index Number data file uploaded", "success");
             console.log("Index Number data file uploaded with ID:", dataUploadData.file_id);
-            console.log("Please implement the attacher here, or I will forget!");
 
             const fileAttachResponse = await axiosInstance.post(
               `/api/markings/${markingJob.id}/attach-index-list`,

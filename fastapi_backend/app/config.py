@@ -4,7 +4,7 @@ Configuration management for MCQ OCR System.
 
 import os
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -15,14 +15,16 @@ load_dotenv()
 class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     database_url: str = Field(
-        default="postgresql://mcq_user:mcq_password@localhost:5432/mcq_database",
+        default="postgresql://edumark_user:posgre_edumark@postgres:5432/edumark_database",
         env="DATABASE_URL",
         description="PostgreSQL database connection URL"
     )
     
     database_host: str = Field(
-        default="localhost",
+        default="postgres",
         env="DATABASE_HOST"
     )
     
@@ -32,28 +34,28 @@ class DatabaseSettings(BaseSettings):
     )
     
     database_name: str = Field(
-        default="mcq_database",
+        default="edumark_database",
         env="DATABASE_NAME"
     )
     
     database_user: str = Field(
-        default="mcq_user",
+        default="edumark_user",
         env="DATABASE_USER"
     )
     
     database_password: str = Field(
-        default="mcq_password",
+        default="posgre_edumark",
         env="DATABASE_PASSWORD"
     )
     
     # Database pool settings
     database_pool_size: int = Field(
-        default=10,
+        default=20,
         env="DATABASE_POOL_SIZE"
     )
     
     database_max_overflow: int = Field(
-        default=20,
+        default=30,
         env="DATABASE_MAX_OVERFLOW"
     )
     
@@ -67,13 +69,11 @@ class DatabaseSettings(BaseSettings):
         env="DATABASE_ECHO"
     )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 class AppSettings(BaseSettings):
     """Application configuration settings."""
+    
+    model_config = ConfigDict(extra="ignore")
     
     app_name: str = Field(
         default="MCQ OCR System",
@@ -86,18 +86,18 @@ class AppSettings(BaseSettings):
     )
     
     debug: bool = Field(
-        default=True,
+        default=False,
         env="DEBUG"
     )
     
     environment: str = Field(
-        default="development",
+        default="production",
         env="ENVIRONMENT"
     )
     
     # CORS settings
-    allowed_hosts: list = Field(
-        default=["*"],
+    allowed_hosts: str = Field(
+        default="https://edumark.vihangamunasinghe.com",
         env="ALLOWED_HOSTS"
     )
     
@@ -119,22 +119,18 @@ class AppSettings(BaseSettings):
     )
 
 
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-
 class RabbitMQSettings(BaseSettings):
     """RabbitMQ configuration settings."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     rabbitmq_url: str = Field(
-        default="amqp://admin:secret@localhost:5673",
+        default="amqp://admin:rabbitmq_edumark@rabbitmq:5672",
         env="RABBITMQ_URL"
     )
     
     rabbitmq_host: str = Field(
-        default="localhost",
+        default="rabbitmq",
         env="RABBITMQ_HOST"
     )
     
@@ -149,19 +145,18 @@ class RabbitMQSettings(BaseSettings):
     )
     
     rabbitmq_password: str = Field(
-        default="secret",
+        default="rabbitmq_edumark",
         env="RABBITMQ_PASSWORD"
     )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 class AuthSettings(BaseSettings):
     """Authentication settings."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     secret_key: str = Field(
-        default="your-secret-key-change-this-in-production",
+        default="M0hclbiwZFAlQ3xRSNfeB7a2h4C8TWVSETO17BoqzKs",
         env="SECRET_KEY",
         description="Secret key for JWT token signing"
     )
@@ -186,53 +181,44 @@ class AuthSettings(BaseSettings):
     
     # Super user settings
     super_user_email: str = Field(
-        default="superuser@uom.lk",
+        default="superadmin@uom.lk",
         env="SUPER_USER_EMAIL",
         description="Super user email"
     )
 
     super_user_password_hashed: str = Field(
-        default="$2a$12$qAMxLPnimk9bnf8zEINXD.2wWdMJmtHTUmKINN2bjc8pDtr9/T4Ne",
+        default="$2a$12$f6zMbD/vf/CHwbTDRfEHCeZUnIATx/PUBTyqeVoFMAAMZ7JLQap1m",
         env="SUPER_USER_PASSWORD",
         description="Super user hashed password"
     )
     
     # Cookie settings
     cookie_secure: bool = Field(
-        default=True,
         env="COOKIE_SECURE",
         description="Use secure cookies (HTTPS only)"
     )
     
     cookie_samesite: str = Field(
-        default="none",
         env="COOKIE_SAMESITE",
         description="SameSite cookie policy"
     )
     
     cookie_httponly: bool = Field(
-        default=True,
         env="COOKIE_HTTPONLY",
         description="Use HttpOnly cookies"
     )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-    
 
 class Settings(BaseSettings):
     """Main settings class combining all configuration."""
+    
+    model_config = ConfigDict(extra="ignore")
     
     # Initialize sub-settings
     database: DatabaseSettings = DatabaseSettings()
     app: AppSettings = AppSettings()
     rabbitmq: RabbitMQSettings = RabbitMQSettings()
     auth: AuthSettings = AuthSettings()
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 # Create global settings instance
@@ -372,7 +358,10 @@ def get_environment() -> str:
 
 def get_allowed_hosts() -> list:
     """Get allowed hosts from settings."""
-    return settings.app.allowed_hosts
+    hosts_str = settings.app.allowed_hosts
+    if hosts_str == "*":
+        return ["*"]
+    return [host.strip() for host in hosts_str.split(",")]
 
 
 def get_max_upload_size() -> int:
