@@ -134,3 +134,6 @@ dmypy.json
 
 # test
 *tests/
+
+# nginx
+nginx.conf
