@@ -216,9 +216,9 @@ const AnswerSheetModal = ({
 
             {/* Right Column - Answer Sheet Data */}
             <div className="col-span-2 h-full flex flex-col min-h-0">
-              <div className="bg-white border border-gray-200 rounded-2xl flex-1 overflow-hidden min-h-0 shadow-sm">
-                {/* Header with Edit Button */}
-                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <div className="bg-white border border-gray-200 rounded-2xl flex-1 overflow-hidden min-h-0 shadow-sm flex flex-col">
+                {/* Fixed Header with Edit Button */}
+                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="bg-blue-500 p-2 rounded-xl">
@@ -271,7 +271,7 @@ const AnswerSheetModal = ({
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="p-6 overflow-auto flex-1 min-h-0">
+                <div className="p-6 overflow-y-auto flex-1 min-h-0">
                   <div className="space-y-6">
                     {/* Index Number - Editable Field */}
                     <div className="bg-white border border-gray-200 rounded-2xl p-4">
