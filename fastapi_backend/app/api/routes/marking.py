@@ -550,6 +550,20 @@ async def attach_answer_sheets(
         if marking.status not in [MarkingJobStatus.MARKING_SCHEME_VERIFIED, MarkingJobStatus.ANSWER_SHEETS_ATTACHED, MarkingJobStatus.COMPLETED]:
             raise HTTPException(status_code=400, detail="Job must be in marking scheme verified status or higher to attach answer sheets")
         
+        # Validate that the answer sheets folder exists and belongs to the user
+        from app.models.file import FileOrFolder, FileOrFolderStatus
+        folder_result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == sheets_data.answer_sheets_folder_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        answer_sheets_folder = folder_result.scalar_one_or_none()
+        
+        if not answer_sheets_folder:
+            raise HTTPException(status_code=404, detail="Answer sheets folder not found or access denied")
+        
         # Update answer sheets folder ID
         marking.answer_sheets_folder_id = sheets_data.answer_sheets_folder_id
         marking.status = MarkingJobStatus.ANSWER_SHEETS_ATTACHED
@@ -567,13 +581,16 @@ async def attach_answer_sheets(
         raise HTTPException(status_code=500, detail="Failed to attach answer sheets")
 
 @router.post("/{marking_job_id}/attach-index-list", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def attach_index_list(
+    request: Request,
     marking_job_id: int,
     index_list_data: MarkingAttachIndexList,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Attach index list file to marking job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -586,6 +603,20 @@ async def attach_index_list(
         
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        # Validate that the index list file exists and belongs to the user
+        from app.models.file import FileOrFolder, FileOrFolderStatus
+        file_result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == index_list_data.index_list_file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        index_list_file = file_result.scalar_one_or_none()
+        
+        if not index_list_file:
+            raise HTTPException(status_code=404, detail="Index list file not found or access denied")
         
         # Update index list file ID
         marking.index_list_file_id = index_list_data.index_list_file_id

@@ -54,8 +54,9 @@ async def upload_file(
     shared_storage = SharedStorage()
     await shared_storage.save_file(file_content, final_path)
 
-    # If zip file
-    if file.filename.endswith('.zip'):
+    # Handle zip files
+    is_zip_file = file.filename.endswith('.zip')
+    if is_zip_file:
         try:
             logger.info(f"Unzipping file: {final_path}")
             final_path = await shared_storage.unzip_file(final_path)
@@ -73,7 +74,9 @@ async def upload_file(
     else:
         file_type = FileOrFolderType.OTHER
 
-    if shared_storage.file_exists(final_path):
+    # Create database record only for non-ZIP files
+    # ZIP files are extracted and the original ZIP is deleted, so we don't create a DB record for it
+    if not is_zip_file and shared_storage.file_exists(final_path):
         file_and_folder = FileOrFolder(
             name=file_name,
             original_name=file.filename,
@@ -93,6 +96,38 @@ async def upload_file(
             filename=file_name,
             file_id=file_and_folder.id,
             file_size=file_and_folder.size,
+            file_type=file_and_folder.file_type,
+            status=file_and_folder.status,
+            deletion_date=file_and_folder.deletion_date,
+            created_by=file_and_folder.created_by,
+            created_at=file_and_folder.created_at,
+            updated_at=file_and_folder.updated_at
+        )
+    elif is_zip_file:
+        # For ZIP files, create a database record for the extracted folder
+        logger.info(f"ZIP file extracted successfully to: {final_path}")
+        
+        # Create database record for the extracted folder
+        file_and_folder = FileOrFolder(
+            name=file_name,
+            original_name=file.filename,
+            extension=None,  # Folders don't have extensions
+            path=final_path,
+            size=file.size if file.size else 0,  # Use original ZIP file size
+            file_type=file_type,
+            status=FileOrFolderStatus.UPLOADED,
+            deletion_date=datetime.now() + timedelta(days=7),
+            created_by=user_id,
+        )
+        db.add(file_and_folder)
+        await db.commit()
+        await db.refresh(file_and_folder)
+        logger.info(f"Database record created for extracted folder with ID: {file_and_folder.id}")
+        
+        return FileResponse(
+            filename=file.filename,
+            file_id=file_and_folder.id,  # Return the actual database ID
+            file_size=file_and_folder.size,  # Return the original ZIP file size
             file_type=file_and_folder.file_type,
             status=file_and_folder.status,
             deletion_date=file_and_folder.deletion_date,
@@ -228,7 +263,8 @@ async def finalize_upload(
             raise HTTPException(status_code=500, detail=f"Failed to combine chunks: {str(e)}")
         
         # Handle zip files (matching upload endpoint logic)
-        if original_name.endswith('.zip'):
+        is_zip_file = original_name.endswith('.zip')
+        if is_zip_file:
             try:
                 logger.info(f"Unzipping file: {final_path}")
                 final_path = await shared_storage.unzip_file(final_path)
@@ -247,17 +283,18 @@ async def finalize_upload(
         else:
             file_type_enum = FileOrFolderType.OTHER
         
-        # Get final file size
-        file_size = (shared_storage.base_path / final_path).stat().st_size if shared_storage.file_exists(final_path) else 0
-        logger.info(f"Final file size: {file_size} bytes")
-        
         # Clean up temporary files
         logger.info(f"Cleaning up temporary directory: {temp_dir}")
         await shared_storage.delete_directory(relative_temp_path)
         logger.info(f"Temporary directory cleaned up")
         
-        # Create database record
-        if shared_storage.file_exists(final_path):
+        # Create database record only for non-ZIP files
+        # ZIP files are extracted and the original ZIP is deleted, so we don't create a DB record for it
+        if not is_zip_file and shared_storage.file_exists(final_path):
+            # Get final file size for non-ZIP files
+            file_size = (shared_storage.base_path / final_path).stat().st_size
+            logger.info(f"Final file size: {file_size} bytes")
+            
             logger.info(f"Creating database record for file: {file_name}")
             file_and_folder = FileOrFolder(
                 name=file_name,
@@ -275,13 +312,45 @@ async def finalize_upload(
             await db.refresh(file_and_folder)
             logger.info(f"Database record created with ID: {file_and_folder.id}")
             
-            # Process file in background
-            # background_tasks.add_task(process_large_file, final_path, file_and_folder.id)
-            
             return FileResponse(
                 filename=file_name,
                 file_id=file_and_folder.id,
                 file_size=file_and_folder.size,
+                file_type=file_and_folder.file_type,
+                status=file_and_folder.status,
+                deletion_date=file_and_folder.deletion_date,
+                created_by=file_and_folder.created_by,
+                created_at=file_and_folder.created_at,
+                updated_at=file_and_folder.updated_at
+            )
+        elif is_zip_file:
+            # For ZIP files, create a database record for the extracted folder
+            logger.info(f"ZIP file extracted successfully to: {final_path}")
+            
+            # Get the original ZIP file size before extraction
+            original_zip_size = (shared_storage.base_path / f"{upload_dir}/{file_name}").stat().st_size if (shared_storage.base_path / f"{upload_dir}/{file_name}").exists() else 0
+            
+            # Create database record for the extracted folder
+            file_and_folder = FileOrFolder(
+                name=file_name,
+                original_name=original_name,
+                extension=None,  # Folders don't have extensions
+                path=final_path,
+                size=original_zip_size,  # Use original ZIP file size
+                file_type=file_type_enum,
+                status=FileOrFolderStatus.UPLOADED,
+                deletion_date=datetime.now() + timedelta(days=7),
+                created_by=user_id,
+            )
+            db.add(file_and_folder)
+            await db.commit()
+            await db.refresh(file_and_folder)
+            logger.info(f"Database record created for extracted folder with ID: {file_and_folder.id}")
+            
+            return FileResponse(
+                filename=original_name,
+                file_id=file_and_folder.id,  # Return the actual database ID
+                file_size=file_and_folder.size,  # Return the original ZIP file size
                 file_type=file_and_folder.file_type,
                 status=file_and_folder.status,
                 deletion_date=file_and_folder.deletion_date,
