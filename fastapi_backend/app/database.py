@@ -2,33 +2,28 @@
 Database configuration and connection module for MCQ OCR System.
 """
 
+import logging
 from typing import AsyncGenerator
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-from .config import get_settings
+from .config import get_database_url, get_database_echo, get_database_pool_recycle, get_database_pool_size, get_database_max_overflow
 
-# Load environment variables
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-# Get settings
-settings = get_settings()
-
-# Database configuration
-DATABASE_URL = settings.database.database_url
+DATABASE_URL = get_database_url()
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
 # Create async engine
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    echo=settings.database.database_echo,
+    echo=get_database_echo(),
     future=True,
     pool_pre_ping=True,
-    pool_recycle=settings.database.database_pool_recycle,
-    pool_size=settings.database.database_pool_size,
-    max_overflow=settings.database.database_max_overflow,
+    pool_recycle=get_database_pool_recycle(),
+    pool_size=get_database_pool_size(),
+    max_overflow=get_database_max_overflow(),
 )
 
 # Create async session factory
@@ -43,12 +38,12 @@ AsyncSessionLocal = async_sessionmaker(
 # Create synchronous engine for migrations and other sync operations
 sync_engine = create_engine(
     DATABASE_URL,
-    echo=settings.database.database_echo,
+    echo=get_database_echo(),
     future=True,
     pool_pre_ping=True,
-    pool_recycle=settings.database.database_pool_recycle,
-    pool_size=settings.database.database_pool_size,
-    max_overflow=settings.database.database_max_overflow,
+    pool_recycle=get_database_pool_recycle(),
+    pool_size=get_database_pool_size(),
+    max_overflow=get_database_max_overflow(),
 )
 
 # Create synchronous session factory
@@ -99,11 +94,11 @@ async def test_database_connection():
     """
     try:
         async with AsyncSessionLocal() as session:
-            result = await session.execute(text("SELECT 1"))
-            print("Database connection successful!")
+            await session.execute(text("SELECT 1"))
+            logger.info("Database connection successful")
             return True
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        logger.error("Database connection failed: %s", e)
         return False
 
 
@@ -113,11 +108,11 @@ def test_sync_database_connection():
     """
     try:
         with SessionLocal() as session:
-            result = session.execute(text("SELECT 1"))
-            print("Sync database connection successful!")
+            session.execute(text("SELECT 1"))
+            logger.info("Sync database connection successful")
             return True
     except Exception as e:
-        print(f"Sync database connection failed: {e}")
+        logger.error("Sync database connection failed: %s", e)
         return False
 
 
@@ -148,16 +143,14 @@ async def init_db():
     """
     Initialize database - create tables and run any startup tasks.
     """
-    print("🔄 Initializing database...")
-    
-    # Test connection
+    logger.info("Initializing database")
+
     if not await test_database_connection():
         raise Exception("Failed to connect to database")
-    
-    # Create tables
+
     await create_tables()
-    
-    print("Database initialized successfully!")
+
+    logger.info("Database initialized successfully")
 
 
 # Cleanup function
@@ -167,4 +160,4 @@ async def close_db():
     """
     await async_engine.dispose()
     sync_engine.dispose()
-    print("🔌 Database connections closed")
+    logger.info("Database connections closed")

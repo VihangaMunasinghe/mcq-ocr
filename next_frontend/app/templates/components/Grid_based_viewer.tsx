@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "../../../hooks/useToast";
 import axiosInstance from "@/utils/axiosclient";
@@ -6,6 +6,11 @@ import axiosInstance from "@/utils/axiosclient";
 interface ColumnStart {
   starting_x: number;
   starting_y: number;
+}
+
+interface BubbleCoordinate {
+  x: number;
+  y: number;
 }
 
 interface BubbleConfigs {
@@ -45,7 +50,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   configData,
   configId,
   jobId,
-  onClose
+  onClose,
 }) => {
   const router = useRouter();
   const { showToast } = useToast();
@@ -55,22 +60,116 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   const [columns, setColumns] = useState<Record<string, ColumnStart>>({});
   const [xOffset, setXOffset] = useState<number>(0);
   const [yOffset, setYOffset] = useState<number>(0);
+  const [bubbles, setBubbles] = useState<BubbleCoordinate[][][]>([]);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(null);
-  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState<SelectedColumn | null>(
+    null
+  );
+  const [draggedColumn, setDraggedColumn] = useState<SelectedColumn | null>(
+    null
+  );
   const [hoverColumnKey, setHoverColumnKey] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [isInvalidPosition, setIsInvalidPosition] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [lastClickTime, setLastClickTime] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragStartPos, setDragStartPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const CLICK_COOLDOWN = 300; // milliseconds
   const DRAG_THRESHOLD = 5; // pixels
   const originalConfigString = JSON.stringify(configData);
 
   // === Utility functions ===
+  const checkPositionValidity = useCallback(
+    (columnKey: string, newX: number): boolean => {
+      const columnKeys = Object.keys(columns).sort(
+        (a, b) => parseInt(a) - parseInt(b)
+      );
+      const currentColumnIndex = columnKeys.indexOf(columnKey);
+
+      // Check constraints based on column position
+      if (currentColumnIndex > 0) {
+        // Not the first column - check if it's not too far left
+        const prevColumnKey = columnKeys[currentColumnIndex - 1];
+        const prevColumnX = columns[prevColumnKey].starting_x;
+        if (newX < prevColumnX) {
+          return false;
+        }
+      }
+
+      if (currentColumnIndex < columnKeys.length - 1) {
+        // Not the last column - check if it's not too far right
+        const nextColumnKey = columnKeys[currentColumnIndex + 1];
+        const nextColumnX = columns[nextColumnKey].starting_x;
+        if (newX > nextColumnX) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [columns]
+  );
+
+  const generateBubblesFromGrid = useCallback((): BubbleCoordinate[][][] => {
+    if (!configData?.metadata) {
+      return [];
+    }
+
+    const {
+      num_questions,
+      column_row_distribution,
+      num_of_options_per_question,
+    } = configData.metadata;
+    const generatedBubbles: BubbleCoordinate[][][] = [];
+
+    let questionIndex = 0;
+    const columnKeys = Object.keys(columns);
+
+    column_row_distribution.forEach((rowsInColumn, columnIndex) => {
+      const columnBubbles: BubbleCoordinate[][] = [];
+      // Use the actual column key from the config data
+      const columnKey = columnKeys[columnIndex];
+      const columnStart = columns[columnKey];
+
+      if (!columnStart) {
+        return;
+      }
+
+      for (
+        let row = 0;
+        row < rowsInColumn && questionIndex < num_questions;
+        row++
+      ) {
+        const rowBubbles: BubbleCoordinate[] = [];
+
+        for (let option = 0; option < num_of_options_per_question; option++) {
+          const bubbleX = columnStart.starting_x + option * xOffset;
+          const bubbleY = columnStart.starting_y + row * yOffset;
+
+          rowBubbles.push({
+            x: bubbleX,
+            y: bubbleY,
+          });
+        }
+
+        columnBubbles.push(rowBubbles);
+        questionIndex++;
+      }
+
+      generatedBubbles.push(columnBubbles);
+    });
+
+    return generatedBubbles;
+  }, [configData, columns, xOffset, yOffset]);
+
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -81,6 +180,26 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
 
   const hitTest = (x: number, y: number) => {
     const hitRadius = 15;
+
+    // First check individual bubbles
+    const columnKeys = Object.keys(columns).sort(
+      (a, b) => parseInt(a) - parseInt(b)
+    );
+    for (let colIdx = 0; colIdx < bubbles.length; colIdx++) {
+      const column = bubbles[colIdx];
+      for (let rowIdx = 0; rowIdx < column.length; rowIdx++) {
+        const row = column[rowIdx];
+        for (let bubbleIdx = 0; bubbleIdx < row.length; bubbleIdx++) {
+          const bubble = row[bubbleIdx];
+          const dist = Math.hypot(bubble.x - x, bubble.y - y);
+          if (dist <= hitRadius) {
+            return columnKeys[colIdx]; // Return actual column key
+          }
+        }
+      }
+    }
+
+    // Fallback to column starting positions
     for (const key of Object.keys(columns)) {
       const s = columns[key];
       const dist = Math.hypot(s.starting_x - x, s.starting_y - y);
@@ -90,46 +209,52 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
   };
 
   // === Canvas Drawing ===
-  const drawTopBubble = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    color: string,
-    isHovered = false
-  ) => {
-    const radius = isHovered ? 10 : 8;
-    ctx.beginPath();
-    ctx.arc(x * scale, y * scale, radius, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.closePath();
-  };
+  const drawBubble = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      color = "#2BFA0B",
+      isHovered = false
+    ) => {
+      const radius = isHovered ? 7 : 5;
+      ctx.beginPath();
+      ctx.arc(x * scale, y * scale, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.closePath();
+    },
+    [scale]
+  );
 
-  const drawGuides = (
-    ctx: CanvasRenderingContext2D,
-    sx: number,
-    sy: number,
-    xOff: number,
-    yOff: number
-  ) => {
-    // Horizontal line
-    ctx.beginPath();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#ff0000";
-    ctx.setLineDash([]);
-    ctx.moveTo(sx * scale, sy * scale);
-    ctx.lineTo((sx + xOff) * scale, sy * scale);
-    ctx.stroke();
+  const drawGuides = useCallback(
+    (
+      ctx: CanvasRenderingContext2D,
+      sx: number,
+      sy: number,
+      xOff: number,
+      yOff: number
+    ) => {
+      // Horizontal line
+      ctx.beginPath();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ff0000";
+      ctx.setLineDash([]);
+      ctx.moveTo(sx * scale, sy * scale);
+      ctx.lineTo((sx + xOff) * scale, sy * scale);
+      ctx.stroke();
 
-    // Vertical line
-    ctx.beginPath();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#ff0000";
-    ctx.setLineDash([]);
-    ctx.moveTo(sx * scale, sy * scale);
-    ctx.lineTo(sx * scale, (sy + yOff) * scale);
-    ctx.stroke();
-  };
+      // Vertical line
+      ctx.beginPath();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ff0000";
+      ctx.setLineDash([]);
+      ctx.moveTo(sx * scale, sy * scale);
+      ctx.lineTo(sx * scale, (sy + yOff) * scale);
+      ctx.stroke();
+    },
+    [scale]
+  );
 
   // === Mouse / Drag logic (EXACTLY like cluster-based) ===
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -151,7 +276,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     // Find and select the column
     const selected: SelectedColumn = {
       key: hit,
-      originalPosition: { ...columns[hit] }
+      originalPosition: { ...columns[hit] },
     };
 
     setSelectedColumn(selected);
@@ -173,37 +298,57 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
       }
     }
 
-    // Hover detection (only when not dragging) - adjusted for scale
+    // Hover detection (only when not dragging) - check individual bubbles
     if (!isDragging) {
       let foundHover = false;
       const hoverRadius = 10 / scale; // Convert screen pixels to image coordinates
-      for (const key of Object.keys(columns)) {
-        const s = columns[key];
-        const dist = Math.hypot(s.starting_x - pt.x, s.starting_y - pt.y);
-        if (dist < hoverRadius && !foundHover) {
-          setHoverColumnKey(key);
-          foundHover = true;
-          break;
+
+      for (let colIdx = 0; colIdx < bubbles.length; colIdx++) {
+        const column = bubbles[colIdx];
+        for (let rowIdx = 0; rowIdx < column.length; rowIdx++) {
+          const row = column[rowIdx];
+          for (let bubbleIdx = 0; bubbleIdx < row.length; bubbleIdx++) {
+            const bubble = row[bubbleIdx];
+            const dist = Math.hypot(bubble.x - pt.x, bubble.y - pt.y);
+            if (dist < hoverRadius && !foundHover) {
+              // Convert column index to the actual column key for hover
+              const columnKeys = Object.keys(columns);
+              setHoverColumnKey(columnKeys[colIdx]);
+              foundHover = true;
+              break;
+            }
+          }
+          if (foundHover) break;
         }
+        if (foundHover) break;
       }
+
       if (!foundHover) setHoverColumnKey(null);
     }
 
     if (isDragging && selectedColumn) {
       setMousePos(pt);
-      setColumns((prev) => {
-        const next = { ...prev };
-        next[selectedColumn.key] = {
-          starting_x: parseFloat(pt.x.toFixed(2)),
-          starting_y: parseFloat(pt.y.toFixed(2)),
-        };
-        return next;
-      });
+
+      // Check if the current position is valid
+      const isValid = checkPositionValidity(selectedColumn.key, pt.x);
+      setIsInvalidPosition(!isValid);
+
+      // Only update column position if it's valid (for visual feedback)
+      if (isValid) {
+        setColumns((prev) => {
+          const next = { ...prev };
+          next[selectedColumn.key] = {
+            starting_x: parseFloat(pt.x.toFixed(2)),
+            starting_y: parseFloat(pt.y.toFixed(2)),
+          };
+          return next;
+        });
+      }
     }
   };
 
   const handleMouseUp = () => {
-    if (!isDragging || !selectedColumn) {
+    if (!isDragging || !selectedColumn || !mousePos) {
       // Reset states if drag didn't actually happen
       setSelectedColumn(null);
       setDraggedColumn(null);
@@ -211,12 +356,55 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
       return;
     }
 
+    // Validate column order constraints
+    const newX = parseFloat(mousePos.x.toFixed(2));
+    const isValidPosition = checkPositionValidity(selectedColumn.key, newX);
+
+    if (!isValidPosition) {
+      const columnKeys = Object.keys(columns).sort(
+        (a, b) => parseInt(a) - parseInt(b)
+      );
+      const currentColumnIndex = columnKeys.indexOf(selectedColumn.key);
+      let errorMessage = "";
+
+      if (currentColumnIndex > 0) {
+        errorMessage = `Column ${
+          currentColumnIndex + 1
+        } must be to the right of Column ${currentColumnIndex}`;
+      } else if (currentColumnIndex < columnKeys.length - 1) {
+        errorMessage = `Column ${
+          currentColumnIndex + 1
+        } must be to the left of Column ${currentColumnIndex + 2}`;
+      }
+
+      showToast(errorMessage, "error");
+      // Reset states without updating position
+      setIsDragging(false);
+      setSelectedColumn(null);
+      setDraggedColumn(null);
+      setMousePos(null);
+      setDragStartPos(null);
+      setIsInvalidPosition(false);
+      return;
+    }
+
+    // Update the column starting position to the final mouse position
+    setColumns((prev) => {
+      const next = { ...prev };
+      next[selectedColumn.key] = {
+        starting_x: newX,
+        starting_y: parseFloat(mousePos.y.toFixed(2)),
+      };
+      return next;
+    });
+
     // Finalize the position
     setIsDragging(false);
     setSelectedColumn(null);
     setDraggedColumn(null);
     setMousePos(null);
     setDragStartPos(null);
+    setIsInvalidPosition(false);
   };
 
   // === Save logic ===
@@ -307,7 +495,7 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setXOffset(num);
   };
-  
+
   const handleYOffsetChange = (v: string) => {
     const num = parseFloat(v);
     if (!Number.isNaN(num)) setYOffset(num);
@@ -328,6 +516,17 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     setXOffset(parseFloat(bc.x_offset.toFixed(2)));
     setYOffset(parseFloat(bc.y_offset.toFixed(2)));
   }, [configData]);
+
+  // === Update bubbles when configuration changes ===
+  useEffect(() => {
+    // Only generate bubbles if we have the required data
+    if (!configData?.metadata || Object.keys(columns).length === 0) {
+      return;
+    }
+
+    const generatedBubbles = generateBubblesFromGrid();
+    setBubbles(generatedBubbles);
+  }, [generateBubblesFromGrid, configData, columns]);
 
   // === Canvas Rendering ===
   useEffect(() => {
@@ -352,24 +551,60 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        Object.keys(columns).forEach((k) => {
-          const s = columns[k];
-          
-          // Skip drawing the bubble being dragged at its original position
-          if (draggedColumn && k === draggedColumn.key) {
-            // Don't draw it here, we'll draw it at mouse position
-            drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
-            return;
-          }
-          
-          drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
-          const isHover = hoverColumnKey === k && !isDragging;
-          drawTopBubble(ctx, s.starting_x, s.starting_y, "#2BFA0B", isHover);
+        // Draw all bubbles except the ones being dragged
+
+        bubbles.forEach((column, colIdx) => {
+          column.forEach((row, rowIdx) => {
+            row.forEach((bubble, bubbleIdx) => {
+              // Skip drawing bubbles from the column being dragged
+              if (draggedColumn && colIdx === parseInt(draggedColumn.key) - 1) {
+                return;
+              }
+
+              // Convert column index to the actual column key for hover comparison
+              const columnKeys = Object.keys(columns);
+              const isHover =
+                hoverColumnKey === columnKeys[colIdx] && !isDragging;
+              drawBubble(ctx, bubble.x, bubble.y, "#2BFA0B", isHover);
+            });
+          });
         });
 
-        // Draw the dragging bubble in blue at mouse position
+        // Draw column starting positions as reference points (guides)
+        Object.keys(columns).forEach((k) => {
+          const s = columns[k];
+          // Skip drawing guides for the column being dragged
+          if (draggedColumn && k === draggedColumn.key) {
+            return;
+          }
+          drawGuides(ctx, s.starting_x, s.starting_y, xOffset, yOffset);
+        });
+
+        // Draw the dragging column's bubbles at new positions
         if (isDragging && mousePos && draggedColumn) {
-          drawTopBubble(ctx, mousePos.x, mousePos.y, "#0000ff", false);
+          const draggedColumnIndex = parseInt(draggedColumn.key) - 1; // Convert "1" to 0, "2" to 1, etc.
+          const draggedColumnBubbles = bubbles[draggedColumnIndex];
+
+          if (draggedColumnBubbles) {
+            // Calculate offset from original position
+            const originalColumn = columns[draggedColumn.key];
+            const offsetX = mousePos.x - originalColumn.starting_x;
+            const offsetY = mousePos.y - originalColumn.starting_y;
+
+            // Draw all bubbles in the dragged column at new positions
+            draggedColumnBubbles.forEach((row, rowIdx) => {
+              row.forEach((bubble, bubbleIdx) => {
+                const newX = bubble.x + offsetX;
+                const newY = bubble.y + offsetY;
+                // Use different colors based on validity
+                const bubbleColor = isInvalidPosition ? "#FF0000" : "#F60D0D"; // Red for invalid, darker red for valid
+                drawBubble(ctx, newX, newY, bubbleColor, false);
+              });
+            });
+
+            // Draw guides for the dragged column at new position
+            drawGuides(ctx, mousePos.x, mousePos.y, xOffset, yOffset);
+          }
         }
       };
 
@@ -385,6 +620,10 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
     isDragging,
     mousePos,
     draggedColumn,
+    bubbles,
+    drawBubble,
+    drawGuides,
+    isInvalidPosition,
   ]);
 
   return (
@@ -529,9 +768,9 @@ const Grid_based_viewer: React.FC<GridBasedViewerProps> = ({
             </div>
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-xs text-amber-700">
-                💡 <strong>Tip:</strong> Double-click a green bubble and drag
-                (without releasing after 2nd click) to move it (turns blue).
-                Release to finalize (turns green again).
+                💡 <strong>Tip:</strong> Click and drag any green bubble to move
+                the entire column. Columns must maintain their order (Column 1
+                left of Column 2, etc.). Red bubbles indicate invalid positions.
               </p>
             </div>
           </div>

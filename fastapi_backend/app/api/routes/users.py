@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 logger = logging.getLogger(__name__)
 
-@router.get("/", response_model=List[UserResponseWithFaculty])
+@router.get("", response_model=List[UserResponseWithFaculty])
 @require_faculty_admin_or_higher(require_admin_verified=True)
 async def list_users(
     request: Request,

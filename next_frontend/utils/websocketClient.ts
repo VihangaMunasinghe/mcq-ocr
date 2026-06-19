@@ -51,9 +51,9 @@ class AuthenticatedWebSocket {
     return new Promise((resolve, reject) => {
       try {
         // Create WebSocket connection
-        // Note: Browser automatically includes cookies (including HttpOnly cookies)
-        // for same-origin WebSocket connections, but this may not work with
-        // certain cookie configurations (HttpOnly + SameSite=none + Secure=true)
+        // Note: For WSS connections with Secure cookies, we rely on the token
+        // passed in the URL query parameters as cookies may not be sent
+        console.log("Connecting to WebSocket:", this.url);
         this.ws = new WebSocket(this.url, this.config.protocols);
 
         this.ws.onopen = (event) => {
@@ -105,7 +105,12 @@ class AuthenticatedWebSocket {
         this.ws.onerror = (event) => {
           console.error("WebSocket error:", this.url, event);
           this.config.onError?.(event);
-          reject(new Error("WebSocket connection failed"));
+
+          // Provide more specific error messages for WSS issues
+          const errorMessage = this.url.startsWith("wss://")
+            ? "WSS connection failed - check SSL certificate and authentication"
+            : "WebSocket connection failed";
+          reject(new Error(errorMessage));
         };
       } catch (error) {
         reject(error);
@@ -147,7 +152,8 @@ export const createAuthenticatedWebSocket = async (
 ): Promise<AuthenticatedWebSocket> => {
   // Get backend URL from environment
   const backendUrl =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "https://edumark.vihangamunasinghe.com";
   const wsProtocol = backendUrl.startsWith("https") ? "wss" : "ws";
   const host = backendUrl.replace(/^https?:\/\//, "");
 

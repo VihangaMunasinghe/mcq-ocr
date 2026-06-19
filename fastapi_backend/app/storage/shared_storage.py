@@ -6,6 +6,7 @@ import shutil
 from typing import Optional
 
 from pathlib import Path
+from app.config import get_nfs_shared_path
 
 class SharedStorage:
     _instance: Optional['SharedStorage'] = None
@@ -17,7 +18,7 @@ class SharedStorage:
         return cls._instance
 
     def __init__(self):
-        self.shared_path = os.getenv('NFS_SHARED_PATH', '/shared')
+        self.shared_path = get_nfs_shared_path()
         self.base_path = Path(self.shared_path)
 
     def get_shared_path(self):
@@ -46,9 +47,9 @@ class SharedStorage:
             return await f.read()
 
     async def save_chunk(self, chunk_content: bytes, file_path: str, chunk_index: int):
-        chunk_dir = self.base_path / file_path
-        chunk_dir.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(chunk_dir / f"chunk_{chunk_index:04d}", 'wb') as f:
+        chunk_file_path = self.base_path / file_path
+        chunk_file_path.parent.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(chunk_file_path, 'wb') as f:
             await f.write(chunk_content)
 
     async def get_chunk(self, file_path: str, chunk_index: int):
@@ -56,14 +57,14 @@ class SharedStorage:
             return await f.read()
 
     async def combine_chunks(self, temp_dir: str, total_chunks: int, final_path: str):
-        final_path_obj = Path(final_path)
+        final_path_obj = self.base_path / final_path
         final_path_obj.parent.mkdir(parents=True, exist_ok=True)
         
-        async with aiofiles.open(final_path, 'wb') as final_file:
+        async with aiofiles.open(final_path_obj, 'wb') as final_file:
             for chunk_index in range(total_chunks):
-                chunk_path = Path(temp_dir) / f"chunk_{chunk_index:04d}"
+                chunk_path = self.base_path / temp_dir / f"chunk_{chunk_index:04d}"
                 if not chunk_path.exists():
-                    raise FileNotFoundError(f"Chunk {chunk_index} not found")
+                    raise FileNotFoundError(f"Chunk {chunk_index} not found at {chunk_path}")
                 
                 async with aiofiles.open(chunk_path, 'rb') as chunk_file:
                     while chunk := await chunk_file.read(8192):

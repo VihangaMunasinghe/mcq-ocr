@@ -225,6 +225,7 @@ function CreateMarkingJobContent() {
             onFileChange={(file) =>
               handleInputChange("markingSchemeFile", file)
             }
+            onNext={nextStep}
           />
         );
 

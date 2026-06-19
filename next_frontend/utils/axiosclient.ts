@@ -1,7 +1,14 @@
 import axios from "axios";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+if (!BACKEND_URL) {
+  throw new Error(
+    "NEXT_PUBLIC_BACKEND_URL is not set. It must be defined at build time."
+  );
+}
+
 const axiosInstance = axios.create({
-  baseURL: process.env.BACKEND_URL || "http://localhost:8000",
+  baseURL: BACKEND_URL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -28,9 +35,7 @@ axiosInstance.interceptors.response.use(
       try {
         // Make the refresh request with a flag to prevent interceptor loops
         await axios.post(
-          `${
-            process.env.BACKEND_URL || "http://localhost:8000"
-          }/api/auth/refresh`,
+          `${BACKEND_URL}/api/auth/refresh`,
           {},
           {
             withCredentials: true,

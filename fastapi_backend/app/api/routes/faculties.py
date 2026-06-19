@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/faculties", tags=["faculties"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/", response_model=List[FacultyResponse])
+@router.get("", response_model=List[FacultyResponse])
 async def list_faculties(
     request: Request,
     db: AsyncSession = Depends(get_async_db)
@@ -48,7 +48,7 @@ async def get_faculty(
     return FacultyResponse.from_orm(faculty)
 
 
-@router.post("/", response_model=FacultyResponse, status_code=201)
+@router.post("", response_model=FacultyResponse, status_code=201)
 @require_superadmin(require_admin_verified=True)
 async def create_faculty(
     faculty_data: FacultyCreate,

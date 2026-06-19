@@ -1,6 +1,9 @@
 from fastapi import WebSocket
 from enum import Enum
 from starlette.websockets import WebSocketState
+import logging
+
+logger = logging.getLogger(__name__)
 
 class WebSocketConnectionType(Enum):
     TEMPLATE_CONFIG = "template_config"
@@ -44,9 +47,30 @@ class WebSocketManager:
                 del connections[job_id]
     
     async def _send_message(self, connections: dict, job_id: str, message: dict):
+        logger.info(f"Attempting to send message to {job_id}, connections available: {list(connections.keys())}")
         if job_id in connections:
-            for connection in connections[job_id]:
-                await connection.send_json(message)
+            logger.info(f"Found {len(connections[job_id])} connections for job {job_id}")
+            # Create a copy of the list to avoid modification during iteration
+            connections_to_send = connections[job_id].copy()
+            for connection in connections_to_send:
+                try:
+                    # Check if connection is still open
+                    if connection.client_state == WebSocketState.CONNECTED:
+                        logger.info(f"Sending message to connection for job {job_id}")
+                        await connection.send_json(message)
+                        logger.info(f"Successfully sent message to connection for job {job_id}")
+                    else:
+                        logger.warning(f"Connection for job {job_id} is not connected, state: {connection.client_state}")
+                        # Remove closed connections
+                        if connection in connections[job_id]:
+                            connections[job_id].remove(connection)
+                except Exception as e:
+                    # Remove failed connections
+                    if connection in connections[job_id]:
+                        connections[job_id].remove(connection)
+                    logger.warning(f"Failed to send WebSocket message to {job_id}: {e}")
+        else:
+            logger.warning(f"No connections found for job {job_id}")
 
     async def connect_template_config(self, job_id: str, websocket: WebSocket):
         await self._connect(self.template_config_connections, job_id, websocket)
@@ -65,7 +89,9 @@ class WebSocketManager:
 
     async def register_marking_scheme_config(self, job_id: str, websocket: WebSocket):
         """Register a marking scheme config websocket that's already been accepted"""
+        logger.info(f"Registering marking scheme config WebSocket for job {job_id}")
         await self._register(self.marking_scheme_config_connections, job_id, websocket)
+        logger.info(f"Registered marking scheme config WebSocket for job {job_id}, total connections: {len(self.marking_scheme_config_connections.get(job_id, []))}")
 
     async def disconnect_marking_scheme_config(self, job_id: str, websocket: WebSocket):
         await self._disconnect(self.marking_scheme_config_connections, job_id, websocket)

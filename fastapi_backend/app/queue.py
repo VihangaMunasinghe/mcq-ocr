@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from .config import get_settings
+from .config import get_rabbitmq_url
 from .database import get_async_db, AsyncSessionLocal
 from app.models.marking_job import MarkingJob
 from app.models.template_config_job import TemplateConfigJob
@@ -21,7 +21,6 @@ from app.models.file import FileOrFolder, FileOrFolderType, FileOrFolderStatus
 from app.api.deps import get_websocket_manager
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 
 class RabbitMQManager:
@@ -43,10 +42,10 @@ class RabbitMQManager:
         for attempt in range(max_retries):
             try:
                 logger.info(f"Attempting to connect to RabbitMQ (attempt {attempt + 1}/{max_retries})...")
-                logger.info(f"Using RabbitMQ URL: {settings.rabbitmq.rabbitmq_url}")
+                logger.info(f"Using RabbitMQ URL: {get_rabbitmq_url()}")
                 
                 self.connection = await aio_pika.connect_robust(
-                    settings.rabbitmq.rabbitmq_url,
+                    get_rabbitmq_url(),
                     heartbeat=60,
                     client_properties={"connection_name": "MCQ-OCR-FastAPI"}
                 )
@@ -182,7 +181,6 @@ class TemplateConfigProducer:
             # Create message payload
             try:
                 message = job.to_job_data()
-                logger.info(f"Created job data for job {job_id}: {message}")
             except Exception as e:
                 logger.error(f"Failed to create job data for job {job_id}: {e}")
                 raise
@@ -257,7 +255,6 @@ class MarkingSchemeConfigProducer:
             # Create message payload
             try:
                 message = job.to_marking_scheme_config_job_data()
-                logger.info(f"Created marking scheme config job data for job {job_id}: {message}")
             except Exception as e:
                 logger.error(f"Failed to create marking scheme config job data for job {job_id}: {e}")
                 raise
@@ -489,7 +486,7 @@ class TemplateConfigResultConsumer:
                                     "config_type": job.template.config_type.value,
                                     "template_file_id": job.template.template_file_id,
                                     "configuration_file_id": job.template.configuration_file_id
-                            }
+                                }
                             })
                             
                         else:
@@ -580,6 +577,8 @@ class MarkingSchemeConfigResultConsumer:
                             return
                         
                         ws = get_websocket_manager()
+                        logger.info(f"WebSocket manager instance for job {job_id}: {id(ws)}")
+                        logger.info(f"Marking scheme config connections: {list(ws.marking_scheme_config_connections.keys())}")
                         
                         # Update job with results
                         if result_data.get('status', 'failed') == 'completed':
@@ -866,6 +865,7 @@ async def initialize_queue_system():
     """Initialize the complete queue system."""
     try:
         logger.info("Starting queue system initialization...")
+        
         await rabbitmq_manager.connect()
         logger.info("RabbitMQ connection established successfully")
         

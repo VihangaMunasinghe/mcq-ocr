@@ -1,4 +1,5 @@
 import uuid
+import asyncio
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, Response
@@ -68,7 +69,7 @@ def _get_marking_response(marking: MarkingJob) -> MarkingResponse:
 
 
 
-@router.get('/', response_model=List[MarkingResponseBasic])
+@router.get("", response_model=List[MarkingResponseBasic])
 @require_non_super_admin(require_admin_verified=True)
 async def list_markings(
     request: Request,
@@ -180,8 +181,8 @@ async def progress_websocket(
                     "status": "error",
                     "message": f"Failed to connect to progress websocket: {str(e)}"
                 })
-            except Exception:
-                pass
+            except Exception as send_err:
+                logger.debug("Failed to send websocket error: %s", send_err)
     finally:
         # Disconnect from all marking jobs
         for marking_job_id in marking_job_ids:
@@ -219,7 +220,7 @@ async def get_marking(
         logger.error(f"Failed to get marking job {marking_job_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get marking job")
 
-@router.post("/", response_model=MarkingResponse, status_code=201)
+@router.post("", response_model=MarkingResponse, status_code=201)
 @require_non_super_admin(require_admin_verified=True)
 async def create_marking(
     request: Request,
@@ -372,11 +373,29 @@ async def configure_marking_scheme_websocket(
                     "message": "Marking scheme configuration job queued successfully"
                 })
                 logger.info(f"WebSocket connection kept open for marking job {marking_job_id} to receive progress updates")
-                
+                logger.info(f"WebSocket manager instance for job {marking_job_id}: {id(websocket_manager)}")
                 # Keep connection alive - wait for disconnection
                 try:
-                    await websocket.receive_text()
-                except Exception:
+                    # Wait for client to close connection or send a close message
+                    while True:
+                        try:
+                            # Use a timeout to avoid blocking indefinitely
+                            message = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                            logger.info(f"Received additional message from client: {message}")
+                        except asyncio.TimeoutError:
+                            # Send a ping to keep connection alive
+                            try:
+                                await websocket.send_json({"status": "ping"})
+                            except Exception:
+                                break
+                        except WebSocketDisconnect:
+                            logger.info(f"Client disconnected from marking scheme config WebSocket for job {marking_job_id}")
+                            break
+                        except Exception as e:
+                            logger.info(f"WebSocket connection closed for job {marking_job_id}: {e}")
+                            break
+                except Exception as e:
+                    logger.info(f"WebSocket connection ended for job {marking_job_id}: {e}")
                     pass
             else:
                 logger.error(f"Failed to submit marking scheme config job {marking_job_id} to queue")
@@ -419,6 +438,13 @@ async def configure_marking_scheme_websocket(
             await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
         except Exception as disconnect_error:
             logger.warning(f"Failed to disconnect WebSocket cleanly: {disconnect_error}")
+    
+    finally:
+        # Ensure WebSocket connection is always cleaned up
+        try:
+            await websocket_manager.disconnect_marking_scheme_config(str(marking_job_id), websocket)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to cleanup WebSocket connection: {cleanup_error}")
 
 @router.post("/{marking_job_id}/update-marking-scheme-config", response_model=MarkingResponse)
 @require_non_super_admin(require_admin_verified=True)
@@ -524,6 +550,20 @@ async def attach_answer_sheets(
         if marking.status not in [MarkingJobStatus.MARKING_SCHEME_VERIFIED, MarkingJobStatus.ANSWER_SHEETS_ATTACHED, MarkingJobStatus.COMPLETED]:
             raise HTTPException(status_code=400, detail="Job must be in marking scheme verified status or higher to attach answer sheets")
         
+        # Validate that the answer sheets folder exists and belongs to the user
+        from app.models.file import FileOrFolder, FileOrFolderStatus
+        folder_result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == sheets_data.answer_sheets_folder_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        answer_sheets_folder = folder_result.scalar_one_or_none()
+        
+        if not answer_sheets_folder:
+            raise HTTPException(status_code=404, detail="Answer sheets folder not found or access denied")
+        
         # Update answer sheets folder ID
         marking.answer_sheets_folder_id = sheets_data.answer_sheets_folder_id
         marking.status = MarkingJobStatus.ANSWER_SHEETS_ATTACHED
@@ -541,13 +581,16 @@ async def attach_answer_sheets(
         raise HTTPException(status_code=500, detail="Failed to attach answer sheets")
 
 @router.post("/{marking_job_id}/attach-index-list", response_model=MarkingResponse)
+@require_non_super_admin(require_admin_verified=True)
 async def attach_index_list(
+    request: Request,
     marking_job_id: int,
     index_list_data: MarkingAttachIndexList,
     db: AsyncSession = Depends(get_async_db)
 ):
     """Attach index list file to marking job"""
-    user_id = 1  # TODO: Get from authentication
+    # Get user from token for ownership validation
+    user_id = request.state.current_user.id
     try:
         # Get the marking job
         result = await db.execute(
@@ -560,6 +603,20 @@ async def attach_index_list(
         
         if not marking:
             raise HTTPException(status_code=404, detail="Marking job not found")
+        
+        # Validate that the index list file exists and belongs to the user
+        from app.models.file import FileOrFolder, FileOrFolderStatus
+        file_result = await db.execute(
+            select(FileOrFolder).where(
+                FileOrFolder.id == index_list_data.index_list_file_id,
+                FileOrFolder.created_by == user_id,
+                FileOrFolder.status == FileOrFolderStatus.UPLOADED
+            )
+        )
+        index_list_file = file_result.scalar_one_or_none()
+        
+        if not index_list_file:
+            raise HTTPException(status_code=404, detail="Index list file not found or access denied")
         
         # Update index list file ID
         marking.index_list_file_id = index_list_data.index_list_file_id
@@ -608,9 +665,6 @@ async def start_marking(
         
         if not marking.answer_sheets_folder_id:
             raise HTTPException(status_code=400, detail="Answer sheets must be attached before starting")
-        
-        # TODO: Check if template config job is completed (when applicable)
-        # This would check the status of any associated TemplateConfigJob
         
         # Generate result sheet file path if not already set
         if not marking.result_sheet_file_path or marking.result_sheet_file_path == 'pending':
@@ -731,29 +785,27 @@ async def update_result(
         worksheet = workbook.active
         student_result = request.result
         
-        correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else "-"
-        incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else "-"
-        more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else "-"
-        not_marked_str = ",".join(map(str, student_result.not_marked)) if student_result.not_marked else "-"
-        columnwise_total_str = ",".join(map(str, student_result.columnwise_total)) if student_result.columnwise_total else "-"
+        correct_str = ",".join(map(str, student_result.correct)) if student_result.correct else ""
+        incorrect_str = ",".join(map(str, student_result.incorrect)) if student_result.incorrect else ""
+        more_than_one_marked_str = ",".join(map(str, student_result.more_than_one_marked)) if student_result.more_than_one_marked else ""
+        not_marked_str = ",".join(map(str, student_result.not_marked)) if student_result.not_marked else ""
         
         # Convert labeled_points to JSON string
-        labeled_points_json = json.dumps(student_result.labeled_points, default=lambda x: x.dict() if hasattr(x, 'dict') else x)
+        labeled_points_json = json.dumps(student_result.labeled_points, default=lambda x: x.dict() if hasattr(x, 'dict') else x) if student_result.labeled_points else "[]"
         
         # Update the row (row_number is 1-based in Excel, but we need to account for header row)
         excel_row = row_number + 1  # +1 because Excel is 1-based and we have a header row
         
-        worksheet.cell(row=excel_row, column=1, value=student_result.index_number)  # A
-        worksheet.cell(row=excel_row, column=2, value=correct_str)  # B
-        worksheet.cell(row=excel_row, column=3, value=incorrect_str)  # C
-        worksheet.cell(row=excel_row, column=4, value=more_than_one_marked_str)  # D
-        worksheet.cell(row=excel_row, column=5, value=not_marked_str)  # E
-        worksheet.cell(row=excel_row, column=6, value=columnwise_total_str)  # F
-        worksheet.cell(row=excel_row, column=7, value=student_result.score)  # G
-        worksheet.cell(row=excel_row, column=8, value=student_result.flag)  # H
-        worksheet.cell(row=excel_row, column=9, value=student_result.flag_reason)  # I
-        worksheet.cell(row=excel_row, column=10, value=student_result.answer_sheet_path)  # J
-        worksheet.cell(row=excel_row, column=11, value=labeled_points_json)  # K
+        worksheet.cell(row=excel_row, column=1, value=student_result.index_number)  # A - row[0]
+        worksheet.cell(row=excel_row, column=2, value=correct_str)  # B - row[1]
+        worksheet.cell(row=excel_row, column=3, value=incorrect_str)  # C - row[2]
+        worksheet.cell(row=excel_row, column=4, value=more_than_one_marked_str)  # D - row[3]
+        worksheet.cell(row=excel_row, column=5, value=not_marked_str)  # E - row[4]
+        worksheet.cell(row=excel_row, column=6, value=student_result.score)  # F - row[5] (score)
+        worksheet.cell(row=excel_row, column=7, value=student_result.flag)  # G - row[6] (flag)
+        worksheet.cell(row=excel_row, column=8, value=student_result.flag_reason)  # H - row[7] (flag_reason)
+        worksheet.cell(row=excel_row, column=9, value=student_result.answer_sheet_path)  # I - row[8] (answer_sheet_path)
+        worksheet.cell(row=excel_row, column=10, value=labeled_points_json)  # J - row[9] (labeled_points)
         
         # Save the workbook back to bytes
         output = BytesIO()

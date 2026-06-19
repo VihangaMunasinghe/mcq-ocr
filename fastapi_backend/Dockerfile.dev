@@ -1,13 +1,12 @@
-# Production FastAPI Backend Dockerfile
-FROM python:3.11-slim AS base
+# Use Python 3.11 slim image as base  
+FROM python:3.11-slim
 
-# Set environment variables for production
+# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    PYTHONPATH=/app
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -24,9 +23,9 @@ WORKDIR /app
 # Copy Poetry files
 COPY pyproject.toml ./
 
-# Configure Poetry: Don't create virtual environment, install only production dependencies
+# Configure Poetry: Don't create virtual environment, install dependencies including dev
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --only=main
+    && poetry install --no-interaction --no-ansi
 
 # Copy application code
 COPY . .
@@ -42,5 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application with production settings
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Run the application with hot reload for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

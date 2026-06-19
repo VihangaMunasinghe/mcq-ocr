@@ -1,4 +1,13 @@
+# Production MCQ Marking System Dockerfile
 FROM python:3.11-slim
+
+# Set environment variables for production
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VENV_IN_PROJECT=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache \
+    PYTHONPATH=/app
 
 # Install build dependencies for numpy and other packages
 RUN apt-get update && apt-get install -y \
@@ -8,22 +17,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry with pip
-RUN pip install poetry
-
-# Disable Poetry virtualenvs (we're already in a container)
-RUN poetry config virtualenvs.create false
+# Install Poetry
+RUN pip install poetry==1.8.3
 
 WORKDIR /app
 
 # Copy dependency files first (for better caching)
 COPY pyproject.toml poetry.lock* ./
 
-# Install dependencies
-RUN poetry install --no-interaction --no-ansi --no-root
+# Configure Poetry: Don't create virtual environment, install only production dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --only=main
 
 # Copy the rest of your application
 COPY . .
 
-# Run the RabbitMQ worker
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser:appuser /app
+USER appuser
+
 CMD ["python", "-m", "app.main"]
