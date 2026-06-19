@@ -181,8 +181,8 @@ async def progress_websocket(
                     "status": "error",
                     "message": f"Failed to connect to progress websocket: {str(e)}"
                 })
-            except Exception:
-                pass
+            except Exception as send_err:
+                logger.debug("Failed to send websocket error: %s", send_err)
     finally:
         # Disconnect from all marking jobs
         for marking_job_id in marking_job_ids:
@@ -665,9 +665,6 @@ async def start_marking(
         
         if not marking.answer_sheets_folder_id:
             raise HTTPException(status_code=400, detail="Answer sheets must be attached before starting")
-        
-        # TODO: Check if template config job is completed (when applicable)
-        # This would check the status of any associated TemplateConfigJob
         
         # Generate result sheet file path if not already set
         if not marking.result_sheet_file_path or marking.result_sheet_file_path == 'pending':

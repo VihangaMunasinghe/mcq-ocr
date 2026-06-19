@@ -103,6 +103,15 @@ celerybeat.pid
 
 # Environments
 .env
+.env.app
+.env.local
+**/.env
+**/.env.app
+**/.env.local
+!**/.env.example
+!**/.env.app.example
+!**/.env.local.example
+!**/env.example
 .venv
 env/
 venv/
@@ -135,5 +144,3 @@ dmypy.json
 # test
 *tests/
 
-# nginx
-nginx.conf

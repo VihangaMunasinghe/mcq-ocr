@@ -1,6 +1,15 @@
+import logging
 import os
-from app.markingworker.markingworker import MCQMarkingWorker
+import sys
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    stream=sys.stdout,
+)
+logging.getLogger("pika").setLevel(logging.WARNING)
+
+from app.markingworker.markingworker import MCQMarkingWorker
 from app.indexListner.IndexListner import IndexListner
 from app.utils.EventRegistery import EventRegistery
 from app.utils.ThreadSafeDict import ThreadSafeDict

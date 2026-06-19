@@ -5,58 +5,53 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import files_router, templates_router, users_router, marking_router, generator_router, auth_router, faculties_router, dashboard_router
 from app.database import init_db, close_db, test_database_connection
-from app.config import get_app_name, get_app_version, get_debug, get_environment
+from app.config import get_app_name, get_app_version, get_debug, get_environment, get_allowed_hosts
 from app.queue import initialize_queue_system, shutdown_queue_system, rabbitmq_manager
 from app.api.deps import initialize_websocket_manager
 
 
-handlers=[
-        logging.StreamHandler(sys.stdout)  # Send logs to stdout
-    ]
-logging.basicConfig(level=logging.INFO, handlers=handlers)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
-    # Startup
-    print("Starting MCQ Marking System API...")
-    
+    logger.info("Starting MCQ Marking System API")
+
     try:
-        # Initialize WebSocket manager first - this must happen before any other operations
         ws_manager = initialize_websocket_manager()
-        print(f"WebSocket manager initialized successfully: {id(ws_manager)}")
-        
-        # Initialize database
+        logger.info("WebSocket manager initialized: %s", id(ws_manager))
+
         await init_db()
-        print("Database initialized successfully")
-        
-        # Initialize queue system
+        logger.info("Database initialized")
+
         await initialize_queue_system()
-        print("Queue system initialized successfully")
-        
+        logger.info("Queue system initialized")
+
     except Exception as e:
-        print(f"Initialization failed: {e}")
-        raise e
-    
+        logger.exception("Initialization failed: %s", e)
+        raise
+
     yield
-    
-    # Shutdown
-    print("Shutting down MCQ Marking System API...")
-    
+
+    logger.info("Shutting down MCQ Marking System API")
+
     try:
-        # Shutdown queue system
         await shutdown_queue_system()
-        print("Queue system shutdown complete")
-        
-        # Close database
+        logger.info("Queue system shutdown complete")
+
         await close_db()
-        print("Database connections closed")
-        
+        logger.info("Database connections closed")
+
     except Exception as e:
-        print(f"Shutdown error: {e}")
-    
-    print("Shutdown complete")
+        logger.exception("Shutdown error: %s", e)
+
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -70,7 +65,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Configure this properly for production
+    allow_origins=get_allowed_hosts(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

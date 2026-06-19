@@ -6,6 +6,7 @@ import {
   faEllipsisH,
   faPlus,
 } from "@fortawesome/free-solid-svg-icons";
+import axiosInstance from "../../../utils/axiosclient";
 import { Button } from "../../../components/UI/Button";
 import { VerificationModal } from "../../../components/Modals/VerificationModal";
 import { FacultyFormModal } from "./FacultyFormModal";
@@ -74,20 +75,16 @@ export const FacultyTable: React.FC<FacultyTableProps> = ({
     if (!selectedFaculty) return;
 
     try {
-      const response = await fetch(`/api/faculties/${selectedFaculty.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        onRefresh();
-      } else {
-        const error = await response.json();
-        alert(`Failed to delete faculty: ${error.detail}`);
-      }
-    } catch (error) {
+      await axiosInstance.delete(`/api/faculties/${selectedFaculty.id}`);
+      onRefresh();
+    } catch (error: unknown) {
       console.error("Error deleting faculty:", error);
-      alert("Failed to delete faculty");
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail;
+      alert(
+        detail ? `Failed to delete faculty: ${detail}` : "Failed to delete faculty"
+      );
     }
 
     handleModalClose();

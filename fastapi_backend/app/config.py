@@ -2,72 +2,45 @@
 Configuration management for MCQ OCR System.
 """
 
-import os
-from typing import Optional
-from pydantic import Field, ConfigDict
+import logging
+import sys
+from pydantic import Field, ConfigDict, ValidationError
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
-    
+
     model_config = ConfigDict(extra="ignore")
-    
+
     database_url: str = Field(
-        default="postgresql://edumark_user:posgre_edumark@postgres:5432/edumark_database",
-        env="DATABASE_URL",
+        ...,
         description="PostgreSQL database connection URL"
     )
-    
-    database_host: str = Field(
-        default="postgres",
-        env="DATABASE_HOST"
-    )
-    
-    database_port: int = Field(
-        default=5432,
-        env="DATABASE_PORT"
-    )
-    
-    database_name: str = Field(
-        default="edumark_database",
-        env="DATABASE_NAME"
-    )
-    
-    database_user: str = Field(
-        default="edumark_user",
-        env="DATABASE_USER"
-    )
-    
-    database_password: str = Field(
-        default="posgre_edumark",
-        env="DATABASE_PASSWORD"
-    )
+
+    database_host: str = Field(...)
+    database_port: int = Field(...)
+    database_name: str = Field(...)
+    database_user: str = Field(...)
+    database_password: str = Field(...)
     
     # Database pool settings
     database_pool_size: int = Field(
-        default=20,
-        env="DATABASE_POOL_SIZE"
-    )
+        default=20)
     
     database_max_overflow: int = Field(
-        default=30,
-        env="DATABASE_MAX_OVERFLOW"
-    )
+        default=30)
     
     database_pool_recycle: int = Field(
-        default=300,
-        env="DATABASE_POOL_RECYCLE"
-    )
+        default=300)
     
     database_echo: bool = Field(
-        default=False,
-        env="DATABASE_ECHO"
-    )
+        default=False)
 
 
 class AppSettings(BaseSettings):
@@ -76,78 +49,44 @@ class AppSettings(BaseSettings):
     model_config = ConfigDict(extra="ignore")
     
     app_name: str = Field(
-        default="MCQ OCR System",
-        env="APP_NAME"
-    )
+        default="MCQ OCR System")
     
     app_version: str = Field(
-        default="1.0.0",
-        env="APP_VERSION"
-    )
+        default="1.0.0")
     
     debug: bool = Field(
-        default=False,
-        env="DEBUG"
-    )
+        default=False)
     
     environment: str = Field(
-        default="production",
-        env="ENVIRONMENT"
-    )
+        default="production")
     
     # CORS settings
     allowed_hosts: str = Field(
-        default="https://edumark.vihangamunasinghe.com",
-        env="ALLOWED_HOSTS"
-    )
+        ...)
     
     # File upload settings
     max_upload_size: int = Field(
         default=100 * 1024 * 1024,  # 100MB
-        env="MAX_UPLOAD_SIZE"
     )
     
     upload_dir: str = Field(
-        default="uploads",
-        env="UPLOAD_DIR"
-    )
+        default="uploads")
     
     # NFS/Shared storage settings
     nfs_shared_path: str = Field(
-        default="/shared",
-        env="NFS_SHARED_PATH"
-    )
+        default="/shared")
 
 
 class RabbitMQSettings(BaseSettings):
     """RabbitMQ configuration settings."""
-    
+
     model_config = ConfigDict(extra="ignore")
-    
-    rabbitmq_url: str = Field(
-        default="amqp://admin:rabbitmq_edumark@rabbitmq:5672",
-        env="RABBITMQ_URL"
-    )
-    
-    rabbitmq_host: str = Field(
-        default="rabbitmq",
-        env="RABBITMQ_HOST"
-    )
-    
-    rabbitmq_port: int = Field(
-        default=5672,
-        env="RABBITMQ_PORT"
-    )
-    
-    rabbitmq_user: str = Field(
-        default="admin",
-        env="RABBITMQ_USER"
-    )
-    
-    rabbitmq_password: str = Field(
-        default="rabbitmq_edumark",
-        env="RABBITMQ_PASSWORD"
-    )
+
+    rabbitmq_url: str = Field(...)
+    rabbitmq_host: str = Field(...)
+    rabbitmq_port: int = Field(...)
+    rabbitmq_user: str = Field(...)
+    rabbitmq_password: str = Field(...)
 
 
 class AuthSettings(BaseSettings):
@@ -156,73 +95,77 @@ class AuthSettings(BaseSettings):
     model_config = ConfigDict(extra="ignore")
     
     secret_key: str = Field(
-        default="M0hclbiwZFAlQ3xRSNfeB7a2h4C8TWVSETO17BoqzKs",
-        env="SECRET_KEY",
+        ...,
         description="Secret key for JWT token signing"
     )
     
     algorithm: str = Field(
         default="HS256",
-        env="JWT_ALGORITHM",
+        validation_alias="JWT_ALGORITHM",
         description="JWT signing algorithm"
     )
     
     access_token_expire_minutes: int = Field(
         default=30,
-        env="ACCESS_TOKEN_EXPIRE_MINUTES",
         description="Access token expiration time in minutes"
     )
     
     refresh_token_expire_days: int = Field(
         default=7,
-        env="REFRESH_TOKEN_EXPIRE_DAYS",
         description="Refresh token expiration time in days"
     )
     
     # Super user settings
     super_user_email: str = Field(
-        default="superadmin@uom.lk",
-        env="SUPER_USER_EMAIL",
+        ...,
         description="Super user email"
     )
 
     super_user_password_hashed: str = Field(
-        default="$2a$12$f6zMbD/vf/CHwbTDRfEHCeZUnIATx/PUBTyqeVoFMAAMZ7JLQap1m",
-        env="SUPER_USER_PASSWORD",
-        description="Super user hashed password"
+        ...,
+        validation_alias="SUPER_USER_PASSWORD",
+        description="Super user hashed password (bcrypt)"
     )
-    
+
     # Cookie settings
     cookie_secure: bool = Field(
-        env="COOKIE_SECURE",
+        ...,
         description="Use secure cookies (HTTPS only)"
     )
-    
+
     cookie_samesite: str = Field(
-        env="COOKIE_SAMESITE",
+        ...,
         description="SameSite cookie policy"
     )
-    
+
     cookie_httponly: bool = Field(
-        env="COOKIE_HTTPONLY",
+        ...,
         description="Use HttpOnly cookies"
     )
 
 
 class Settings(BaseSettings):
     """Main settings class combining all configuration."""
-    
+
     model_config = ConfigDict(extra="ignore")
-    
-    # Initialize sub-settings
-    database: DatabaseSettings = DatabaseSettings()
-    app: AppSettings = AppSettings()
-    rabbitmq: RabbitMQSettings = RabbitMQSettings()
-    auth: AuthSettings = AuthSettings()
+
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    app: AppSettings = Field(default_factory=AppSettings)
+    rabbitmq: RabbitMQSettings = Field(default_factory=RabbitMQSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
 
 
-# Create global settings instance
-settings = Settings()
+try:
+    settings = Settings()
+except ValidationError as e:
+    missing = [
+        f"  - {err['loc'][-1]}" for err in e.errors() if err["type"] == "missing"
+    ]
+    logger.error(
+        "Configuration failed to load. Missing required environment variables:\n%s",
+        "\n".join(missing) if missing else str(e),
+    )
+    sys.exit(1)
 
 
 def get_settings() -> Settings:

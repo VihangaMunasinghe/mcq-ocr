@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axiosInstance from "../../../utils/axiosclient";
 import { Modal } from "../../../components/UI/Modal";
 import { Button } from "../../../components/UI/Button";
 import { Faculty } from "./FacultyTable";
@@ -37,28 +38,19 @@ export const FacultyFormModal: React.FC<FacultyFormModalProps> = ({
     setError("");
 
     try {
-      const url =
-        mode === "create" ? "/api/faculties" : `/api/faculties/${faculty?.id}`;
-      const method = mode === "create" ? "POST" : "PUT";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ name: name.trim() }),
-      });
-
-      if (response.ok) {
-        onSubmit();
+      const body = { name: name.trim() };
+      if (mode === "create") {
+        await axiosInstance.post("/api/faculties", body);
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || "An error occurred");
+        await axiosInstance.put(`/api/faculties/${faculty?.id}`, body);
       }
-    } catch (error) {
+      onSubmit();
+    } catch (error: unknown) {
       console.error("Error submitting faculty:", error);
-      setError("Failed to save faculty");
+      const detail =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail;
+      setError(detail || "Failed to save faculty");
     } finally {
       setIsLoading(false);
     }

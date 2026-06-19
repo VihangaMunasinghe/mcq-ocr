@@ -9,8 +9,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Enable standalone output for production Docker builds
   output: "standalone",
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn"] }
+        : false,
+  },
 };
 
 export default nextConfig;

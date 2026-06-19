@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { VerificationModal } from "../../components/Modals/VerificationModal";
 import { useToast } from "../../hooks/useToast";
+import { useAuth } from "../../hooks/useAuth";
 import axiosInstance from "@/utils/axiosclient";
 
 import { User, UserRoles, VerifyStatus } from "./types/types";
@@ -10,16 +11,21 @@ import { PageHeader } from "./components/PageHeader";
 import { StatsOverview } from "./components/StatsOverview";
 import { FiltersSection } from "./components/FiltersSection";
 import { UsersTable } from "./components/UsersTable";
+import { CreateUserModal } from "./components/CreateUserModal";
 
 export default function Users() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [verificationFilter, setVerificationFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentUserRole, setCurrentUserRole] = useState<UserRoles>(
-    UserRoles.BASIC
-  );
+
+  const { user: currentUser } = useAuth();
+  const currentUserRole = (currentUser?.role as UserRoles) ?? UserRoles.BASIC;
+  const canCreateUser =
+    currentUserRole === UserRoles.SUPERADMIN ||
+    currentUserRole === UserRoles.FACULTYADMIN;
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
@@ -156,40 +162,29 @@ export default function Users() {
     setIsDeleteModalOpen(true);
   };
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const response = await axiosInstance.get("/api/users");
-        const usersData: User[] = response.data as User[];
-        setUsers(usersData);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-        showToast("Failed to load users", "error");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Also get current user role from context or token
-    // For now, assuming we can get it from the auth context
-    const getCurrentUserRole = async () => {
-      try {
-        // This would typically come from your auth context
-        // For now, we'll assume Faculty Admin role
-        setCurrentUserRole(UserRoles.FACULTYADMIN);
-      } catch (error) {
-        console.error("Failed to get current user role:", error);
-      }
-    };
-
-    fetchUsers();
-    getCurrentUserRole();
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axiosInstance.get("/api/users");
+      const usersData: User[] = response.data as User[];
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      showToast("Failed to load users", "error");
+    } finally {
+      setLoading(false);
+    }
   }, [showToast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader />
+      <PageHeader
+        onCreateNew={canCreateUser ? () => setIsCreateModalOpen(true) : undefined}
+      />
 
       <StatsOverview users={users} />
 
@@ -227,6 +222,17 @@ export default function Users() {
         confirmText="Delete"
         type="warning"
       />
+
+      {canCreateUser && (
+        <CreateUserModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreated={() => {
+            showToast("User created successfully", "success");
+            fetchUsers();
+          }}
+        />
+      )}
     </div>
   );
 }

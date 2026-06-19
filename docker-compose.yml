@@ -1,58 +1,45 @@
 services:
-  # Frontend - Next.js (Production)
-  frontend:
-    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:frontend
+  nginx:
+    image: nginx:alpine
+    container_name: mcq-nginx
     ports:
-      - "3000:3000"
+      - "80:80"
+      - "443:443"
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL:-https://edumark.vihangamunasinghe.com}
+      - DOMAIN_NAME=${DOMAIN_NAME:?DOMAIN_NAME required}
+      - NGINX_ENVSUBST_FILTER=^DOMAIN_NAME$$
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
     restart: unless-stopped
     networks:
       - mcq-network
 
-  # Backend - FastAPI (Production)
+  frontend:
+    image: ${DOCKER_REGISTRY:?DOCKER_REGISTRY required}/edumark:frontend-${IMAGE_TAG:-latest}
+    container_name: mcq-frontend
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      # Server-side (middleware/SSR) reaches the backend over the docker network.
+      - INTERNAL_BACKEND_URL=http://backend:8000
+    restart: unless-stopped
+    networks:
+      - mcq-network
+
   backend:
-    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:backend
-    ports:
-      - "8000:8000"
+    image: ${DOCKER_REGISTRY:?}/edumark:backend-${IMAGE_TAG:-latest}
+    container_name: mcq-backend
+    expose:
+      - "8000"
+    env_file:
+      - ./.env.app
     environment:
       - PYTHONPATH=/app
-      # Database Configuration
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mcq_user}:${POSTGRES_PASSWORD:-mcq_password}@postgres:5432/${POSTGRES_DB:-mcq_database}
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=${POSTGRES_DB:-mcq_database}
-      - DATABASE_USER=${POSTGRES_USER:-mcq_user}
-      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-mcq_password}
-      - DATABASE_POOL_SIZE=${DATABASE_POOL_SIZE:-10}
-      - DATABASE_MAX_OVERFLOW=${DATABASE_MAX_OVERFLOW:-20}
-      - DATABASE_POOL_RECYCLE=${DATABASE_POOL_RECYCLE:-300}
-      - DATABASE_ECHO=${DATABASE_ECHO:-false}
-      # Application Configuration
-      - APP_NAME=${APP_NAME:-MCQ OCR System}
-      - APP_VERSION=${APP_VERSION:-1.0.0}
-      - DEBUG=${DEBUG:-false}
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
-      # Shared Storage
-      - NFS_SHARED_PATH=/shared
-      # RabbitMQ Configuration
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-secret}
-      # Authentication & Security
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-this-in-production}
-      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      - SUPER_USER_EMAIL=${SUPER_USER_EMAIL:-superadmin@uom.lk}
-      - SUPER_USER_PASSWORD=$$2a$$12$$f6zMbD/vf/CHwbTDRfEHCeZUnIATx/PUBTyqeVoFMAAMZ7JLQap1m
-      - COOKIE_SECURE=${COOKIE_SECURE:-true}
-      - COOKIE_SAMESITE=${COOKIE_SAMESITE:-none}
-      - COOKIE_HTTPONLY=${COOKIE_HTTPONLY:-true}
     volumes:
       - nfs_storage:/shared:rw
     depends_on:
@@ -61,31 +48,24 @@ services:
       rabbitmq:
         condition: service_healthy
       shared-storage:
-        condition: service_started
+        condition: service_completed_successfully
     restart: unless-stopped
     user: "1000:1000"
     networks:
       - mcq-network
 
-  # Database - PostgreSQL (Production)
   postgres:
     image: postgres:15-alpine
-    container_name: mcq-postgres-prod
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    container_name: mcq-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mcq_database}
-      POSTGRES_USER: ${POSTGRES_USER:-mcq_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcq_password}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./fastapi_backend/init-db:/docker-entrypoint-initdb.d
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-mcq_user} -d ${POSTGRES_DB:-mcq_database}",
-        ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,16 +74,12 @@ services:
     networks:
       - mcq-network
 
-  # Message Queue - RabbitMQ (Production)
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: mcq-rabbitmq-prod
-    ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    container_name: mcq-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-secret}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -116,69 +92,55 @@ services:
     networks:
       - mcq-network
 
-  # Shared Storage (Production)
   shared-storage:
     image: alpine:latest
-    container_name: shared-storage-prod
+    container_name: mcq-shared-storage
     volumes:
       - nfs_storage:/shared
-    command: >
-      sh -c "
-        echo 'Setting up shared storage...' &&
-        mkdir -p /shared/uploads /shared/templates /shared/results /shared/reports /shared/temp /shared/backups /shared/intermediate/ &&
-        mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes &&
-        mkdir -p /shared/templates/configs /shared/templates/processed &&
-        mkdir -p /shared/results/markings /shared/intermediate/templates/
-        chmod -R 777 /shared &&
-        chown -R 1000:1000 /shared &&
-        echo 'Shared storage ready' &&
-        tail -f /dev/null
-      "
-    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /shared/uploads/answer_sheets /shared/uploads/templates /shared/uploads/marking_schemes \
+                 /shared/templates/configs /shared/templates/processed \
+                 /shared/results/markings \
+                 /shared/intermediate/templates \
+                 /shared/reports /shared/temp /shared/backups && \
+        chmod -R 775 /shared && \
+        chown -R 1000:1000 /shared
+    restart: "no"
     networks:
       - mcq-network
 
-  # MCQ Marking System (Production)
   mcq-marking-system:
-    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:marking
+    image: ${DOCKER_REGISTRY:?}/edumark:marking-${IMAGE_TAG:-latest}
+    container_name: mcq-marking-system
+    env_file:
+      - ./.env.app
     volumes:
       - nfs_storage:/shared:rw
     depends_on:
       rabbitmq:
         condition: service_healthy
       shared-storage:
-        condition: service_started
-    environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
-      - NFS_SHARED_PATH=/shared
-      - INDEX_TASK_QUEUE=index_tasks
-      - INDEX_RESULTS_QUEUE=index_results
-      - TEMPLATE_CONFIG_QUEUE=template_config_queue
-      - MARKING_JOB_QUEUE=marking_job_queue
-      - MARKING_CONFIG_QUEUE=marking_scheme_config_queue
-      - MARKING_JOB_RESULTS_QUEUE=marking_job_results
-      - TEMPLATE_CONFIG_RESULTS_QUEUE=template_config_results
-      - MARKING_CONFIG_RESULTS_QUEUE=marking_scheme_config_results
+        condition: service_completed_successfully
     restart: unless-stopped
     user: "1000:1000"
     networks:
       - mcq-network
 
-  # Index Recognizer (Production)
   index-recognizer:
-    image: ${DOCKER_REGISTRY:-your-dockerhub-username}/edumark:recognizer
+    image: ${DOCKER_REGISTRY:?}/edumark:recognizer-${IMAGE_TAG:-latest}
+    container_name: mcq-index-recognizer
+    env_file:
+      - ./.env.app
     volumes:
       - nfs_storage:/shared
     depends_on:
       rabbitmq:
         condition: service_healthy
       shared-storage:
-        condition: service_started
-    environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-secret}@rabbitmq:5672
-      - RABBITMQ_INCOMING_QUEUE=index_tasks
-      - RABBITMQ_OUTGOING_QUEUE=index_results
-      - NFS_SHARED_PATH=/shared
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - mcq-network

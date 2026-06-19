@@ -9,9 +9,18 @@ interface TokenData {
   verify_status: string;
 }
 
+// Middleware runs server-side (Node/Edge runtime inside the container), so
+// localhost:8000 wouldn't reach the backend container. Prefer the internal
+// network hostname (set via INTERNAL_BACKEND_URL in compose) and fall back
+// to the public URL only when the internal one isn't provided.
 const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "https://edumark.vihangamunasinghe.com";
+  process.env.INTERNAL_BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
+if (!BACKEND_URL) {
+  throw new Error(
+    "Neither INTERNAL_BACKEND_URL nor NEXT_PUBLIC_BACKEND_URL is set."
+  );
+}
 
 /**
  * Fetches user information from the backend using the access token
