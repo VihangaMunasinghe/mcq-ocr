@@ -77,6 +77,7 @@ export interface StudentResult {
   flag_reason: string;
   answer_sheet_path: string;
   labeled_points: Bubble[][];
+  is_resolved: boolean;
 }
 
 export interface JobInfo {

@@ -119,10 +119,11 @@ class MarkingJob:
             self.spreadsheet_workbook, self.spreadsheet_sheet = get_spreadsheet(self.output_path, f'${self.name } Results')
             # Clear the sheet before adding new results
             self.spreadsheet_sheet.delete_rows(1, self.spreadsheet_sheet.max_row)
+            base_headers = ['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points', 'Resolved']
             if self.save_intermediate_results:
-                self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points', 'Audit File Name'])
+                self.spreadsheet_sheet.append(base_headers + ['Audit File Name'])
             else:
-                self.spreadsheet_sheet.append(['Index No', 'Correct', 'Incorrect', 'More than one marked', 'Not marked', 'Score', 'Flag', 'Flag Reason', 'Answer Sheet Path', 'Labeled Points'])
+                self.spreadsheet_sheet.append(base_headers)
     
     def mark_answers(self):
         self.setup()
@@ -209,19 +210,19 @@ class MarkingJob:
         return result
 
     def add_to_spreadsheet(self, results: dict):
-        append_data =[
-            results['index_number'], 
-            ','.join(map(str, results['correct'])), 
-            ','.join(map(str, results['incorrect'])), 
-            ','.join(map(str, results['more_than_one_marked'])), 
-            ','.join(map(str, results['not_marked'])), 
-            # ','.join(map(str, results['columnwise_total'])), 
-            results['score'], 
-            results['flag'], 
+        append_data = [
+            results['index_number'],
+            ','.join(map(str, results['correct'])),
+            ','.join(map(str, results['incorrect'])),
+            ','.join(map(str, results['more_than_one_marked'])),
+            ','.join(map(str, results['not_marked'])),
+            results['score'],
+            results['flag'],
             results['flag_reason'],
             results['answer_sheet_path'],
-            json.dumps(results['labeled_points'],)
-            ]
+            json.dumps(results['labeled_points'],),
+            False,  # Resolved (column K) — defaults to unresolved; user marks via UI
+        ]
         if self.save_intermediate_results:
             append_data.append(results['audit_file_name'])
 

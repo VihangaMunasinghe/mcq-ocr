@@ -236,11 +236,6 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
     setDragStartPos(null);
   };
 
-  // Close handler
-  const handleOk = () => {
-    router.push("/templates");
-  };
-
   // Edit handler
   const handleEdit = async () => {
     if (!jobId) return;
@@ -656,7 +651,7 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
                 Saving...
               </span>
             ) : (
-              "Save Changes"
+              "Save & Continue"
             )}
           </button>
           <button
@@ -664,12 +659,6 @@ const Cluster_based_viewer: React.FC<ClusterBasedViewerProps> = ({
             className="w-full py-3 px-4 rounded-xl border-2 border-red-200 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold transition-colors shadow-md hover:shadow-lg"
           >
             Edit Configuration
-          </button>
-          <button
-            onClick={handleOk}
-            className="w-full py-3 px-4 rounded-xl border-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold transition-colors"
-          >
-            Continue
           </button>
         </div>
       </div>

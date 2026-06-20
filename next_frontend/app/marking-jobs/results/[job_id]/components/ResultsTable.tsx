@@ -1,5 +1,5 @@
 import React from "react";
-import { EyeIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, ExclamationTriangleIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { Table, TableColumn } from "@/components/UI/Table";
 import { Button } from "@/components/UI/Button";
 import { StudentResult } from "@/app/marking-jobs/types/types";
@@ -23,8 +23,20 @@ export function ResultsTable({
     return arr.length > 0 ? arr.join(", ") : "-";
   };
 
-  const getFlagBadge = (flag: boolean, flagReason: string) => {
+  const getFlagBadge = (flag: boolean, flagReason: string, isResolved: boolean) => {
     if (!flag) return null;
+
+    if (isResolved) {
+      return (
+        <span
+          className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium bg-green-100 text-green-800 border border-green-200"
+          title={`Resolved (was: ${flagReason})`}
+        >
+          <CheckCircleIcon className="h-3 w-3 mr-1" />
+          Resolved
+        </span>
+      );
+    }
 
     return (
       <span
@@ -101,7 +113,7 @@ export function ResultsTable({
       header: "Flag",
       accessor: (result: StudentResult) => (
         <div className="flex flex-col space-y-1">
-          {getFlagBadge(result.flag, result.flag_reason)}
+          {getFlagBadge(result.flag, result.flag_reason, result.is_resolved)}
           {result.flag && result.flag_reason && (
             <span
               className="text-xs text-gray-500 max-w-xs truncate"
