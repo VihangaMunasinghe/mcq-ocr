@@ -804,9 +804,18 @@ async def update_result(
         worksheet.cell(row=excel_row, column=6, value=student_result.score)  # F - row[5] (score)
         worksheet.cell(row=excel_row, column=7, value=student_result.flag)  # G - row[6] (flag)
         worksheet.cell(row=excel_row, column=8, value=student_result.flag_reason)  # H - row[7] (flag_reason)
-        worksheet.cell(row=excel_row, column=9, value=student_result.answer_sheet_path)  # I - row[8] (answer_sheet_path)
-        worksheet.cell(row=excel_row, column=10, value=labeled_points_json)  # J - row[9] (labeled_points)
-        
+        worksheet.cell(row=excel_row, column=9, value=student_result.answer_sheet_path)  # I (answer_sheet_path)
+        worksheet.cell(row=excel_row, column=10, value=labeled_points_json)  # J (labeled_points)
+
+        # Place "Resolved" at column K by default, but if K is already used by the legacy
+        # "Audit File Name" column (sheets created when save_intermediate_results=True),
+        # fall back to L so we don't clobber the audit reference.
+        header_k = worksheet.cell(row=1, column=11).value
+        resolved_col = 12 if (header_k and str(header_k).strip() == "Audit File Name") else 11
+        if worksheet.cell(row=1, column=resolved_col).value in (None, ""):
+            worksheet.cell(row=1, column=resolved_col, value="Resolved")
+        worksheet.cell(row=excel_row, column=resolved_col, value=bool(student_result.is_resolved))
+
         # Save the workbook back to bytes
         output = BytesIO()
         workbook.save(output)

@@ -31,6 +31,7 @@ const AnswerSheetModal = ({
   markingScheme,
 }: AnswerSheetModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmResolveOpen, setConfirmResolveOpen] = useState(false);
   const [localResult, setLocalResult] = useState<StudentResult>(() => {
     // Initialize with a deep clone to avoid reference issues
     return {
@@ -46,9 +47,10 @@ const AnswerSheetModal = ({
     };
   });
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    "https://edumark.vihangamunasinghe.com";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (!BACKEND_URL) {
+    throw new Error("NEXT_PUBLIC_BACKEND_URL is not set.");
+  }
 
   // Update localResult when result prop changes
   useEffect(() => {
@@ -72,8 +74,21 @@ const AnswerSheetModal = ({
   };
 
   const handleSave = () => {
+    const wasResolvedBeforeEdit = result.is_resolved;
     updateResult(localResult);
     setIsEditing(false);
+    // If the row was flagged and the user hasn't already marked it resolved
+    // (either before or during this edit), prompt them to do so now.
+    if (localResult.flag && !wasResolvedBeforeEdit && !localResult.is_resolved) {
+      setConfirmResolveOpen(true);
+    }
+  };
+
+  const handleConfirmResolve = () => {
+    const resolved = { ...localResult, is_resolved: true };
+    setLocalResult(resolved);
+    updateResult(resolved);
+    setConfirmResolveOpen(false);
   };
 
   const handleCancel = useCallback(() => {
@@ -154,6 +169,7 @@ const AnswerSheetModal = ({
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-0 transition-opacity h-screen w-screen">
       <div className="w-[90vw] h-[90vh] max-w-none bg-white rounded-2xl shadow-2xl transform transition-all flex flex-col m-10 min-h-0 border border-gray-200">
         {/* Header */}
@@ -341,6 +357,48 @@ const AnswerSheetModal = ({
                           </div>
                         </div>
                       )}
+                      {localResult.flag && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-gray-700 mb-2">
+                            Resolution
+                          </p>
+                          {isEditing ? (
+                            <label className="inline-flex items-center text-sm text-gray-700 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                                checked={localResult.is_resolved}
+                                onChange={(e) =>
+                                  setLocalResult({
+                                    ...localResult,
+                                    is_resolved: e.target.checked,
+                                  })
+                                }
+                              />
+                              <span className="ml-2">
+                                Mark this row as resolved
+                              </span>
+                            </label>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-medium border ${
+                                localResult.is_resolved
+                                  ? "bg-green-100 text-green-800 border-green-200"
+                                  : "bg-gray-100 text-gray-700 border-gray-200"
+                              }`}
+                            >
+                              {localResult.is_resolved ? (
+                                <>
+                                  <CheckCircleIcon className="h-3 w-3 mr-1" />
+                                  Resolved
+                                </>
+                              ) : (
+                                "Not yet resolved"
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Score Section */}
@@ -461,6 +519,51 @@ const AnswerSheetModal = ({
         </div>
       </div>
     </div>
+
+      {confirmResolveOpen && (
+        <div className="fixed inset-0 z-[60] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center space-x-3 bg-gradient-to-r from-green-50 to-green-100 rounded-t-2xl">
+              <div className="bg-green-500 p-2 rounded-xl">
+                <CheckCircleIcon className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Mark as Resolved?
+              </h3>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-sm text-gray-700">
+                You just edited a flagged row. If you fixed the issue, mark it
+                as resolved so it shows up as Resolved in the results list.
+              </p>
+              {localResult.flag_reason && (
+                <p className="text-xs text-gray-500">
+                  Original flag: {localResult.flag_reason}
+                </p>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2 bg-gray-50 rounded-b-2xl">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmResolveOpen(false)}
+              >
+                Not now
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleConfirmResolve}
+                className="inline-flex items-center"
+              >
+                <CheckIcon className="h-4 w-4 mr-2" />
+                Mark resolved
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

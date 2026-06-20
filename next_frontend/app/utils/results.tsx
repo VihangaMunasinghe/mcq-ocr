@@ -44,6 +44,13 @@ export const _convertBlobToStudentResults = async (
             ? JSON.parse(String(row[9]))
             : [];
 
+          // Column K (row[10]) is "Resolved" on new sheets but may legacy-hold
+          // "Audit File Name" on older jobs run with save_intermediate_results=true.
+          // Only treat as resolved if the cell is an actual boolean — anything else
+          // (string, undefined, number) defaults to unresolved.
+          const isResolved =
+            typeof row[10] === "boolean" ? row[10] : false;
+
           results.push({
             row_number: rowNumber,
             index_number: String(row[0] || ""),
@@ -73,6 +80,7 @@ export const _convertBlobToStudentResults = async (
             flag_reason: String(row[7] || ""),
             answer_sheet_path: String(row[8] || ""),
             labeled_points: labeledPoints,
+            is_resolved: isResolved,
           });
         } catch (parseError) {
           console.warn(`Error parsing row ${rowNumber}:`, parseError);

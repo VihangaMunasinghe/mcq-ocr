@@ -94,6 +94,7 @@ class StudentResult(BaseModel):
     flag_reason: str
     answer_sheet_path: str
     labeled_points: list[list[Bubble]]
+    is_resolved: bool = False
 
 class UpdateResultRequest(BaseModel):
     result: StudentResult
