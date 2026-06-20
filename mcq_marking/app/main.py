@@ -1,31 +1,45 @@
-from mcq_marking.app.autograder.autograder import autograde
-from mcq_marking.app.models.marking_job import MarkingJob
-from mcq_marking.app.models.template_config_job import TemplateConfigJob
+import logging
+import os
+import sys
 
-root_path = "/Users/vihangamunasinghe/WebProjects/DSE Project/mcq-ocr/samples/2023_sample"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    stream=sys.stdout,
+)
+logging.getLogger("pika").setLevel(logging.WARNING)
 
-template_config_job_data = {
-  "id": 1,
-  "name": "Template Config Job",
-  "template_path": f"{root_path}/templates/1.jpg",
-  "template_config_path": f"{root_path}/templates/configs/1_config.json",
-  "output_image_path": f"{root_path}/templates/1_template_warped.jpg"
-}
+from app.markingworker.markingworker import MCQMarkingWorker
+from app.indexListner.IndexListner import IndexListner
+from app.utils.EventRegistery import EventRegistery
+from app.utils.ThreadSafeDict import ThreadSafeDict
 
+def main():
+    # Get RabbitMQ URL from environment variable or use default
+    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://admin:secret@localhost:5672/')
 
-marking_job_data = {
-  "id": 1,
-  "name": "Test Marking Job",
-  "template_path": f"{root_path}/templates/1_template_warped.jpg",
-  "template_config_path": f"{root_path}/templates/configs/1_config.json",
-  "marking_path": f"{root_path}/marking_schemes/1.jpg",
-  "answers_folder_path": f"{root_path}/answers",
-  "output_path": f"{root_path}/outputs/results.xlsx"
-}
+    template_config_queue = os.getenv('TEMPLATE_CONFIG_QUEUE', 'template_config_queue')
+    marking_config_queue = os.getenv('MARKING_CONFIG_QUEUE', 'marking_config_queue')
+    marking_job_queue = os.getenv('MARKING_JOB_QUEUE', 'marking_job_queue')
+    marking_job_results_queue = os.getenv('MARKING_JOB_RESULTS_QUEUE', 'marking_job_results')
+    template_config_results_queue = os.getenv('TEMPLATE_CONFIG_RESULTS_QUEUE', 'template_config_results')
+    marking_config_results_queue = os.getenv('MARKING_CONFIG_RESULTS_QUEUE', 'marking_config_results')
+
+    index_results_queue = os.getenv('INDEX_RESULTS_QUEUE', 'index_results_queue')
+
+    # Create the event registery
+    event_registery = EventRegistery()
+    # Create a thread-safe dictionary to store temporary data
+    temp_data_store = ThreadSafeDict()
+    
+    # Index Listener
+    index_listener = IndexListner(rabbitmq_url, event_registery, temp_data_store, index_results_queue)
+    index_listener.start()
+
+    # MCQ Marking Worker
+    worker = MCQMarkingWorker(rabbitmq_url, template_config_queue, marking_job_queue, marking_config_queue, marking_job_results_queue, template_config_results_queue, marking_config_results_queue,
+                              event_registery, temp_data_store)
+    worker.run()
 
 if __name__ == "__main__":
-  # template_config_job = TemplateConfigJob(template_config_job_data, save_intermediate_results=False)
-  # template_config_job.configure()
-  
-  marking_job = MarkingJob(marking_job_data, save_intermediate_results=False)
-  marking_job.mark_answers()
+    main()

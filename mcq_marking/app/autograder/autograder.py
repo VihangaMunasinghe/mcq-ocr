@@ -1,4 +1,4 @@
-from mcq_marking.app.models.marking_job import MarkingJob
+from app.models.marking_job import MarkingJob
 
 
 def autograde(data: dict):

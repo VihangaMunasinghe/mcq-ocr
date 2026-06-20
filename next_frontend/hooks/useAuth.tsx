@@ -1,38 +1,73 @@
 "use client";
 
+import axiosInstance from "@/utils/axiosclient";
+import { useRouter } from "next/navigation";
 import React, { useEffect, useState, createContext, useContext } from "react";
 
+// Exact copy of backend UserResponse
 interface User {
-  id: string;
-  name: string;
+  id: number;
   email: string;
+  first_name: string;
+  last_name: string;
   role: string;
-  avatar: string;
+  verify_status: string;
+  faculty_id: number | null;
+  last_login?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface UserRegister {
+  email: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+  faculty_id: number;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signOut: () => void;
+  register: (
+    user: UserRegister
+  ) => Promise<{ success: boolean; error?: string }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+  const router = useRouter();
+
+  const refreshUser = async () => {
+    try {
+      const response = await axiosInstance.get("/api/auth/me");
+
+      const userData = response.data as User;
+      if (userData) setUser(userData);
+      else setUser(null);
+    } catch {
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    refreshUser();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -40,38 +75,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      // Mock API call delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Mock validation
-      if (email === "admin@example.com" && password === "password") {
-        const user = {
-          id: "1",
-          name: "Admin User",
-          email: "admin@example.com",
-          role: "Administrator",
-          avatar:
-            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-        };
-        setUser(user);
-        localStorage.setItem("user", JSON.stringify(user));
-        setIsLoading(false);
-        return true;
-      } else {
-        setError("Invalid email or password");
-        setIsLoading(false);
-        return false;
-      }
-    } catch (error) {
-      setError("An error occurred during sign in");
+      await axiosInstance.post("/api/auth/login", { email, password });
+      await refreshUser();
       setIsLoading(false);
-      return false;
+      router.refresh();
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail || "Login failed";
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
-  const signOut = () => {
-    setUser(null);
-    localStorage.removeItem("user");
+  const register = async (userData: UserRegister) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await axiosInstance.post("/api/auth/register", userData);
+
+      await refreshUser();
+      setIsLoading(false);
+      router.refresh();
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail || "Registration failed";
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await axiosInstance.post("/api/auth/logout");
+      router.refresh();
+      setUser(null);
+      setError(null);
+    } catch {
+      setError("Failed to Sign out");
+    }
   };
 
   return (
@@ -80,8 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        register,
         signIn,
         signOut,
+        refreshUser,
         error,
       }}
     >

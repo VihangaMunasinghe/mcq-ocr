@@ -84,7 +84,7 @@ export function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 transition-opacity">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-start m-0 justify-center p-4 transition-opacity">
       <div
         ref={modalRef}
         className={`${sizeClasses[size]} w-full bg-white rounded-lg shadow-xl transform transition-all`}

@@ -1,5 +1,12 @@
+import cv2
 import numpy as np
-from mcq_marking.app.autograder.utils.image_processing import get_binary_image, get_homography
+from PIL import Image
+from app.autograder.utils.image_processing import get_binary_image, get_homography
+import logging
+
+from app.utils.file_handelling import save_image
+
+logger = logging.getLogger(__name__)
 
 def get_corresponding_points(points, H):
     points = np.array(points)
@@ -12,28 +19,35 @@ def get_corresponding_points(points, H):
     correspondingPoints = np.matmul(H, point)
     correspondingPoints = correspondingPoints.T
     for i in range(0, x):
-        correspondingPoints[i][0] = correspondingPoints[i][0] / \
-            correspondingPoints[i][2]
-        correspondingPoints[i][1] = correspondingPoints[i][1] / \
-            correspondingPoints[i][2]
+        # Check for division by zero or very small numbers
+        if abs(correspondingPoints[i][2]) < 1e-10:
+            # If z is too small, use the original coordinates
+            correspondingPoints[i][0] = points[i][0]
+            correspondingPoints[i][1] = points[i][1]
+        else:
+            correspondingPoints[i][0] = correspondingPoints[i][0] / correspondingPoints[i][2]
+            correspondingPoints[i][1] = correspondingPoints[i][1] / correspondingPoints[i][2]
         
-    # # Adjusting
-    # delta_x = -4  # The observed shift in the x direction
-    # delta_y = -9  # The observed shift in the y direction
-
-    # Apply the shift to each point in correspondingPoints
-    adjusted_points = [(x[0], x[1]) for x in correspondingPoints]
+    # Convert to valid coordinates and filter out invalid ones
+    adjusted_points = []
+    for point in correspondingPoints:
+        x, y = point[0], point[1]
+        # Check for NaN or infinite values
+        if np.isfinite(x) and np.isfinite(y):
+            adjusted_points.append((float(x), float(y)))
+        else:
+            # Use original coordinate if transformation failed
+            adjusted_points.append((float(points[len(adjusted_points)][0]), float(points[len(adjusted_points)][1])))
     if isinstance(adjusted_points, np.ndarray):
         adjusted_points = np.array(adjusted_points)
 
-    # Returning the corresponding points for the 2nd image related to 1st image
     #return correspondingPoints
     return adjusted_points
 
 
 def check_neighbours_pixels(img, points):
-    PIXEL_THRESHOLD = 15 # number of active pixels in the search neighborhood
-    NEIGHBOURHOOD_SIZE = 5
+    PIXEL_THRESHOLD = 20 # number of active pixels in the search neighborhood
+    NEIGHBOURHOOD_SIZE = 10
 
     points = np.array(points)
     points = points.astype('int')
@@ -58,13 +72,32 @@ def check_neighbours_pixels(img, points):
 def get_answers(template_img, answers_image, bubble_coordinates):
     # Find homography Matrix
     homography = get_homography(template_img, answers_image)
+    
+    if homography is None:
+        logger.error("Failed to calculate homography matrix - not enough feature matches")
+        # Return empty results or handle the error appropriately
+        return []
+    
+    # Check if homography is essentially an identity matrix (indicating poor feature matching)
+    identity_threshold = 0.1
+    is_identity = (abs(homography[0, 0] - 1.0) < identity_threshold and 
+                   abs(homography[1, 1] - 1.0) < identity_threshold and
+                   abs(homography[0, 1]) < identity_threshold and
+                   abs(homography[1, 0]) < identity_threshold and
+                   abs(homography[0, 2]) < identity_threshold and
+                   abs(homography[1, 2]) < identity_threshold)
+    
+    if is_identity:
+        logger.warning("Homography matrix is essentially identity - feature matching may have failed")
+        logger.warning("This may indicate that the template and answer sheet are too similar or too different")
+        # Continue with the identity matrix but log the issue
+    
     # Find related points in the two image
     correspondingPoints = get_corresponding_points(bubble_coordinates, homography)
-
     # Check neighbouring pixels and get whether option is marked or not
     answers = check_neighbours_pixels(answers_image, correspondingPoints)
-
-    return answers, correspondingPoints
+    answers_with_coordinates = [(answer, coordinate) for answer, coordinate in zip(answers, correspondingPoints)]
+    return answers_with_coordinates
 
 def calculate_score(marking_scheme, answer_script, choice_distribution, facility_index=None):
     idd = 0
@@ -73,27 +106,45 @@ def calculate_score(marking_scheme, answer_script, choice_distribution, facility
     correct = []
     more_than_one_marked = []
     not_marked = []
-    columnwise_total = {0: 0, 1: 0, 2: 0}
+    # columnwise_total = {0: 0, 1: 0, 2: 0}
     correct_mark = 0
+    points = {
+        "correct": [],
+        "incorrect": [],
+        "more_than_one_marked": [],
+        "not_marked": [],
+    }
+    labeled_points = []
     for i in range(0, choice_distribution.shape[0]):    # for every question
         correct_choice = False
-        marked_choices_per_question = 0
+        labeled_points.append([])
         for k in range(0, choice_distribution[i]):  # for every choice
-            if marking_scheme[idd] == 1 and answer_script[idd] == 1:
+            if marking_scheme[idd][0] == 1 and answer_script[idd][0] == 1:
                 correct_choice = True
-            if answer_script[idd] == 1:  # count the number of marked choices
-                marked_choices_per_question += 1
+            if answer_script[idd][0] == 1:  # count the number of marked choices
+                labeled_points[i].append({"marked": True, "coordinates": answer_script[idd][1]})
+            else:
+                labeled_points[i].append({"marked": False, "coordinates": answer_script[idd][1]})
             idd += 1
-        if correct_choice and marked_choices_per_question == 1:
+        marked_points = [point["coordinates"] for point in labeled_points[i] if point["marked"]]
+        if correct_choice and len(marked_points) == 1:
             correct.append(i+1)
             correct_mark += 1
-            columnwise_total[i//30] += 1
+            # columnwise_total[i//30] += 1
+            points["correct"].append({"question_number": i+1, "answer": "correct", "coordinates": marked_points[0]})
             if facility_index:
                 facility_index[i+1] += 1
-        elif marked_choices_per_question > 1:
+        elif len(marked_points) > 1:
             more_than_one_marked.append(i+1)
-        elif marked_choices_per_question == 0:
+            for point in marked_points:
+                points["more_than_one_marked"].append({"question_number": i+1, "answer": "more than one marked", "coordinates": point})
+        elif len(marked_points) == 0:
             not_marked.append(i+1)
+            for point in marked_points:
+                points["not_marked"].append({"question_number": i+1, "answer": "not marked", "coordinates": point})
         else:
+            for point in marked_points:
+                points["incorrect"].append({"question_number": i+1, "answer": "incorrect", "coordinates": point})
             incorrect.append(i+1)
-    return correct, incorrect, more_than_one_marked, not_marked, columnwise_total
+    # return correct, incorrect, more_than_one_marked, not_marked, columnwise_total, points, labeled_points
+    return correct, incorrect, more_than_one_marked, not_marked, points, labeled_points

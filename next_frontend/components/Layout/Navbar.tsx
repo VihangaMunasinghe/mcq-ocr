@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faSignOutAlt, faUser, faCog } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
 import { useAuth } from "../../hooks/useAuth";
 
 export function Navbar() {
@@ -32,16 +31,41 @@ export function Navbar() {
   // Get page title from route
   const getPageTitle = () => {
     if (pathname === "/") return "Dashboard";
-    if (pathname === "/templates") return "My Templates";
-    if (pathname === "/marking-jobs") return "Marking Jobs";
-    if (pathname === "/users") return "Users";
-    if (pathname === "/settings") return "Settings";
-    if (pathname === "/reports") return "Reports";
+    if (pathname.startsWith("/templates")) return "My Templates";
+    if (pathname.startsWith("/marking-jobs")) return "Marking Jobs";
+    if (pathname.startsWith("/users")) return "Users";
+    if (pathname.startsWith("/reports")) return "Reports";
+    if (pathname.startsWith("/generate-template")) return "Generate Template";
     return "Dashboard";
   };
 
+  // Get initials from user name or email
+  const getInitials = () => {
+    if (user?.first_name && user?.last_name) {
+      return (user.first_name[0] + user.last_name[0]).toUpperCase();
+    }
+    if (user?.first_name) {
+      return user.first_name[0].toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  // Get display name from user
+  const getDisplayName = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    }
+    if (user?.first_name) {
+      return user.first_name;
+    }
+    return "User";
+  };
+
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-white shadow-sm border-b border-gray-100">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
@@ -58,46 +82,28 @@ export function Navbar() {
                 aria-expanded={dropdownOpen}
               >
                 <span className="sr-only">Open user menu</span>
-                {user?.avatar ? (
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src={user.avatar}
-                    alt="User avatar"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                    <FontAwesomeIcon icon={faUser} className="h-5 w-5" />
-                  </div>
-                )}
-                <span className="hidden md:flex md:items-center ml-2">
-                  <span className="text-sm font-medium text-gray-700 mr-1">
-                    {user?.name || "User"}
-                  </span>
-                  <FontAwesomeIcon icon={faChevronDown} className="h-4 w-4 text-gray-400" />
-                </span>
+                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-base">
+                  {getInitials()}
+                </div>
               </button>
               {dropdownOpen && (
-                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                  <div className="px-4 py-2 border-b border-gray-100">
+                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                  <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-sm font-medium text-gray-900">
-                      {user?.name}
+                      {getDisplayName()}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user?.email}
+                      {user?.email || "user@example.com"}
                     </p>
                   </div>
-                  <Link
-                    href="/settings"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                  >
-                    <FontAwesomeIcon icon={faCog} className="h-4 w-4 mr-2" />
-                    Settings
-                  </Link>
                   <button
                     onClick={signOut}
-                    className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
                   >
-                    <FontAwesomeIcon icon={faSignOutAlt} className="h-4 w-4 mr-2" />
+                    <FontAwesomeIcon
+                      icon={faSignOutAlt}
+                      className="h-4 w-4 mr-3"
+                    />
                     Sign out
                   </button>
                 </div>
