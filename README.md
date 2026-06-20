@@ -338,6 +338,7 @@ docker compose -f docker-compose.yml pull && docker compose -f docker-compose.ym
 
 ## 🧭 Where to go next
 
+- **User manual**: [docs/USER_MANUAL.md](docs/USER_MANUAL.md) — end-to-end workflow for instructors (faculty setup, users, templates, marking, results).
 - **Environment variables**: [docs/ENV.md](docs/ENV.md) — every variable, where it's read, how to generate it.
 - **API**: Swagger UI at `${BACKEND_URL}/docs` once the stack is running.
 - **Sample data**: [samples/](samples/) contains example answer sheets, templates, and marking schemes you can use to walk through the marking flow end-to-end.
